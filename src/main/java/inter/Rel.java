@@ -5,6 +5,7 @@ import symbols.Array;
 import symbols.Type;
 
 /**
+ * <.<=.==.!=.>=.=
  * Created by sulvto on 16-11-7.
  */
 public class Rel extends Logical {
