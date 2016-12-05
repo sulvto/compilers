@@ -17,6 +17,13 @@ public class Main {
     }
 
     void a(){
-
+        {
+            int i;
+            int j;
+            while (true) {
+                i=0;
+                i=i+1;
+            }
+        }
     }
 }

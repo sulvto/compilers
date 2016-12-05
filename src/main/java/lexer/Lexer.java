@@ -58,7 +58,7 @@ public class Lexer {
                 if (readch('|')) return Word.or;
                 else return new Token('|');
             case '=':
-                if (!readch('=')) return Word.eq;
+                if (readch('=')) return Word.eq;
                 else return new Token('=');
             case '!':
                 if (readch('=')) return Word.ne;
