@@ -46,14 +46,12 @@ public class Parser {
     }
 
     Stmt block() throws IOException {
-        System.out.println("block match { ");
         match('{');
         Env saveEnv = top;
         top = new Env(top);
         decls();
         Stmt s = stmts();
         match('}');
-        System.out.println("block match } ");
         top = saveEnv;
         return s;
     }
@@ -89,13 +87,11 @@ public class Parser {
     }
 
     Stmt stmts() throws IOException {
-        System.out.println("stmts");
         if (look.tag == '}') return Stmt.Null;
         else return new Seq(stmt(), stmts());
     }
 
     Stmt stmt() throws IOException {
-        System.out.println("stmt");
 
         Expr x;
         Stmt s, s1, s2;
@@ -159,8 +155,6 @@ public class Parser {
      * @throws IOException
      */
     Stmt assign() throws IOException {
-        System.out.println("assign");
-
         Stmt stmt;
         Token t = look;
         match(Tag.ID);
