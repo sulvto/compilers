@@ -11,6 +11,10 @@ public class Type extends Word {
         this.width = width;
     }
 
+    public String name() {
+        return lexeme;
+    }
+
     // TODO unsigned
     public static Type INT = new Type("int", Tag.BASIC, 4), FLOAT = new Type("float", Tag.BASIC, 8), SHORT = new Type("short", Tag.BASIC, 2), CHAR = new Type("char", Tag.BASIC, 1), BOOL = new Type("bool", Tag.BASIC, 1);
 }

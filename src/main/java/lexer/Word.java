@@ -37,6 +37,7 @@ public class Word extends Token {
             CONTINUE = new Word("continue", Tag.CONTINUE),
             GOTO = new Word("goto", Tag.GOTO),
             TYPEDEF = new Word("typedef", Tag.TYPEDEF),
+            STRUCT = new Word("struct", Tag.STRUCT),
             IMPORT = new Word("import", Tag.IMPORT),
             SIZEOF = new Word("sizeof", Tag.SIZEOF);
 
