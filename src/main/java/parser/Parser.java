@@ -101,7 +101,7 @@ public class Parser {
 
 
     List<StmtNode> stmts() {
-        if (look.tag == ';') {
+        if (look.tag == '}') {
             return new ArrayList<>();
         }
 
@@ -115,8 +115,74 @@ public class Parser {
         }
     }
 
-    private StmtNode stmt() {
-        // TODO
+    private StmtNode stmt() throws IOException {
+        ExprNode cond;
+        StmtNode s1 = null, s2 = null;
+        switch (look.tag) {
+            case ';':
+                move();
+                // TODO null
+                return null;
+            case Tag.IF:
+                match(Tag.IF);
+                match('(');
+                cond = bool();
+                match(')');
+                s1 = stmt();
+                if (look.tag == Tag.ELSE){
+                    match(Tag.ELSE);
+                    s2 = stmt();
+                }
+                return new IfNode(cond, s1, s2);
+            case Tag.WHILE:
+                match(Tag.WHILE);
+                match('(');
+                cond = bool();
+                match(')');
+                s1 = stmt();
+                return new WhileNode(cond, s1);
+            case Tag.DO:
+                match(Tag.DO);
+                s1 = stmt();
+                match(Tag.WHILE);
+                match('(');
+                cond = bool();
+                match(')');
+                match(';');
+                return new DoWhileNode(s1, cond);
+            case Tag.CONTINUE:
+                match(Tag.CONTINUE);
+                match(';');
+                return new ContinueNode();
+            case Tag.BREAK:
+                match(Tag.BREAK);
+                match(';');
+                return new BreakNode();
+            case '{':
+                return block();
+            default:
+                return exprStmt();
+        }
+    }
+
+    private StmtNode exprStmt() {
+        ExprNode expr = expr();
+        return new ExprStmtNode(expr);
+    }
+
+    private StmtNode assign() throws IOException {
+        StmtNode stmt;
+        Token t = look;
+        match(Tag.ID);
+        if (look.tag == '=') {
+            move();
+            stmt = new AssignNode();
+        }
+        return null;
+    }
+
+    private ExprNode bool() {
+
         return null;
     }
 
@@ -151,6 +217,8 @@ public class Parser {
     }
 
     private ExprNode expr() {
+        // assign
+
         return null;
     }
 
