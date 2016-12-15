@@ -100,13 +100,13 @@ public class Parser {
     }
 
 
-    List<StmtNode> stmts() {
+    List<StmtNode> stmts() throws IOException {
         if (look.tag == '}') {
             return new ArrayList<>();
         }
 
         List<StmtNode> result = new ArrayList<>();
-        for(;;) {
+        for (; ; ) {
             StmtNode stmt = stmt();
             if (stmt == null) {
                 return result;
@@ -129,7 +129,7 @@ public class Parser {
                 cond = bool();
                 match(')');
                 s1 = stmt();
-                if (look.tag == Tag.ELSE){
+                if (look.tag == Tag.ELSE) {
                     match(Tag.ELSE);
                     s2 = stmt();
                 }
@@ -161,13 +161,8 @@ public class Parser {
             case '{':
                 return block();
             default:
-                return exprStmt();
+                return assign();
         }
-    }
-
-    private StmtNode exprStmt() {
-        ExprNode expr = expr();
-        return new ExprStmtNode(expr);
     }
 
     private StmtNode assign() throws IOException {
@@ -176,13 +171,27 @@ public class Parser {
         match(Tag.ID);
         if (look.tag == '=') {
             move();
-            stmt = new AssignNode();
+            stmt = new ExprStmtNode(new AssignNode(((Word)t).lexeme,bool()));
+        } else {
+            // TODO []
+            stmt = null;
+        }
+        match(':');
+        return stmt;
+    }
+
+    private ExprNode bool() throws IOException {
+        ExprNode x = join();
+        while (look.tag == Tag.OR) {
+            Token token = look;
+            move();
+            // TODO
+//            x = new OrNoDe
         }
         return null;
     }
 
-    private ExprNode bool() {
-
+    private ExprNode join() {
         return null;
     }
 
