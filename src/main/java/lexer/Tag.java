@@ -13,7 +13,7 @@ public class Tag {
             DO = 281, FOR = 282, RETURN = 283, BREAK = 284,
             CONTINUE = 285, GOTO = 286, TYPEDEF = 287, IMPORT = 288,
             SIZEOF = 289, NUM = 290, REAL = 291, BASIC = 291,
-            STRUCT=292;
+            STRUCT = 292, CHARACTER = 293, STRING = 294;
 
 
 }

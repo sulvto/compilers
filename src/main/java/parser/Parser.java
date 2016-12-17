@@ -1,85 +1,135 @@
 package parser;
 
 import ast.*;
-import entity.Constant;
-import entity.DefinedFunction;
-import entity.DefinedVariable;
-import entity.Params;
+import entity.*;
 import lexer.*;
+import util.Speculate;
 
 import java.io.IOException;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Queue;
+import java.io.InputStream;
+import java.util.*;
 
 /**
  * Created by sulvto on 16-12-8.
  */
 public class Parser {
-    public Lexer lex;
-    public Queue<Token> lookahead = new ArrayDeque<>();
-    public Token look;
+    private Lexer input;
+    private Stack<Integer> markerStack = new Stack<>();
+    private List<Token> lookaheadList = new LinkedList<>();
 
-    public Parser(Lexer lex) throws IOException {
-        this.lex = lex;
-        consume();
+    private int p = 0;
+
+
+    private boolean isSpeculating() {
+        return !markerStack.isEmpty();
     }
 
-    void consume() throws IOException {
-        if (lookahead.isEmpty()) {
-            move();
-        } else {
-            look = lookahead.poll();
+    private void sync(int i) {
+        if (p + i - 1 > (lookaheadList.size() - 1)) {
+            int n = p + i - 1 - (lookaheadList.size() - 1);
+            fill(n);
         }
     }
 
-    void move() throws IOException {
-        look = lex.scan();
-    }
-
-    void match(int tag) throws IOException {
-        if (tag == look.tag) consume();
-        else error("Encountered \"" + (char) look.tag + "\" . Was expecting one of:\"" + (char) tag + "\"");
-    }
-
-    void match(int... tags) throws IOException {
-        for (int tag : tags) {
-            if (tag == look.tag) {
-                lookahead.add(look);
-                move();
-            } else error("Encountered \"" + (char) look.tag + "\" . Was expecting one of:\"" + (char) tag + "\"");
+    private void fill(int n) {
+        for (int i = 1; i <= n; i++) {
+            lookaheadList.add(input.nextToken());
         }
+    }
+
+    private Token lookToken(int i) {
+        sync(i);
+        return lookaheadList.get(p + i - 1);
+    }
+
+    private Token lookToken() {
+        return lookToken(1);
+    }
+
+    private int lookahead(int i) {
+        return lookToken(i).tag;
+    }
+
+    private int lookahead() {
+        return lookahead(1);
+    }
+
+    private int mark() {
+        markerStack.push(p);
+        return p;
+    }
+
+    private void release() {
+        int marker = markerStack.pop();
+        seek(marker);
+    }
+
+    private void seek(int index) {
+        p = index;
+    }
+
+    java.util.function.Function<Speculate, Boolean> speculate = supplier -> {
+        boolean success = true;
+        mark();
+        try {
+            supplier.apply();
+        } catch (Exception e) {
+            success = false;
+        }
+        release();
+        return success;
+    };
+
+    void consume() {
+        p++;
+        if (p == lookaheadList.size() && !isSpeculating()) {
+            p = 0;
+            lookaheadList.clear();
+        }
+        sync(1);
+    }
+
+    void match(int tag) {
+        if (tag == lookahead()) consume();
+        else error("Encountered \"" + (char) lookahead() + "\" . Was expecting one of:\"" + (char) tag + "\"");
+    }
+
+    public Parser(Lexer lex) {
+        this.input = lex;
         consume();
     }
 
-    AST compilationUnit() throws IOException {
-        // TODO
+    public Parser(InputStream inputStream) {
+        this(new Lexer(inputStream));
+    }
+
+    AST compilationUnit() {
+        // TODO import
         Declarations declarations = top_defs();
         return new AST(declarations);
     }
 
-    Declarations top_defs() throws IOException {
+    Declarations top_defs() {
         Declarations declarations = new Declarations();
-        switch (look.tag) {
+        switch (lookahead()) {
             case Tag.TYPEDEF:
                 declarations.addTypedef(typedef());
                 break;
             case Tag.BASIC:
                 TypeNode type = type();
-                Token token = this.look;
+                Token token = this.lookToken();
                 match(Tag.ID);
                 Word word = (Word) token;
-                if (look.tag == ';') {
+                if (lookahead() == ';') {
                     declarations.addDefvar(new DefinedVariable(false, type, word.lexeme, null));
                     match(';');
                     break;
-                } else if (look.tag == '=') {
+                } else if (lookahead() == '=') {
                     ExprNode expr = expr();
                     declarations.addDefvar(new DefinedVariable(false, type, word.lexeme, expr));
                     match(';');
                     break;
-                } else if (look.tag == '(') {
+                } else if (lookahead() == '(') {
                     match('(');
                     Params params = params();
                     match(')');
@@ -104,47 +154,51 @@ public class Parser {
         return declarations;
     }
 
-    List<DefinedVariable> defVar() throws IOException {
+
+    List<DefinedVariable> defVar() {
         List<DefinedVariable> result = new ArrayList<>();
 
-        while (look.tag == Tag.BASIC) {
+        while (lookahead() == Tag.BASIC) {
             TypeNode type = type();
-            Token token = this.look;
+            Token token = this.lookToken();
             match(Tag.ID);
             Word word = (Word) token;
-            if (look.tag == ';') {
+            if (lookahead() == ';') {
+                consume();
                 result.add(new DefinedVariable(false, type, word.lexeme, null));
-            } else if (look.tag == '=') {
+            } else if (lookahead() == '=') {
+                consume();
                 ExprNode expr = expr();
                 result.add(new DefinedVariable(false, type, word.lexeme, expr));
+                match(';');
             } else {
                 error("syntax error");
             }
-            match(';');
+
         }
         return result;
     }
 
-
-    List<StmtNode> stmts() throws IOException {
-        if (look.tag == '}') {
+    List<StmtNode> stmts() {
+        if (lookahead() == '}') {
             return new ArrayList<>();
         }
 
         List<StmtNode> result = new ArrayList<>();
-        for (; ; ) {
+        for (; lookahead() != '}'; ) {
             StmtNode stmt = stmt();
             if (stmt == null) {
                 return result;
             }
             result.add(stmt);
         }
+        return result;
     }
 
-    private StmtNode stmt() throws IOException {
+    private StmtNode stmt() {
         ExprNode cond;
         StmtNode s1 = null, s2 = null;
-        switch (look.tag) {
+        switch (lookahead()) {
             case ';':
                 consume();
                 // TODO null
@@ -155,11 +209,13 @@ public class Parser {
                 cond = bool();
                 match(')');
                 s1 = stmt();
-                if (look.tag == Tag.ELSE) {
+                if (lookahead() == Tag.ELSE) {
                     match(Tag.ELSE);
                     s2 = stmt();
                 }
                 return new IfNode(cond, s1, s2);
+            case Tag.FOR:
+                return forStmt();
             case Tag.WHILE:
                 match(Tag.WHILE);
                 match('(');
@@ -184,6 +240,8 @@ public class Parser {
                 match(Tag.BREAK);
                 match(';');
                 return new BreakNode();
+            case Tag.RETURN:
+                return returnStmt();
             case '{':
                 return block();
             default:
@@ -191,11 +249,34 @@ public class Parser {
         }
     }
 
-    private StmtNode assign() throws IOException {
+    private StmtNode forStmt() {
+        match(Tag.FOR);
+        match('(');
+        ExprNode init = null;
+        if (lookahead() != ';') init = expr();
+        match(';');
+        ExprNode cond = null;
+        if (lookahead() != ';') cond = bool();
+        match(';');
+        ExprNode incr = null;
+        if (lookahead() != ')') incr = expr();
+        match(')');
+        BlockNode body = block();
+        return new ForNode(init, cond, incr, body);
+    }
+
+    private StmtNode returnStmt() {
+        match(Tag.RETURN);
+        ExprNode expr = expr();
+        match(';');
+        return new ReturnNode(expr);
+    }
+
+    private StmtNode assign() {
         StmtNode stmt;
-        Token t = look;
+        Token t = lookToken();
         match(Tag.ID);
-        if (look.tag == '=') {
+        if (lookahead() == '=') {
             consume();
             stmt = new ExprStmtNode(new AssignNode(((Word) t).lexeme, bool()));
         } else {
@@ -206,42 +287,42 @@ public class Parser {
         return stmt;
     }
 
-    private ExprNode bool() throws IOException {
+    private ExprNode bool() {
         ExprNode node = join();
-        while (look.tag == Tag.OR) {
+        while (lookahead() == Tag.OR) {
             consume();
             node = new LogicalOrNode(node, join());
         }
         return node;
     }
 
-    private ExprNode join() throws IOException {
+    private ExprNode join() {
         ExprNode node = equality();
-        while (look.tag == Tag.AND) {
+        while (lookahead() == Tag.AND) {
             consume();
             node = new LogicalAndNode(node, equality());
         }
         return node;
     }
 
-    private ExprNode equality() throws IOException {
+    private ExprNode equality() {
         ExprNode node = rel();
-        while (look.tag == Tag.EQ || look.tag == Tag.NE) {
-            Token token = look;
+        while (lookahead() == Tag.EQ || lookahead() == Tag.NE) {
+            Token token = lookToken();
             consume();
             node = new BinaryOpNode(node, "" + (char) token.tag, equality());
         }
         return node;
     }
 
-    private ExprNode rel() throws IOException {
+    private ExprNode rel() {
         ExprNode node = expr();
-        switch (look.tag) {
+        switch (lookahead()) {
             case '<':
             case Tag.LE:
             case Tag.GE:
             case '>':
-                Token token = look;
+                Token token = lookToken();
                 consume();
                 node = new BinaryOpNode(node, "" + (char) token.tag, expr());
             default:
@@ -249,31 +330,31 @@ public class Parser {
         }
     }
 
-    private ExprNode expr() throws IOException {
+    private ExprNode expr() {
         ExprNode node = term();
-        while (look.tag == '+' || look.tag == '-') {
-            Token token = look;
+        while (lookahead() == '+' || lookahead() == '-') {
+            Token token = lookToken();
             consume();
             node = new BinaryOpNode(node, "" + (char) token.tag, term());
         }
         return node;
     }
 
-    private ExprNode term() throws IOException {
+    private ExprNode term() {
         ExprNode node = unary();
-        while (look.tag == '*' || look.tag == '/' || look.tag == '%') {
-            Token token = look;
+        while (lookahead() == '*' || lookahead() == '/' || lookahead() == '%') {
+            Token token = lookToken();
             consume();
             node = new BinaryOpNode(node, "" + (char) token.tag, unary());
         }
-        return null;
+        return node;
     }
 
-    private ExprNode unary() throws IOException {
-        switch (look.tag) {
+    private ExprNode unary() {
+        switch (lookahead()) {
             case '-':
             case '!':
-                Token token = look;
+                Token token = lookToken();
                 consume();
                 return new UnaryOpNode("" + (char) token.tag, unary());
             default:
@@ -281,36 +362,39 @@ public class Parser {
         }
     }
 
-    private ExprNode factor() throws IOException {
-        switch (look.tag) {
+    private ExprNode factor() {
+        switch (lookahead()) {
             case '(':
                 consume();
                 ExprNode node = bool();
                 match(')');
                 return node;
-            case Tag.REAL:
-                // TODO
+//            case Tag.REAL:
+            // TODO
             case Tag.NUM:
-                Num num = (Num) look;
+                Num num = (Num) lookToken();
                 consume();
                 return new IntegerLiteralNode(num.value);
             // TODO
 //            case Tag.TRUE:
 //            case Tag.TRUE:
+//            case Tag.CHARACTER:
+//            case Tag.STRING:
             case Tag.ID:
-                Word word = (Word) look;
-                return new StringLiteralNode(word.lexeme);
+                Word word = (Word) lookToken();
+                consume();
+                return new VariableNode(word.lexeme);
             default:
-                error("syntax error");
+                error("syntax error --> " + (char) lookahead());
                 return null;
         }
 
     }
 
-    private Constant constant() throws IOException {
+    private Constant constant() {
         match(Tag.CONST);
         TypeNode type = type();
-        Token token = look;
+        Token token = lookToken();
         match(Tag.ID);
         ExprNode expr = expr();
         return new Constant(false, type, ((Word) token).lexeme, expr);
@@ -325,7 +409,7 @@ public class Parser {
         return null;
     }
 
-    private BlockNode block() throws IOException {
+    private BlockNode block() {
         match('{');
         List<DefinedVariable> definedVariables = defVar();
         List<StmtNode> stmts = stmts();
@@ -333,21 +417,22 @@ public class Parser {
         return new BlockNode(definedVariables, stmts);
     }
 
+
     private Params params() {
         return null;
     }
 
-
-    TypeNode type() throws IOException {
-        Type type = (Type) this.look;
+    TypeNode type() {
+        Type type = (Type) this.lookToken();
         match(Tag.BASIC);
-        if (look.tag == '[') {
+        if (lookahead() == '[') {
             // TODO array
         }
         return new TypeNode(type.name());
     }
 
-    TypedefNode typedef() throws IOException {
+
+    TypedefNode typedef() {
         match(Tag.TYPEDEF);
         match(Tag.BASIC);
         // TODO  array or strtus
@@ -355,8 +440,7 @@ public class Parser {
         return typedefNode;
     }
 
-
     private void error(String message) {
-        throw new Error("[ERROR] line " + lex.line + ", column " + lex.column + ".\n" + message);
+        throw new Error("[ERROR] line " + input.line + ", column " + input.column + ".\n" + message);
     }
 }

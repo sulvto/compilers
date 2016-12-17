@@ -60,12 +60,16 @@ public class Lexer {
     }
 
 
-    private void readch() throws IOException {
-        peek = (char) inputStream.read();
+    private void readch()  {
+        try {
+            peek = (char) inputStream.read();
+        } catch (IOException e) {
+            throw new Error(e.getMessage());
+        }
         column++;
     }
 
-    private boolean readch(char c) throws IOException {
+    private boolean readch(char c)  {
         readch();
         if (peek == c) {
             peek = ' ';
@@ -75,13 +79,42 @@ public class Lexer {
         }
     }
 
-    public Token scan() throws IOException {
+    public Token nextToken()  {
         for (; ; readch()) {
             if (peek == ' ' || peek == '\t') ;
-            else if (peek == '\n') line++;
-            else break;
+            else if (peek == '\n') {
+                column = 0;
+                line++;
+            } else break;
         }
 
+        //
+        /**
+         *
+         */
+        if (peek == '/') {
+            readch();
+            if (peek == '/') {
+                for (; ; readch()) {
+                    if (peek == '\n') {
+                        line++;
+                        column = 0;
+                        readch();
+                        return nextToken();
+                    }
+                }
+            } else if (peek == '*') {
+                readch();
+                for (; ; readch()) {
+                    if (peek == '*' && readch('/')) {
+                        return nextToken();
+                    } else if (peek == '\n') {
+                        line++;
+                        column = 0;
+                    }
+                }
+            }
+        }
         switch (peek) {
             case '&':
                 if (readch('&')) return Word.AND;
@@ -108,6 +141,7 @@ public class Lexer {
             int v = 0;
             do {
                 v = 10 * v + Character.digit(peek, 10);
+                readch();
             } while (Character.isDigit(peek));
 
             if ('.' != peek) {
