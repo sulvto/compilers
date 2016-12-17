@@ -8,23 +8,49 @@ import entity.Params;
 import lexer.*;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
 
 /**
  * Created by sulvto on 16-12-8.
  */
 public class Parser {
     public Lexer lex;
+    public Queue<Token> lookahead = new ArrayDeque<>();
     public Token look;
 
     public Parser(Lexer lex) throws IOException {
         this.lex = lex;
-        move();
+        consume();
+    }
+
+    void consume() throws IOException {
+        if (lookahead.isEmpty()) {
+            move();
+        } else {
+            look = lookahead.poll();
+        }
     }
 
     void move() throws IOException {
         look = lex.scan();
+    }
+
+    void match(int tag) throws IOException {
+        if (tag == look.tag) consume();
+        else error("Encountered \"" + (char) look.tag + "\" . Was expecting one of:\"" + (char) tag + "\"");
+    }
+
+    void match(int... tags) throws IOException {
+        for (int tag : tags) {
+            if (tag == look.tag) {
+                lookahead.add(look);
+                move();
+            } else error("Encountered \"" + (char) look.tag + "\" . Was expecting one of:\"" + (char) tag + "\"");
+        }
+        consume();
     }
 
     AST compilationUnit() throws IOException {
@@ -120,7 +146,7 @@ public class Parser {
         StmtNode s1 = null, s2 = null;
         switch (look.tag) {
             case ';':
-                move();
+                consume();
                 // TODO null
                 return null;
             case Tag.IF:
@@ -170,29 +196,115 @@ public class Parser {
         Token t = look;
         match(Tag.ID);
         if (look.tag == '=') {
-            move();
-            stmt = new ExprStmtNode(new AssignNode(((Word)t).lexeme,bool()));
+            consume();
+            stmt = new ExprStmtNode(new AssignNode(((Word) t).lexeme, bool()));
         } else {
             // TODO []
             stmt = null;
         }
-        match(':');
+        match(';');
         return stmt;
     }
 
     private ExprNode bool() throws IOException {
-        ExprNode x = join();
+        ExprNode node = join();
         while (look.tag == Tag.OR) {
+            consume();
+            node = new LogicalOrNode(node, join());
+        }
+        return node;
+    }
+
+    private ExprNode join() throws IOException {
+        ExprNode node = equality();
+        while (look.tag == Tag.AND) {
+            consume();
+            node = new LogicalAndNode(node, equality());
+        }
+        return node;
+    }
+
+    private ExprNode equality() throws IOException {
+        ExprNode node = rel();
+        while (look.tag == Tag.EQ || look.tag == Tag.NE) {
             Token token = look;
-            move();
-            // TODO
-//            x = new OrNoDe
+            consume();
+            node = new BinaryOpNode(node, "" + (char) token.tag, equality());
+        }
+        return node;
+    }
+
+    private ExprNode rel() throws IOException {
+        ExprNode node = expr();
+        switch (look.tag) {
+            case '<':
+            case Tag.LE:
+            case Tag.GE:
+            case '>':
+                Token token = look;
+                consume();
+                node = new BinaryOpNode(node, "" + (char) token.tag, expr());
+            default:
+                return node;
+        }
+    }
+
+    private ExprNode expr() throws IOException {
+        ExprNode node = term();
+        while (look.tag == '+' || look.tag == '-') {
+            Token token = look;
+            consume();
+            node = new BinaryOpNode(node, "" + (char) token.tag, term());
+        }
+        return node;
+    }
+
+    private ExprNode term() throws IOException {
+        ExprNode node = unary();
+        while (look.tag == '*' || look.tag == '/' || look.tag == '%') {
+            Token token = look;
+            consume();
+            node = new BinaryOpNode(node, "" + (char) token.tag, unary());
         }
         return null;
     }
 
-    private ExprNode join() {
-        return null;
+    private ExprNode unary() throws IOException {
+        switch (look.tag) {
+            case '-':
+            case '!':
+                Token token = look;
+                consume();
+                return new UnaryOpNode("" + (char) token.tag, unary());
+            default:
+                return factor();
+        }
+    }
+
+    private ExprNode factor() throws IOException {
+        switch (look.tag) {
+            case '(':
+                consume();
+                ExprNode node = bool();
+                match(')');
+                return node;
+            case Tag.REAL:
+                // TODO
+            case Tag.NUM:
+                Num num = (Num) look;
+                consume();
+                return new IntegerLiteralNode(num.value);
+            // TODO
+//            case Tag.TRUE:
+//            case Tag.TRUE:
+            case Tag.ID:
+                Word word = (Word) look;
+                return new StringLiteralNode(word.lexeme);
+            default:
+                error("syntax error");
+                return null;
+        }
+
     }
 
     private Constant constant() throws IOException {
@@ -225,11 +337,6 @@ public class Parser {
         return null;
     }
 
-    private ExprNode expr() {
-        // assign
-
-        return null;
-    }
 
     TypeNode type() throws IOException {
         Type type = (Type) this.look;
@@ -248,10 +355,6 @@ public class Parser {
         return typedefNode;
     }
 
-    void match(int tag) throws IOException {
-        if (tag == look.tag) move();
-        else error("Encountered \"" + (char) look.tag + "\" . Was expecting one of:\"" + (char) tag + "\"");
-    }
 
     private void error(String message) {
         throw new Error("[ERROR] line " + lex.line + ", column " + lex.column + ".\n" + message);
