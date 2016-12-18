@@ -73,7 +73,7 @@ public class Parser {
         mark();
         try {
             supplier.apply();
-        } catch (Exception e) {
+        } catch (Error e) {
             success = false;
         }
         release();
@@ -249,12 +249,27 @@ public class Parser {
         }
     }
 
+    private Object forInitStmt() {
+        if (speculate.apply(this::assign)) {
+            return assign();
+        } else if (speculate.apply(this::defVar)) {
+            List<DefinedVariable> definedVariables = defVar();
+            if (definedVariables.size() > 0) {
+                return definedVariables;
+            } else {
+                match(';');
+                return null;
+            }
+        } else {
+            error("syntax error");
+            return null;
+        }
+    }
+
     private StmtNode forStmt() {
         match(Tag.FOR);
         match('(');
-        ExprNode init = null;
-        if (lookahead() != ';') init = expr();
-        match(';');
+        Object init = forInitStmt();
         ExprNode cond = null;
         if (lookahead() != ';') cond = bool();
         match(';');
@@ -262,7 +277,7 @@ public class Parser {
         if (lookahead() != ')') incr = expr();
         match(')');
         BlockNode body = block();
-        return new ForNode(init, cond, incr, body);
+        return (init instanceof ExprNode) ? new ForNode((ExprNode) init, cond, incr, body) : new ForNode((List<DefinedVariable>) init, cond, incr, body);
     }
 
     private StmtNode returnStmt() {
