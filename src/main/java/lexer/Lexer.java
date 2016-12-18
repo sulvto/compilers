@@ -111,25 +111,28 @@ public class Lexer {
             }
         }
 
+        int l = line;
+        int c = column;
+
         switch (peek) {
             case '&':
-                if (readch('&')) return new Word("&&", Tag.AND, line, column);
-                else return new Token('&', line, column);
+                if (readch('&')) return new Word("&&", Tag.AND, l, c);
+                else return new Token('&', l, c);
             case '|':
-                if (readch('|')) return new Word("&&", Tag.OR, line, column);
-                else return new Token('|', line, column);
+                if (readch('|')) return new Word("&&", Tag.OR, l, c);
+                else return new Token('|', l, c);
             case '!':
-                if (readch('=')) return new Word("&&", Tag.NE, line, column);
-                else return new Token('!', line, column);
+                if (readch('=')) return new Word("&&", Tag.NE, l, c);
+                else return new Token('!', l, c);
             case '=':
-                if (readch('=')) return new Word("&&", Tag.EQ, line, column);
-                else return new Token('=', line, column);
+                if (readch('=')) return new Word("&&", Tag.EQ, l, c);
+                else return new Token('=', l, c);
             case '>':
-                if (readch('=')) return new Word("&&", Tag.GE, line, column);
-                else return new Token('<', line, column);
+                if (readch('=')) return new Word("&&", Tag.GE, l, c);
+                else return new Token('<', l, c);
             case '<':
-                if (readch('=')) return new Word("&&", Tag.LE, line, column);
-                else return new Token('<', line, column);
+                if (readch('=')) return new Word("&&", Tag.LE, l, c);
+                else return new Token('<', l, c);
         }
 
         // "string"
@@ -140,8 +143,10 @@ public class Lexer {
                 buf.append(peek);
             } while (peek != '\"');
             readch();
-            return new Word(buf.toString(), Tag.STRING, line, column);
+            return new Word(buf.toString(), Tag.STRING, l, c);
         }
+
+        // TODO Tag.CHARACTER
 
         if (Character.isDigit(peek)) {
             int v = 0;
@@ -151,7 +156,7 @@ public class Lexer {
             } while (Character.isDigit(peek));
 
             if ('.' != peek) {
-                return new Num(v, line, column);
+                return new Num(v, l, c);
             }
 
             float x = v;
@@ -162,7 +167,7 @@ public class Lexer {
                 x = x + Character.digit(peek, 10) / d;
                 d *= 10;
             }
-            return new Real(x, line, column);
+            return new Real(x, l, c);
         }
 
         if (Character.isLetter(peek)) {
@@ -178,13 +183,20 @@ public class Lexer {
                 word = new Word(t, Tag.ID);
                 wordTable.put(t, word);
             }
-            word.setLine(line);
-            word.setLine(column);
+            word.setLine(l);
+            word.setColumn(c);
             return word;
         }
-
-        Token token = new Token(peek, line, column);
+        Token token = new Token(peek, l, c);
         peek = ' ';
         return token;
+    }
+
+    public boolean end() {
+        try {
+            return inputStream.available()==0;
+        } catch (IOException e) {
+            throw new Error(e.getMessage());
+        }
     }
 }

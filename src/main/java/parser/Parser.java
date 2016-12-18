@@ -179,8 +179,10 @@ public class Parser {
                 declarations.addTypedef(typedef());
             } else if (speculate.apply(this::defunion)) {
                 declarations.addDefunion(defunion());
-            } else {
+            } else if (input.end()) {
                 return declarations;
+            } else {
+                error("syntax error");
             }
         }
     }
