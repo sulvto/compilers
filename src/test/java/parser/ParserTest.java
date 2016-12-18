@@ -15,11 +15,9 @@ public class ParserTest {
     }
 
     public void compilationUnit() throws Exception {
-
         Parser parser = new Parser(new FileInputStream("/home/qinchao/development/workspace/compilers/src/test/java/parser/hello.c"));
-
         AST ast = parser.compilationUnit();
-
+        ast.dump();
     }
 
 }

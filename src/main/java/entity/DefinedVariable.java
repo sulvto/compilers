@@ -17,6 +17,8 @@ public class DefinedVariable extends Variable {
 
     @Override
     public void dump(Dumper dumper) {
-        // TODO
+        dumper.printMember("name", name);
+        dumper.printMember("typeNode", typeNode);
+        dumper.printMember("initializer", initializer);
     }
 }

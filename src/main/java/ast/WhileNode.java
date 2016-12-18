@@ -7,13 +7,15 @@ public class WhileNode extends StmtNode {
     private ExprNode cond;
     private StmtNode body;
 
-    public WhileNode(ExprNode cond, StmtNode body) {
+    public WhileNode(Location location, ExprNode cond, StmtNode body) {
+        super(location);
         this.cond = cond;
         this.body = body;
     }
 
     @Override
     protected void doDump(Dumper dumper) {
-        // TODO
+        dumper.printMember("cond", cond);
+        dumper.printMember("body", body);
     }
 }

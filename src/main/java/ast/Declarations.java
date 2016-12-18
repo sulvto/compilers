@@ -4,7 +4,9 @@ import entity.Constant;
 import entity.DefinedFunction;
 import entity.DefinedVariable;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -23,23 +25,47 @@ public class Declarations {
         defvars.add(definedVariable);
     }
 
+    public List<DefinedVariable> defvars() {
+        return new ArrayList<>(defvars);
+    }
+
     public void addDefun(DefinedFunction definedFunction) {
         defuns.add(definedFunction);
+    }
+
+    public List<DefinedFunction> defuns() {
+        return new ArrayList<>(defuns);
     }
 
     public void addConstant(Constant constant) {
         constants.add(constant);
     }
 
+    public List<Constant> constants() {
+        return new ArrayList<>(constants);
+    }
+
     public void addDefstruct(StructNode structNode) {
         defstructs.add(structNode);
+    }
+
+    public List<StructNode> defstructs() {
+        return new ArrayList<>(defstructs);
     }
 
     public void addDefunion(UnionNode unionNode) {
         defunions.add(unionNode);
     }
 
+    public List<UnionNode> defunions() {
+        return new ArrayList<>(defunions);
+    }
+
     public void addTypedef(TypedefNode typedefNode) {
         typedefs.add(typedefNode);
+    }
+
+    public List<TypedefNode> typedefs() {
+        return new ArrayList<>(typedefs);
     }
 }

@@ -6,8 +6,8 @@ package lexer;
 public class Num extends Token {
     public final long value;
 
-    public Num(long value) {
-        super(Tag.NUM);
+    public Num(long value,int line,int column) {
+        super(Tag.NUM,line,column);
         this.value = value;
     }
 }

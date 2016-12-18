@@ -16,7 +16,13 @@ public class UnaryOpNode extends ExprNode {
     }
 
     @Override
+    public Location location() {
+        return expr.location();
+    }
+
+    @Override
     protected void doDump(Dumper dumper) {
-        // TODO
+        dumper.printMember("operator", op);
+        dumper.printMember("expr", expr);
     }
 }

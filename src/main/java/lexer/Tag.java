@@ -12,8 +12,9 @@ public class Tag {
             SWITCH = 277, CASE = 278, DEFAULT = 279, WHILE = 280,
             DO = 281, FOR = 282, RETURN = 283, BREAK = 284,
             CONTINUE = 285, GOTO = 286, TYPEDEF = 287, IMPORT = 288,
-            SIZEOF = 289, NUM = 290, REAL = 291, BASIC = 291,
-            STRUCT = 292, CHARACTER = 293, STRING = 294;
+            SIZEOF = 289, NUM = 290, REAL = 291, STRUCT = 292,
+            CHARACTER = 293, STRING = 294, INT = 295,
+            FLOAT = 296, BOOL = 297, LONG = 298;
 
 
 }

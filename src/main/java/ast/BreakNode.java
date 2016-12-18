@@ -5,8 +5,11 @@ package ast;
  */
 public class BreakNode  extends StmtNode{
 
+    public BreakNode(Location location) {
+        super(location);
+    }
+
     @Override
     protected void doDump(Dumper dumper) {
-        // TODO
     }
 }

@@ -8,7 +8,8 @@ public class IfNode extends StmtNode {
     private StmtNode thenBody;
     private StmtNode elseBody;
 
-    public IfNode(ExprNode cond, StmtNode thenBody, StmtNode elseBody) {
+    public IfNode(Location location, ExprNode cond, StmtNode thenBody, StmtNode elseBody) {
+        super(location);
         this.cond = cond;
         this.thenBody = thenBody;
         this.elseBody = elseBody;
@@ -16,6 +17,8 @@ public class IfNode extends StmtNode {
 
     @Override
     protected void doDump(Dumper dumper) {
-        // TODO
+        dumper.printMember("cond", cond);
+        dumper.printMember("thenBody", thenBody);
+        dumper.printMember("elseBody", elseBody);
     }
 }

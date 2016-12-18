@@ -1,19 +1,40 @@
 package ast;
 
+import entity.DefinedFunction;
+import entity.DefinedVariable;
+
+import java.util.List;
+
 /**
  * ast root
  * Created by sulvto on 16-12-8.
  */
 public class AST extends Node {
 
+    Location source;
     private Declarations declarations;
 
-    public AST(Declarations declarations) {
+    public AST( Declarations declarations) {
         this.declarations = declarations;
+    }
+
+    public List<DefinedVariable> definedVariables() {
+        return declarations.defvars();
+    }
+
+    public List<DefinedFunction> definedFunctions() {
+        return declarations.defuns();
+    }
+
+
+    @Override
+    public Location location() {
+        return source;
     }
 
     @Override
     protected void doDump(Dumper dumper) {
-        // TODO
+        dumper.printMember("variables", definedVariables());
+        dumper.printMember("functions", definedFunctions());
     }
 }

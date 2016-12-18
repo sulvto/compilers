@@ -6,12 +6,13 @@ package ast;
 public class ExprStmtNode extends StmtNode {
     private ExprNode expr;
 
-    public ExprStmtNode(ExprNode expr) {
+    public ExprStmtNode(Location location, ExprNode expr) {
+        super(location);
         this.expr = expr;
     }
 
     @Override
     protected void doDump(Dumper dumper) {
-        // TODO
+        dumper.printMember("expr", expr);
     }
 }

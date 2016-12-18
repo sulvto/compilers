@@ -19,6 +19,8 @@ public class DefinedFunction extends Function {
 
     @Override
     public void dump(Dumper dumper) {
-        // TODO
+        dumper.printMember("name", name);
+        dumper.printMember("params", params);
+        dumper.printMember("body", body);
     }
 }

@@ -9,14 +9,21 @@ public class BinaryOpNode extends ExprNode {
     private String operator;
     private ExprNode left, right;
 
-    public BinaryOpNode( ExprNode left,String op, ExprNode right) {
+    public BinaryOpNode(ExprNode left, String op, ExprNode right) {
         this.operator = op;
         this.left = left;
         this.right = right;
     }
 
     @Override
-    protected void doDump(Dumper dumper) {
+    public Location location() {
+        return left.location();
+    }
 
+    @Override
+    protected void doDump(Dumper dumper) {
+        dumper.printMember("operator", operator);
+        dumper.printMember("left", left);
+        dumper.printMember("right", right);
     }
 }

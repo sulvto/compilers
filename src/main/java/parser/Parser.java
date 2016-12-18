@@ -3,6 +3,7 @@ package parser;
 import ast.*;
 import entity.*;
 import lexer.*;
+import type.*;
 import util.Speculate;
 
 import java.io.IOException;
@@ -89,6 +90,12 @@ public class Parser {
         sync(1);
     }
 
+    void match(int... tags) {
+        for (int i = 0; i < tags.length; i++) {
+            if (tags[i] != lookahead()) error("TODO");
+        }
+    }
+
     void match(int tag) {
         if (tag == lookahead()) consume();
         else error("Encountered \"" + (char) lookahead() + "\" . Was expecting one of:\"" + (char) tag + "\"");
@@ -109,75 +116,81 @@ public class Parser {
         return new AST(declarations);
     }
 
+    DefinedFunction defun() {
+        TypeNode type = type();
+        Token token = this.lookToken();
+        match(Tag.ID);
+        Word word = (Word) token;
+        match('(');
+        Params params = params();
+        match(')');
+        BlockNode block = block();
+        return new DefinedFunction(false, type, word.lexeme, params, block);
+    }
+
+    DefinedVariable defvar() {
+        TypeNode type = type();
+        Token token = this.lookToken();
+        match(Tag.ID);
+        Word word = (Word) token;
+        if (lookahead() == ';') {
+            consume();
+            return new DefinedVariable(false, type, word.lexeme, null);
+        } else if (lookahead() == '=') {
+            consume();
+            ExprNode expr = expr();
+            match(';');
+            return new DefinedVariable(false, type, word.lexeme, expr);
+        } else {
+            error("syntax error");
+        }
+        return null;
+    }
+
+
+    private Constant defconst() {
+        match(Tag.CONST);
+        TypeNode type = type();
+        Token token = lookToken();
+        match(Tag.ID);
+        ExprNode expr = expr();
+        return new Constant(false, type, ((Word) token).lexeme, expr);
+    }
+
+    private StructNode defstruct() {
+        match(Tag.STRUCT);
+        // TODO
+        return null;
+    }
+
+
     Declarations top_defs() {
         Declarations declarations = new Declarations();
-        switch (lookahead()) {
-            case Tag.TYPEDEF:
+        while (true) {
+            if (speculate.apply(this::defun)) {
+                declarations.addDefun(defun());
+            } else if (speculate.apply(this::defvar)) {
+                declarations.addDefvar(defvar());
+            } else if (speculate.apply(this::defconst)) {
+                declarations.addConstant(defconst());
+            } else if (speculate.apply(this::defstruct)) {
+                declarations.addDefstruct(defstruct());
+            } else if (speculate.apply(this::typedef)) {
                 declarations.addTypedef(typedef());
-                break;
-            case Tag.BASIC:
-                TypeNode type = type();
-                Token token = this.lookToken();
-                match(Tag.ID);
-                Word word = (Word) token;
-                if (lookahead() == ';') {
-                    declarations.addDefvar(new DefinedVariable(false, type, word.lexeme, null));
-                    match(';');
-                    break;
-                } else if (lookahead() == '=') {
-                    ExprNode expr = expr();
-                    declarations.addDefvar(new DefinedVariable(false, type, word.lexeme, expr));
-                    match(';');
-                    break;
-                } else if (lookahead() == '(') {
-                    match('(');
-                    Params params = params();
-                    match(')');
-                    BlockNode block = block();
-                    declarations.addDefun(new DefinedFunction(false, type, word.lexeme, params, block));
-                    break;
-                } else {
-                    error("syntax error");
-                }
-            case Tag.STRUCT:
-                declarations.addDefstruct(struct());
-                break;
-            case Tag.CONST:
-                declarations.addConstant(constant());
-                break;
-            case Tag.UNION:
-                declarations.addDefunion(union());
-                break;
-            default:
-                return declarations;
-        }
-        return declarations;
-    }
-
-
-    List<DefinedVariable> defVar() {
-        List<DefinedVariable> result = new ArrayList<>();
-
-        while (lookahead() == Tag.BASIC) {
-            TypeNode type = type();
-            Token token = this.lookToken();
-            match(Tag.ID);
-            Word word = (Word) token;
-            if (lookahead() == ';') {
-                consume();
-                result.add(new DefinedVariable(false, type, word.lexeme, null));
-            } else if (lookahead() == '=') {
-                consume();
-                ExprNode expr = expr();
-                result.add(new DefinedVariable(false, type, word.lexeme, expr));
-                match(';');
+            } else if (speculate.apply(this::defunion)) {
+                declarations.addDefunion(defunion());
             } else {
-                error("syntax error");
+                return declarations;
             }
-
         }
-        return result;
     }
+
+    private UnionNode defunion() {
+        match(Tag.UNION);
+        // TODO
+        return null;
+    }
+
 
     List<StmtNode> stmts() {
         if (lookahead() == '}') {
@@ -196,6 +209,7 @@ public class Parser {
     }
 
     private StmtNode stmt() {
+        Token token;
         ExprNode cond;
         StmtNode s1 = null, s2 = null;
         switch (lookahead()) {
@@ -204,6 +218,7 @@ public class Parser {
                 // TODO null
                 return null;
             case Tag.IF:
+                token = lookToken();
                 match(Tag.IF);
                 match('(');
                 cond = bool();
@@ -213,17 +228,19 @@ public class Parser {
                     match(Tag.ELSE);
                     s2 = stmt();
                 }
-                return new IfNode(cond, s1, s2);
+                return new IfNode(location(token), cond, s1, s2);
             case Tag.FOR:
                 return forStmt();
             case Tag.WHILE:
+                token = lookToken();
                 match(Tag.WHILE);
                 match('(');
                 cond = bool();
                 match(')');
                 s1 = stmt();
-                return new WhileNode(cond, s1);
+                return new WhileNode(location(token), cond, s1);
             case Tag.DO:
+                token = lookToken();
                 match(Tag.DO);
                 s1 = stmt();
                 match(Tag.WHILE);
@@ -231,15 +248,17 @@ public class Parser {
                 cond = bool();
                 match(')');
                 match(';');
-                return new DoWhileNode(s1, cond);
+                return new DoWhileNode(location(token), s1, cond);
             case Tag.CONTINUE:
+                token = lookToken();
                 match(Tag.CONTINUE);
                 match(';');
-                return new ContinueNode();
+                return new ContinueNode(location(token));
             case Tag.BREAK:
+                token = lookToken();
                 match(Tag.BREAK);
                 match(';');
-                return new BreakNode();
+                return new BreakNode(location(token));
             case Tag.RETURN:
                 return returnStmt();
             case '{':
@@ -252,14 +271,8 @@ public class Parser {
     private Object forInitStmt() {
         if (speculate.apply(this::assign)) {
             return assign();
-        } else if (speculate.apply(this::defVar)) {
-            List<DefinedVariable> definedVariables = defVar();
-            if (definedVariables.size() > 0) {
-                return definedVariables;
-            } else {
-                match(';');
-                return null;
-            }
+        } else if (speculate.apply(this::defvar)) {
+            return defvar();
         } else {
             error("syntax error");
             return null;
@@ -267,6 +280,7 @@ public class Parser {
     }
 
     private StmtNode forStmt() {
+        Token token = lookToken();
         match(Tag.FOR);
         match('(');
         Object init = forInitStmt();
@@ -277,23 +291,28 @@ public class Parser {
         if (lookahead() != ')') incr = expr();
         match(')');
         BlockNode body = block();
-        return (init instanceof ExprNode) ? new ForNode((ExprNode) init, cond, incr, body) : new ForNode((List<DefinedVariable>) init, cond, incr, body);
+        if (init == null) {
+            return new ForNode(location(token), cond, incr, body);
+        }
+        return (init instanceof ExprNode) ? new ForNode(location(token), (ExprNode) init, cond, incr, body) : new ForNode(location(token), (DefinedVariable) init, cond, incr, body);
     }
 
     private StmtNode returnStmt() {
+        Token token = lookToken();
         match(Tag.RETURN);
         ExprNode expr = expr();
         match(';');
-        return new ReturnNode(expr);
+        return new ReturnNode(location(token), expr);
     }
 
     private StmtNode assign() {
+        Token token = lookToken();
+
         StmtNode stmt;
-        Token t = lookToken();
-        match(Tag.ID);
+        ExprNode left = term();
         if (lookahead() == '=') {
             consume();
-            stmt = new ExprStmtNode(new AssignNode(((Word) t).lexeme, bool()));
+            stmt = new ExprStmtNode(location(token), new AssignNode(left, bool()));
         } else {
             // TODO []
             stmt = null;
@@ -378,6 +397,9 @@ public class Parser {
     }
 
     private ExprNode factor() {
+        Token token;
+        Word word;
+        Num num;
         switch (lookahead()) {
             case '(':
                 consume();
@@ -387,18 +409,26 @@ public class Parser {
 //            case Tag.REAL:
             // TODO
             case Tag.NUM:
-                Num num = (Num) lookToken();
+
+                num = (Num) lookToken();
                 consume();
-                return new IntegerLiteralNode(num.value);
+                // TODO int long
+                return new IntegerLiteralNode(location(num), IntegerTypeRef.intRef(), num.value);
             // TODO
 //            case Tag.TRUE:
 //            case Tag.TRUE:
-//            case Tag.CHARACTER:
-//            case Tag.STRING:
-            case Tag.ID:
-                Word word = (Word) lookToken();
+            case Tag.CHARACTER:
+                num = (Num) lookToken();
                 consume();
-                return new VariableNode(word.lexeme);
+                return new IntegerLiteralNode(location(num), IntegerTypeRef.charRef(), num.value);
+            case Tag.STRING:
+                word = (Word) lookToken();
+                consume();
+                return new StringLiteralNode(location(word), new PointerTypeRef(IntegerTypeRef.charRef()), word.lexeme);
+            case Tag.ID:
+                word = (Word) lookToken();
+                consume();
+                return new VariableNode(location(word), word.lexeme);
             default:
                 error("syntax error --> " + (char) lookahead());
                 return null;
@@ -406,30 +436,19 @@ public class Parser {
 
     }
 
-    private Constant constant() {
-        match(Tag.CONST);
-        TypeNode type = type();
-        Token token = lookToken();
-        match(Tag.ID);
-        ExprNode expr = expr();
-        return new Constant(false, type, ((Word) token).lexeme, expr);
-    }
-
-    private UnionNode union() {
-        // TODO
-        return null;
-    }
-
-    private StructNode struct() {
-        return null;
-    }
 
     private BlockNode block() {
+        Token token = lookToken();
         match('{');
-        List<DefinedVariable> definedVariables = defVar();
+        List<DefinedVariable> definedVariables = new ArrayList<>();
+
+        while (speculate.apply(this::defvar)) {
+            definedVariables.add(defvar());
+        }
+
         List<StmtNode> stmts = stmts();
         match('}');
-        return new BlockNode(definedVariables, stmts);
+        return new BlockNode(location(token), definedVariables, stmts);
     }
 
 
@@ -437,25 +456,62 @@ public class Parser {
         return null;
     }
 
+
+    //   TODO typeref_base
+
     TypeNode type() {
-        Type type = (Type) this.lookToken();
-        match(Tag.BASIC);
-        if (lookahead() == '[') {
-            // TODO array
+        return new TypeNode(typeRef());
+    }
+
+    TypeRef typeRef() {
+        TypeRef ref = typeRefBase();
+        // []  [x] *  (params)
+        return ref;
+    }
+
+    TypeRef typeRefBase() {
+        Token token = lookToken();
+        switch (lookahead()) {
+            case Tag.VOID:
+                consume();
+                return new VoidTypeRef(location(token));
+            case Tag.INT:
+                consume();
+                return IntegerTypeRef.intRef(location(token));
+            case Tag.LONG:
+                consume();
+                return IntegerTypeRef.longRef(location(token));
+            case Tag.CHAR:
+                consume();
+                return IntegerTypeRef.charRef(location(token));
+            case Tag.SHORT:
+                consume();
+                return IntegerTypeRef.shortRef(location(token));
+            case Tag.STRUCT:
+//                return new StructTypeRef(location());
+            case Tag.UNION:
+            default:
+                return null;
         }
-        return new TypeNode(type.name());
     }
 
 
     TypedefNode typedef() {
+        Token token = lookToken();
         match(Tag.TYPEDEF);
-        match(Tag.BASIC);
-        // TODO  array or strtus
-        TypedefNode typedefNode = new TypedefNode();
+        TypeRef typeRef = typeRef();
+        Word word = (Word) lookToken();
+        match(Tag.ID);
+        TypedefNode typedefNode = new TypedefNode(location(token), typeRef, word.lexeme);
         return typedefNode;
     }
 
+    private Location location(Token token) {
+        return new Location(token.line, token.column);
+    }
+
     private void error(String message) {
-        throw new Error("[ERROR] line " + input.line + ", column " + input.column + ".\n" + message);
+        Token token = lookToken();
+        throw new Error("[ERROR] line " + token.line + ", column " + token.column + ".\n" + message);
     }
 }
