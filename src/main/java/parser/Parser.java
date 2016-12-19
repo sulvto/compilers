@@ -179,7 +179,7 @@ public class Parser {
                 declarations.addTypedef(typedef());
             } else if (speculate.apply(this::defunion)) {
                 declarations.addDefunion(defunion());
-            } else if (input.end()) {
+            } else if (speculate.apply(()->match(Tag.EOF))) {
                 return declarations;
             } else {
                 error("syntax error");
