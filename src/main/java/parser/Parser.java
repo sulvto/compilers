@@ -472,6 +472,7 @@ public class Parser {
     }
 
     TypeRef typeRefBase() {
+        Word name = null;
         Token token = lookToken();
         switch (lookahead()) {
             case Tag.VOID:
@@ -490,9 +491,17 @@ public class Parser {
                 consume();
                 return IntegerTypeRef.shortRef(location(token));
             case Tag.STRUCT:
-//                return new StructTypeRef(location());
+                consume();
+                name = (Word) lookToken();
+                match(Tag.ID);
+                return new StructTypeRef(location(token),name.lexeme);
             case Tag.UNION:
+                consume();
+                name = (Word) lookToken();
+                match(Tag.ID);
+                return new UnionTypeRef(location(token),name.lexeme);
             default:
+                // TODO UserTypeRef
                 return null;
         }
     }

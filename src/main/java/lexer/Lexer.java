@@ -75,16 +75,16 @@ public class Lexer {
     }
 
     public Token nextToken() {
+        if (end()) return new Token(Tag.EOF, line, column);
+
         for (; ; readch()) {
-            if (peek == ' ' || peek == '\t') ;
-            else if (peek == '\n') {
+            if (peek == ' ' || peek == '\t') {
+                if (end()) return new Token(Tag.EOF, line, column);
+            } else if (peek == '\n') {
                 column = 0;
                 line++;
+                if (end()) return new Token(Tag.EOF, line, column);
             } else break;
-        }
-
-        if (end()) {
-            return new Token(Tag.EOF, line, column);
         }
 
         //
@@ -202,7 +202,7 @@ public class Lexer {
 
     private boolean end() {
         try {
-            return inputStream.available()==0;
+            return inputStream.available() == 0;
         } catch (IOException e) {
             throw new Error(e.getMessage());
         }

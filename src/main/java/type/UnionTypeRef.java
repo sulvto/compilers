@@ -8,11 +8,6 @@ import ast.Location;
 public class UnionTypeRef extends TypeRef {
     private String name;
 
-    public UnionTypeRef(String name) {
-        super(null);
-        this.name = name;
-    }
-
     public UnionTypeRef(Location location, String name) {
         super(location);
         this.name = name;
