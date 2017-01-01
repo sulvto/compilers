@@ -179,7 +179,7 @@ public class Parser {
                 declarations.addTypedef(typedef());
             } else if (speculate.apply(this::defunion)) {
                 declarations.addDefunion(defunion());
-            } else if (speculate.apply(()->match(Tag.EOF))) {
+            } else if (speculate.apply(() -> match(Tag.EOF))) {
                 return declarations;
             } else {
                 error("syntax error");
@@ -290,7 +290,15 @@ public class Parser {
         if (lookahead() != ';') cond = bool();
         match(';');
         ExprNode incr = null;
-        if (lookahead() != ')') incr = expr();
+        if (lookahead() != ')') {
+            ExprNode left = term();
+            if (lookahead() == '=') {
+                consume();
+                incr = new AssignNode(left, bool());
+            } else {
+                // TODO []
+            }
+        }
         match(')');
         BlockNode body = block();
         if (init == null) {
@@ -494,12 +502,12 @@ public class Parser {
                 consume();
                 name = (Word) lookToken();
                 match(Tag.ID);
-                return new StructTypeRef(location(token),name.lexeme);
+                return new StructTypeRef(location(token), name.lexeme);
             case Tag.UNION:
                 consume();
                 name = (Word) lookToken();
                 match(Tag.ID);
-                return new UnionTypeRef(location(token),name.lexeme);
+                return new UnionTypeRef(location(token), name.lexeme);
             default:
                 // TODO UserTypeRef
                 return null;
