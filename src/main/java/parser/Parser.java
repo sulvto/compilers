@@ -1,14 +1,18 @@
 package parser;
 
 import ast.*;
-import entity.*;
+import entity.Constant;
+import entity.DefinedFunction;
+import entity.DefinedVariable;
+import entity.Params;
 import lexer.*;
 import type.*;
-import util.Speculate;
 
-import java.io.IOException;
 import java.io.InputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Stack;
 
 /**
  * Created by sulvto on 16-12-8.
@@ -67,6 +71,10 @@ public class Parser {
 
     private void seek(int index) {
         p = index;
+    }
+
+    interface Speculate {
+        void apply();
     }
 
     java.util.function.Function<Speculate, Boolean> speculate = supplier -> {

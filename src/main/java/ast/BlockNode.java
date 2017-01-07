@@ -23,4 +23,12 @@ public class BlockNode extends StmtNode {
         dumper.printMember("variables", variables);
         dumper.printMember("stmts", stmts);
     }
+
+    public List<DefinedVariable> getVariables() {
+        return variables;
+    }
+
+    public List<StmtNode> getStmts() {
+        return stmts;
+    }
 }

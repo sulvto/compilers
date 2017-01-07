@@ -23,4 +23,8 @@ public class DefinedFunction extends Function {
         dumper.printMember("params", params);
         dumper.printMember("body", body);
     }
+
+    public BlockNode getBody() {
+        return body;
+    }
 }
