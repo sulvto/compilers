@@ -18,6 +18,8 @@ public abstract class Node implements Dumpable {
         dump(new Dumper(stream));
     }
 
+    abstract public ASTNodeType nodeType();
+
     @Override
     public void dump(Dumper dumper) {
         dumper.printClass(this, location());

@@ -24,6 +24,11 @@ public class BlockNode extends StmtNode {
         dumper.printMember("stmts", stmts);
     }
 
+    @Override
+    public ASTNodeType nodeType() {
+        return ASTNodeType.BLOCK;
+    }
+
     public List<DefinedVariable> getVariables() {
         return variables;
     }

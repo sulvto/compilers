@@ -15,4 +15,13 @@ public class ReturnNode extends StmtNode {
     protected void doDump(Dumper dumper) {
         dumper.printMember("expr", expr);
     }
+
+    public ExprNode getExpr() {
+        return expr;
+    }
+
+    @Override
+    public ASTNodeType nodeType() {
+        return ASTNodeType.RETURN;
+    }
 }
