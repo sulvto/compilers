@@ -21,15 +21,15 @@ var Token = function (tag, value, line, col) {
 
     this.tag = tag;
     this.value = value;
-    this.line = line || 0;
-    this.col = col || 0;
+    this.line = line || 1;
+    this.col = col || 1;
 };
 
 var Lexer = function (code) {
     this.input = code ? code.split('').reverse() : [];
     this.peek = ' ';
-    this.line = 0;
-    this.col = 0;
+    this.line = 1;
+    this.col = 1;
 };
 
 Lexer.prototype.newToken = function (tag, value) {
@@ -43,7 +43,7 @@ Lexer.prototype.eof = function () {
 
 Lexer.prototype.readch = function () {
     this.peek = this.input.pop();
-    this.peek || this.col++;
+    this.peek && this.col++;
 };
 
 Lexer.prototype.match = function (char) {
@@ -61,7 +61,7 @@ Lexer.prototype.scan = function () {
         if (this.peek === ' ' || this.peek === '\t') continue;
         else if (this.peek === '\n') {
             this.line++;
-            this.col = 0;
+            this.col = 1;
         } else break;
     }
     if (this.eof()) return this.newToken(tokenType.eof);

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Grid Template for Bootstrap</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcss.com/codemirror/5.30.0/codemirror.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcss.com/codemirror/5.30.0/theme/3024-day.min.css" rel="stylesheet">
+
+</head>
+<body>
+<div class="container">
+
+    <div class="page-header">
+        <h1>Bootstrap grid examples</h1>
+        <p class="lead">Basic grid layouts to get you familiar with building within the Bootstrap grid system.</p>
+    </div>
+
+    <h3>Three equal columns</h3>
+    <div class="row">
+        <div class="col-md-6"><textarea id="code"></textarea>
+        </div>
+        <div class="col-md-6"><div id="ast"></div></div>
+    </div>
+
+</div> <!-- /container -->
+
+<script src="lexer.js"></script>
+<script src="parser.js"></script>
+
+<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/codemirror/5.30.0/codemirror.min.js"></script>
+<script src="https://cdn.bootcss.com/codemirror/5.30.0/mode/javascript/javascript.min.js"></script>
+
+
+<script type="text/javascript">
+//根据DOM元素的id构造出一个编辑器
+    var editor=CodeMirror.fromTextArea(document.getElementById("code"),{
+                mode:"text/javascript", //实现Java代码高亮
+                lineNumbers:true,
+                matchBrackets:true,
+                theme:"3024-day"
+        });
+
+        var showAST = debounce(function(code){
+            console.log('code',code);
+            var parser = new Parser(code);
+            var ast = parser.program();
+            console.log(ast);
+        },1000);
+
+        editor.on("change", function (Editor, changes) {
+            var code = editor.getValue();
+            showAST(code);
+        });
+
+
+        function debounce(func, wait) {
+            var timeout;
+
+            return function () {
+                var context = this;
+                var args = arguments;
+
+                clearTimeout(timeout)
+                timeout = setTimeout(function(){
+                    func.apply(context, args)
+                }, wait);
+            }
+        }
+
+</script>
+
+</body>
+</html>

@@ -145,10 +145,13 @@ Parser.prototype.sourceElement = function () {
 
 Parser.prototype.functionDeclaration = function () {
     this.match("function");
-    var id = tokenType.id;
-    this.match(id);
+    var id  = null;
+    if(this.la(1)==tokenType.id){
+        id = this.lt(1);
+        this.move();
+    }
     this.match("(");
-    var params = this.formalParameterList();
+    var params = this.speculate(this.formalParameterList)||[];
     this.match(")");
     var body = this.functionBody();
     return {
@@ -187,12 +190,19 @@ Parser.prototype.functionBody = function () {
 };
 
 Parser.prototype.statement = function () {
+    var statement = null;
 
-    var statement = this.speculate(this.block)
-        || this.speculate(this.variableStatement)
-        || this.speculate(this.ifStatement)
-        || this.speculate(this.whileStatement)
-        || this.speculate(this.selectionStatement)
+    switch(this.la(1)){
+        case "{": statement = this.block();break;
+        case "var": statement = this.variableStatement();break;
+        case "if": statement = this.ifStatement();break;
+        case "while": statement = this.whileStatement();break;
+        default :break;
+    }
+
+
+    statement =  statement
+        ||this.speculate(this.selectionStatement)
         || this.speculate(this.updateStatement)
         || this.speculate(this.methodCallStatement)
         || this.speculate(this.functionCallStatement)
@@ -219,7 +229,9 @@ Parser.prototype.selectionStatement = function () {
     this.match(".");
     this.match(tokenType.id);
     this.match(";");
+    // TODO
     return {
+        name:"selectionStatement",
         receiver: receiver
     }
 };
@@ -227,11 +239,14 @@ Parser.prototype.selectionStatement = function () {
 Parser.prototype.updateStatement = function () {
     var receiver = this.receiverExpression();
     this.match(".");
+    var id = this.lt(1);
     this.match(tokenType.id);
     this.match("=");
     var primary = this.primaryExpression();
     this.match(";");
     return {
+        name:"updateStatement",
+        id:id,
         receiver: receiver,
         primary: primary
     }
@@ -245,6 +260,7 @@ Parser.prototype.methodCallStatement = function () {
     this.match(tokenType.id);
     var arguments = this.arguments();
     this.match(";");
+    // TODO
     return {
         arguments: arguments
     }
@@ -317,7 +333,7 @@ Parser.prototype.block = function () {
 Parser.prototype.variableStatement = function () {
     this.match("var");
     var variableDeclarationList = this.variableDeclarationList();
-    this.match(";");
+    if(this.la(1)==";") this.match(";");
     return {
         name: "var",
         variableDeclarationList: variableDeclarationList
@@ -328,11 +344,16 @@ Parser.prototype.variableDeclarationList = function () {
     var result = [];
 
     do {
-        var variable = {id: this.match(tokenType.id)};
+        var variable = {id: this.lt(1)};
+        this.match(tokenType.id)
         result.push(variable);
         if (this.la(1) === "=") {
             this.move();
-            variable.init = this.speculate(this.statement) || this.expression();
+            if(this.la(1) === "function"){
+                variable.init = this.functionDeclaration();
+            }else{
+                variable.init = this.speculate(this.statement) || this.expression();
+            }
         }
     } while (this.la(1) === ",");
 
@@ -369,7 +390,7 @@ Parser.prototype.whileStatement = function () {
     this.match(")");
     var statement = this.statement();
     return {
-        name: "if",
+        name: "while",
         expression: expression,
         statement: statement
     }
