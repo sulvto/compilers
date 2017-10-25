@@ -10,7 +10,6 @@
     <link href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.bootcss.com/codemirror/5.30.0/codemirror.min.css" rel="stylesheet">
     <link href="https://cdn.bootcss.com/codemirror/5.30.0/theme/3024-day.min.css" rel="stylesheet">
-
 </head>
 <body>
 <div class="container">
@@ -24,7 +23,7 @@
     <div class="row">
         <div class="col-md-6"><textarea id="code"></textarea>
         </div>
-        <div class="col-md-6"><div id="ast"></div></div>
+        <div class="col-md-6"><textarea id="ast"></textarea></div>
     </div>
 
 </div> <!-- /container -->
@@ -35,12 +34,19 @@
 <script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
 <script src="https://cdn.bootcss.com/codemirror/5.30.0/codemirror.min.js"></script>
 <script src="https://cdn.bootcss.com/codemirror/5.30.0/mode/javascript/javascript.min.js"></script>
-
+<script src="https://cdn.bootcss.com/bootstrap-treeview/1.2.0/bootstrap-treeview.min.js"></script>
 
 <script type="text/javascript">
 //根据DOM元素的id构造出一个编辑器
-    var editor=CodeMirror.fromTextArea(document.getElementById("code"),{
-                mode:"text/javascript", //实现Java代码高亮
+    var codeEditor=CodeMirror.fromTextArea(document.getElementById("code"),{
+                mode:"text/javascript", // 实现JavaScript代码高亮
+                lineNumbers:true,
+                matchBrackets:true,
+                theme:"3024-day"
+        });
+
+        var astEditor=CodeMirror.fromTextArea(document.getElementById("ast"),{
+                mode:"text",
                 lineNumbers:true,
                 matchBrackets:true,
                 theme:"3024-day"
@@ -51,13 +57,55 @@
             var parser = new Parser(code);
             var ast = parser.program();
             console.log(ast);
+            astEditor.setValue(dumpAst(ast));
+
         },1000);
 
-        editor.on("change", function (Editor, changes) {
-            var code = editor.getValue();
+        codeEditor.on("change", function (Editor, changes) {
+            var code = codeEditor.getValue();
             showAST(code);
         });
 
+        codeEditor.setValue('var a = 1;var b  =function(){var a = 1+1;var c = 1+1;};function add (a,b){return a+b*3;};add(1,2);var a = add(1,2);if (1+1>2){var a = 0;} else if (1>0) {} else {var c = 0;}');
+
+        function dumpAst(ast,spaceCount){
+            spaceCount = spaceCount||0;
+            var space = "";
+            var result = "";
+
+            var i = spaceCount;
+            while( i > 0 ){
+                i--;
+                space+=" ";
+            }
+
+            if (ast instanceof Array) {
+                if(ast.length==0){
+                    return "[]";
+                }
+                result = "[";
+                for(i in ast){
+                    result += space +  dumpAst(ast[i],spaceCount+4) +"\n" ;
+                }
+                return result +space+"]";
+            }else if(ast instanceof Object){
+                var astObj = ast;
+                result = "";
+                if(ast.name){
+                    var name = ast.name+"";
+                    delete ast.name;
+                    result +=  "\n"  +"    "+ space + name+":" + dumpAst(ast,spaceCount+4);
+                }else {
+                    for(i in ast){
+                        result +=  "\n"  +"    "+ space + i.toString() + ":" + dumpAst(ast[i],spaceCount+4) ;
+                    }
+                }
+
+                return result;
+            }else {
+                return ast&&ast.toString();
+            }
+        }
 
         function debounce(func, wait) {
             var timeout;
@@ -72,6 +120,7 @@
                 }, wait);
             }
         }
+
 
 </script>
 

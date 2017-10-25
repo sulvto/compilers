@@ -7,7 +7,7 @@ var tokenType = {
     eof: "EOF"
 };
 
-var KEYWORDS = ["if", "else", "function", "var", "this", "new", "for", "do", "while", "switch", "case", "default", "continue", "break", "finally", "catch", "try", "null", "typedef", "undefined"];
+var KEYWORDS = ["if", "else", "function", "var", "this", "new", "for", "do", "while", "switch", "case", "default", "continue", "break", "finally", "catch", "try","return", "null", "typedef", "undefined"];
 var BOOL_KEYWORDS = ["true", "false"];
 
 var UNICODE = {
@@ -104,14 +104,22 @@ Lexer.prototype.scan = function () {
             else return this.newToken('!');
 
         case '>':
-            if (this.match('>')) return this.newToken('>>');
-            if (this.match('=')) return this.newToken('>=');
-            else return this.newToken('>');
+            if (this.match('>')) {
+                return this.newToken('>>');
+            }else if (this.peek =='='){
+                this.peek =' ';
+                this.col++;
+                return this.newToken('>=');
+            }else return this.newToken('>');
 
         case '<':
-            if (this.match('<')) return this.newToken('<<');
-            if (this.match('=')) return this.newToken('<=');
-            else return this.newToken('<');
+            if (this.match('<')) {
+                return this.newToken('<<');
+            }else if (this.peek =='='){
+                this.peek = ' ';
+                this.col++;
+                return this.newToken('<=');
+            } else return this.newToken('<');
     }
 
     if (this.is_digit(this.peek)) {

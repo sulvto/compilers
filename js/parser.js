@@ -145,9 +145,9 @@ Parser.prototype.sourceElement = function () {
 
 Parser.prototype.functionDeclaration = function () {
     this.match("function");
-    var id  = null;
+    var functionName  = null;
     if(this.la(1)==tokenType.id){
-        id = this.lt(1);
+        functionName = this.lt(1).value;
         this.move();
     }
     this.match("(");
@@ -156,7 +156,7 @@ Parser.prototype.functionDeclaration = function () {
     var body = this.functionBody();
     return {
         name: "function",
-        id: id,
+        functionName: functionName,
         params: params,
         body: body
     }
@@ -164,25 +164,25 @@ Parser.prototype.functionDeclaration = function () {
 
 Parser.prototype.formalParameterList = function () {
     var arr = [];
-    var id = tokenType.id;
-    this.match(id);
+    var id = this.lt(1);
+    this.match(tokenType.id);
     arr.push(id);
-    if (this.look.value === ",") {
-        do {
-            id = tokenType.id;
-            this.match(id);
+    while (this.la(1) === ",") {
+            this.move();
+            id = this.lt(1);
+            this.match(tokenType.id);
             arr.push(id);
-        } while (this.look.value === ",")
     }
     return arr;
 };
 
 Parser.prototype.functionBody = function () {
     this.match("{");
-    var body = this.statements();
+    var body = this.speculate(this.statements)||[];
     var ret = this.speculate(this.returnStatement);
     if (ret) body.push(ret);
     this.match("}");
+    if(this.la(1) === ";") this.move();
     return {
         name: "functionBody",
         body: body
@@ -268,17 +268,15 @@ Parser.prototype.methodCallStatement = function () {
 
 
 Parser.prototype.functionCallStatement = function () {
-    var firstName = this.lt(1);
+    var functionName = this.lt(1).value;
     this.match(tokenType.id);
-    if (this.la(1) == "=") {
-        this.move();
-        this.match(tokenType.id);
-    }
 
     var arguments = this.arguments();
     this.match(";");
 
     return {
+        name:"functionCall",
+        functionName:functionName,
         arguments: arguments
     }
 };
@@ -325,9 +323,10 @@ Parser.prototype.receiverExpression = function () {
 
 Parser.prototype.block = function () {
     this.match("{");
-    var body = this.statements();
+    var body = this.speculate(this.statement)||null;
     this.match("}");
-    return body;
+    if(this.la(1) === ";") this.move();
+    return {name:"block",body:body};
 };
 
 Parser.prototype.variableStatement = function () {
@@ -402,8 +401,16 @@ Parser.prototype.forStatement = function () {
 
 Parser.prototype.returnStatement = function () {
     this.match("return");
-    var expression = this.primaryExpression();
-    this.match(";");
+    var expression = null;
+    if(this.la(1)==";"){
+        this.match(";");
+    } else {
+        expression = this.speculate(this.expression)||null;
+    }
+
+  if(this.la(1)==";"){
+        this.match(";");
+    }
     return {
         name: "return",
         expression: expression
@@ -445,6 +452,7 @@ Parser.prototype.expression = function () {
             or = this.speculate(this.logicalOROperator);
         } while (or)
     }
+    if(this.la(1) === ";") this.move();
     return expr;
 };
 
@@ -629,10 +637,11 @@ Parser.prototype.literal = function () {
 Parser.prototype.arguments = function () {
     var args = [];
     this.match("(");
-    var primary = this.speculate(this.primaryExpression());
+    var primary = this.speculate(this.primaryExpression);
     if (primary) {
         args.push(primary);
         while (this.la(1) == ",") {
+            this.move();
             args.push(this.primaryExpression());
         }
     }
