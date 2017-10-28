@@ -5,7 +5,7 @@ import java.util.Map;
  * Created by sulvto on 17-10-27.
  */
 public class MemorySpace {
-    private String name;
+    String name;
     private Map<String, Object> members = new HashMap<>();
 
     public MemorySpace(String name) {
