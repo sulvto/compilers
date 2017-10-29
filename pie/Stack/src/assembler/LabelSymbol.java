@@ -26,6 +26,7 @@ public class LabelSymbol {
 
     public LabelSymbol(String name, int address, boolean forward) {
         this.name = name;
+        this.isForwardRef = forward;
         if (forward) {
             addForwardReference(address);
         } else {

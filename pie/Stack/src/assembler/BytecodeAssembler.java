@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * Created by sulvto on 17-10-29.
@@ -20,8 +21,11 @@ public class BytecodeAssembler extends AssemblerParser {
     protected int dataSize;
     protected FunctionSymbol mainFunction;
 
-    public BytecodeAssembler(InputStream input) {
+    public BytecodeAssembler(InputStream input, BytecodeDefinition.Instruction[] instructions) {
         super(input);
+        for (int i = 1; i < instructions.length; i++) {
+            instructionOpcodeMapping.put(instructions[i].name.toLowerCase(), i);
+        }
     }
 
     @Override
@@ -57,7 +61,7 @@ public class BytecodeAssembler extends AssemblerParser {
 
     @Override
     protected void defineDataSize(int dataSize) {
-        super.defineDataSize(dataSize);
+        this.dataSize = dataSize;
     }
 
     @Override
@@ -124,7 +128,7 @@ public class BytecodeAssembler extends AssemblerParser {
                 v = Integer.parseInt(text);
                 break;
             case Type.CHAR:
-                v = Character.valueOf(text.charAt(1));
+                v = Character.valueOf(text.charAt(0));
                 break;
             case Type.STRING:
                 v = getConstantPoolIndex(text);
@@ -155,7 +159,11 @@ public class BytecodeAssembler extends AssemblerParser {
 
     @Override
     protected void checkForUnresolvedReferences() {
-        super.checkForUnresolvedReferences();
+        labels.values().forEach(label -> {
+            if (!label.isDefined) {
+                System.err.println("unresolved reference:" + label.name);
+            }
+        });
     }
 
     public FunctionSymbol getMainFunction() {

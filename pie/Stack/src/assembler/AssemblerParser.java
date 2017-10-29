@@ -71,7 +71,7 @@ public class AssemblerParser {
 
     public void program() {
         while (lookahead() == NEWLINE) consume();
-        if (lookahead() == '.') globals();
+        if (lookahead(2) == GLOBALS) globals();
 
         while (true) {
             if (lookahead() == NEWLINE) consume();
@@ -105,6 +105,7 @@ public class AssemblerParser {
         match('=');
         Token args = lookToken();
         match(INT);
+        match(',');
         match(LOCALS);
         match('=');
         Token locals = lookToken();
@@ -116,20 +117,20 @@ public class AssemblerParser {
     private void instr() {
         Token instr = lookToken();
         match(ID);
-        if (lookahead() == NEWLINE) {
+        if (NL_EOF()) {
             consume();
             gen(instr);
             return;
         }
         Token o1 = operand();
-        if (lookahead() == NEWLINE) {
+        if (NL_EOF()) {
             consume();
             gen(instr, o1);
             return;
         }
         match(',');
         Token o2 = operand();
-        if (lookahead() == NEWLINE) {
+        if (NL_EOF()) {
             consume();
             gen(instr, o1, o2);
             return;
@@ -137,7 +138,8 @@ public class AssemblerParser {
         match(',');
         Token o3 = operand();
         match(ID);
-        match(NEWLINE);
+        MATCH_NL_EOF();
+
         gen(instr, o1, o2, o3);
     }
 
@@ -174,6 +176,16 @@ public class AssemblerParser {
         match(ID);
         match(':');
         defineLabel(label);
+    }
+
+    private void MATCH_NL_EOF() {
+        if (lookahead() == NEWLINE) match(NEWLINE);
+        else match(EOF);
+    }
+
+    private boolean NL_EOF() {
+        int lookahead = lookahead();
+        return lookahead == NEWLINE || lookahead == EOF;
     }
 
     private void error(String message) {

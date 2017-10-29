@@ -4,9 +4,9 @@ package assembler;
  * Created by sulvto on 17-10-29.
  */
 public class BytecodeDefinition {
-    public static final int REG = 0;
-    public static final int FUNC = 0;
-    public static final int INT = 0;
+    public static final int REG = Type.REG;
+    public static final int FUNC = Type.FUNC;
+    public static final int INT = Type.INT;
     public static final int POOL = 1000;
 
     public static class Instruction {

@@ -60,7 +60,7 @@ public class Interpreter {
 
     private static void init(Interpreter interpreter, InputStream input) throws IOException {
         try {
-            BytecodeAssembler assembler = new BytecodeAssembler(input);
+            BytecodeAssembler assembler = new BytecodeAssembler(input, BytecodeDefinition.instructions);
             assembler.program();
             interpreter.code = assembler.getMachineCode();
             interpreter.codeSize = assembler.getCodeMemorySize();
@@ -180,7 +180,9 @@ public class Interpreter {
                     push(e == f);
                     break;
                 case BytecodeDefinition.INSTR_ITOF:
-                    // TODO ??
+                    a = (Integer) pop();
+                    push((float) a);
+                    break;
                 case BytecodeDefinition.INSTR_CALL:
                     int funcIndexInConstPoolIndex = getIntOperand();
                     call(funcIndexInConstPoolIndex);

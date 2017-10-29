@@ -87,14 +87,28 @@ public class AssemblerLexer {
         // "string"
         if (peek == '\"') {
             StringBuilder buf = new StringBuilder();
-            do {
+            while (true) {
                 readch();
-                buf.append(peek);
-            } while (peek != '\"');
+                if (peek != '\"')
+                    buf.append(peek);
+                else break;
+            }
             readch();
             return newToken(Type.STRING, buf.toString());
         }
 
+        // 'char' TODO -> 'c'
+        if (peek == '\'') {
+            StringBuilder buf = new StringBuilder();
+            while (true) {
+                readch();
+                if (peek != '\'')
+                    buf.append(peek);
+                else break;
+            }
+            readch();
+            return newToken(Type.CHAR, buf.toString());
+        }
 
         if (Character.isDigit(peek)) {
             StringBuilder v = new StringBuilder();
