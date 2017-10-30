@@ -1,5 +1,6 @@
 package test.java;
 
+import jdk.internal.org.objectweb.asm.tree.analysis.Interpreter;
 import org.junit.Test;
 
 import java.io.File;

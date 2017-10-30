@@ -1,3 +1,4 @@
+import base.Interpreter;
 import org.junit.Test;
 
 import java.io.File;
@@ -12,12 +13,9 @@ public class InterpreterTest {
                 System.out.println(file);
                 String[] args = {file.getPath()};
                 Interpreter.main(args);
-
             } catch (Exception e) {
                 e.printStackTrace();
             }
         });
     }
-
-
 }

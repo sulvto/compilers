@@ -73,7 +73,8 @@ public class BytecodeDefinition {
     public static final short INSTR_STRUCT = 32; // push new struct on stack
     public static final short INSTR_NULL = 33;   // push null onto stack
     public static final short INSTR_POP = 34;    // throw away top of stack
-    public static final short INSTR_HALT = 35;
+    public static final short INSTR_MOV = 35;
+    public static final short INSTR_HALT = 36;
 
 
     public static Instruction[] instructions = new Instruction[]{
@@ -112,6 +113,7 @@ public class BytecodeDefinition {
             new Instruction("struct", INT),
             new Instruction("null"),
             new Instruction("pop"),
+            new Instruction("mov"),
             new Instruction("halt")
     };
 }

@@ -1,4 +1,4 @@
-
+package stack;
 
 import assembler.FunctionSymbol;
 
@@ -6,9 +6,9 @@ import assembler.FunctionSymbol;
  * Created by sulvto on 17-10-29.
  */
 public class StackFrame {
-    FunctionSymbol fun;
-    int returnAddress;
-    Object[] locals;
+    public final FunctionSymbol fun;
+    public final int returnAddress;
+    public final Object[] locals;
 
     public StackFrame(FunctionSymbol fun, int returnAddress) {
         this.fun = fun;

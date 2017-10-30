@@ -1,91 +1,42 @@
+package stack;
 
-import assembler.BytecodeAssembler;
 import assembler.BytecodeDefinition;
 import assembler.FunctionSymbol;
-
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import base.Interpreter;
+import base.StructSpace;
 
 /**
  * A simple stack-based interpreter
  * <p>
- * Created by sulvto on 17-10-29.
+ * Created by sulvto on 17-10-30.
  */
-public class Interpreter {
-    public static final int DEFAULT_OPERAND_STACK_SIZE = 100;
-    public static final int DEFAULT_CALL_STACK_SIZE = 1000;
-
-    int ip;
-    byte[] code;
-    int codeSize;
-    Object[] globals;       // global variable space
-    protected Object[] constPool;
-
-    // Operand stack, grows,upwards
-    Object[] operands = new Object[DEFAULT_OPERAND_STACK_SIZE];
-    int sp = -1;            // stack pointer register
-
-    // Stack of stack frames, grows upwards
-    StackFrame[] calls = new StackFrame[DEFAULT_CALL_STACK_SIZE];
-    int fp = -1;            // frame pointer register
-
-    FunctionSymbol mainFunction;
-
-    boolean trace = false;
+public class StackInterpreter extends Interpreter {
 
     public static void main(String[] args) throws Exception {
-        boolean trace = false;
-        boolean disassemble = false;
-        boolean dump = false;
-        String filename = null;
-        int i = 0;
-        while (i < args.length) {
-            if (args[i].equals("-trace")) trace = true;
-            else if (args[i].equals("-dis")) disassemble = true;
-            else if (args[i].equals("-dump")) dump = true;
-            else filename = args[i];
-            i++;
-        }
-
-        InputStream input = filename == null ? System.in : new FileInputStream(filename);
-
-        Interpreter interpreter = new Interpreter();
-        init(interpreter, input);
-        interpreter.trace = trace;
-        interpreter.exec();
-        if (disassemble) interpreter.disassemble();
-        if (dump) interpreter.coredump();
+        run(args, new StackInterpreter());
     }
 
-    private static void init(Interpreter interpreter, InputStream input) throws IOException {
-        try {
-            BytecodeAssembler assembler = new BytecodeAssembler(input, BytecodeDefinition.instructions);
-            assembler.program();
-            interpreter.code = assembler.getMachineCode();
-            interpreter.codeSize = assembler.getCodeMemorySize();
-            interpreter.constPool = assembler.getConstantPool();
-            interpreter.mainFunction = assembler.getMainFunction();
-            interpreter.globals = new Object[assembler.getDataSize()];
-//            interpreter.disasm = new DisAssembler(interpreter.code, interpreter.codeSize, interpreter.constPool);
-        } finally {
-            input.close();
-        }
-    }
 
-    private void exec() {
+    // Operand stack, grows,upwards
+    Object[] operands = new Object[Interpreter.DEFAULT_OPERAND_STACK_SIZE];
+    int sp = -1;            // stack pointer register
+
+    // stack of stack frames, grows upwards
+    protected StackFrame[] calls = new StackFrame[DEFAULT_CALL_STACK_SIZE];
+
+    @Override
+    protected void exec() {
         if (mainFunction == null) {
             mainFunction = new FunctionSymbol("main", 0, 0, 0);
         }
 
         StackFrame frame = new StackFrame(mainFunction, -1);
         calls[++fp] = frame;
-        ip = mainFunction.getAddress();
-        cpu();
+        super.exec();
     }
 
     // Simulate the fetch-execute cycle
-    private void cpu() {
+    public void cpu() {
         Object v = null; // some locals to reuse
         int a, b;
         float e, f;
@@ -270,11 +221,6 @@ public class Interpreter {
         ip = fs.getAddress(); // branch to function
     }
 
-    public int getIntOperand() {
-        int word = BytecodeAssembler.getInt(code, ip);
-        ip += 4;
-        return word;
-    }
 
     private Object pop() {
         return operands[sp--];
@@ -283,15 +229,5 @@ public class Interpreter {
     private void push(Object o) {
         operands[++sp] = o;
     }
-
-    private void trace() {
-    }
-
-    private void disassemble() {
-    }
-
-    private void coredump() {
-    }
-
 
 }
