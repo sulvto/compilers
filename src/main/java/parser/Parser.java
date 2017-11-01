@@ -141,12 +141,12 @@ public class Parser {
         match(Tag.ID);
         if (lookahead() == ';') {
             consume();
-            return new DefinedVariable(false, type, token.value, null);
+            return new DefinedVariable(false, type, token, null);
         } else if (lookahead() == '=') {
             consume();
             ExprNode expr = expr();
             match(';');
-            return new DefinedVariable(false, type, token.value, expr);
+            return new DefinedVariable(false, type, token, expr);
         } else {
             error("defvar syntax error");
         }

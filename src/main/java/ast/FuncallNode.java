@@ -30,4 +30,11 @@ public class FuncallNode extends ExprNode {
         dumper.printMember("args", args);
     }
 
+    public List<ExprNode> args() {
+        return args;
+    }
+
+    public ExprNode expr() {
+        return expr;
+    }
 }

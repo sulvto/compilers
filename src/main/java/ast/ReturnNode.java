@@ -18,7 +18,7 @@ public class ReturnNode extends StmtNode {
         dumper.printMember("expr", expr);
     }
 
-    public ExprNode getExpr() {
+    public ExprNode expr() {
         return expr;
     }
 

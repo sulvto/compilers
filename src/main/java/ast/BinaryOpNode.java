@@ -16,6 +16,14 @@ public class BinaryOpNode extends ExprNode {
         this.right = right;
     }
 
+    public ExprNode left() {
+        return left;
+    }
+
+    public ExprNode right() {
+        return right;
+    }
+
     @Override
     protected void doDump(Dumper dumper) {
         dumper.printMember("operator", token.type);

@@ -11,4 +11,5 @@ public abstract class StmtNode extends Node {
         super(token);
     }
 
+    public abstract <S, E> S accept(ASTVisitor<S, E> visitor);
 }

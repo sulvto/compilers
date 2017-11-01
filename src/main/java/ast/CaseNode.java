@@ -26,4 +26,16 @@ public class CaseNode extends StmtNode {
     }
 
 
+    public StmtNode body() {
+        return body;
+    }
+
+    public List<ExprNode> values() {
+        return values;
+    }
+
+    @Override
+    public <S, E> S accept(ASTVisitor<S, E> visitor) {
+        return visitor.visit(this);
+    }
 }

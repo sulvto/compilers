@@ -12,7 +12,7 @@ import java.util.List;
  */
 public class Params implements Dumpable {
     private Token token;
-    private List<Parameter> parameterList;
+    protected List<Parameter> parameterList;
 
     public Params(Token token) {
         this(token, null);

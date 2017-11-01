@@ -9,4 +9,6 @@ public abstract class ExprNode extends Node {
     public ExprNode(Token token) {
         super(token);
     }
+
+    public abstract <S, E> E accept(ASTVisitor<S, E> visitor);
 }

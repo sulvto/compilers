@@ -14,6 +14,14 @@ public class AbstractAssignNode extends ExprNode {
         this.rhs = right;
     }
 
+    public ExprNode lhs() {
+        return lhs;
+    }
+
+    public ExprNode rhs() {
+        return rhs;
+    }
+
     @Override
     protected void doDump(Dumper dumper) {
         dumper.printMember("lhs", lhs);

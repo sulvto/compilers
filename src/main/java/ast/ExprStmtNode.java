@@ -13,6 +13,9 @@ public class ExprStmtNode extends StmtNode {
         this.expr = expr;
     }
 
+    public ExprNode expr() {
+        return expr;
+    }
     @Override
     protected void doDump(Dumper dumper) {
         dumper.printMember("expr", expr);

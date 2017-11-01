@@ -13,6 +13,17 @@ public class CondExprNode extends ExprNode {
         this.elseExpr = elseExpr;
     }
 
+    public ExprNode cond() {
+        return cond;
+    }
+
+    public ExprNode elseExpr() {
+        return elseExpr;
+    }
+
+    public ExprNode thenExpr() {
+        return thenExpr;
+    }
 
     @Override
     protected void doDump(Dumper dumper) {

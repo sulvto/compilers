@@ -17,10 +17,27 @@ public class IfNode extends StmtNode {
         this.elseBody = elseBody;
     }
 
+    public StmtNode thenBody() {
+        return thenBody;
+    }
+
+    public StmtNode elseBody() {
+        return elseBody;
+    }
+
+    public ExprNode cond() {
+        return cond;
+    }
+
     @Override
     protected void doDump(Dumper dumper) {
         dumper.printMember("cond", cond);
         dumper.printMember("thenBody", thenBody);
         dumper.printMember("elseBody", elseBody);
+    }
+
+    @Override
+    public <S, E> S accept(ASTVisitor<S, E> visitor) {
+        return null;
     }
 }

@@ -15,6 +15,14 @@ public class DoWhileNode extends StmtNode {
         this.body = body;
     }
 
+    public ExprNode cond() {
+        return cond;
+    }
+
+    public StmtNode body() {
+        return body;
+    }
+
     @Override
     protected void doDump(Dumper dumper) {
         dumper.printMember("cond", cond);

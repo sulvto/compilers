@@ -21,4 +21,8 @@ public class UnaryOpNode extends ExprNode {
         dumper.printMember("operator", token.type);
         dumper.printMember("expr", expr);
     }
+
+    public ExprNode expr() {
+        return expr;
+    }
 }

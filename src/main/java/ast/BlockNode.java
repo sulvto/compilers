@@ -1,6 +1,7 @@
 package ast;
 
 import entity.DefinedVariable;
+import entity.LocalScope;
 import lexer.Token;
 
 import java.util.List;
@@ -12,6 +13,7 @@ import java.util.List;
 public class BlockNode extends StmtNode {
     private List<DefinedVariable> variables;
     private List<StmtNode> stmts;
+    private LocalScope scope;
 
     public BlockNode(Token token, List<DefinedVariable> variables, List<StmtNode> stmts) {
         super(token);
@@ -31,5 +33,9 @@ public class BlockNode extends StmtNode {
 
     public List<StmtNode> getStmts() {
         return stmts;
+    }
+
+    public void setScope(LocalScope scope) {
+        this.scope = scope;
     }
 }

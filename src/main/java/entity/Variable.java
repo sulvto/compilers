@@ -1,13 +1,13 @@
 package entity;
 
-import ast.Dumper;
 import ast.TypeNode;
+import lexer.Token;
 
 /**
  * Created by sulvto on 16-12-13.
  */
 public abstract class Variable extends Entity {
-    public Variable(boolean isPrivate, TypeNode type, String name) {
+    public Variable(boolean isPrivate, TypeNode type, Token name) {
         super(isPrivate, type, name);
     }
 
