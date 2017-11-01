@@ -1,5 +1,7 @@
 package ast;
 
+import lexer.Token;
+
 import java.util.List;
 
 /**
@@ -10,20 +12,18 @@ public class CaseNode extends StmtNode {
     private BlockNode body;
 
 
-    public CaseNode(Location location, List<ExprNode> values, BlockNode body) {
-        super(location);
+    public CaseNode(Token token, List<ExprNode> values, BlockNode body) {
+        super(token);
         this.values = values;
         this.body = body;
     }
 
-    @Override
-    public Location location() {
-        return null;
-    }
 
     @Override
     protected void doDump(Dumper dumper) {
         dumper.printMember("values", values);
         dumper.printMember("body", body);
     }
+
+
 }

@@ -11,6 +11,7 @@ public class FuncallNode extends ExprNode {
     private List<ExprNode> args;
 
     public FuncallNode(ExprNode expr, List<ExprNode> args) {
+        super(expr.token);
         this.expr = expr;
         this.args = args;
     }
@@ -24,18 +25,9 @@ public class FuncallNode extends ExprNode {
     }
 
     @Override
-    public Location location() {
-        return expr.location();
-    }
-
-    @Override
     protected void doDump(Dumper dumper) {
         dumper.printMember("expr", expr);
         dumper.printMember("args", args);
     }
 
-    @Override
-    public ASTNodeType nodeType() {
-        return ASTNodeType.CALL;
-    }
 }

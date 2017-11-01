@@ -6,12 +6,18 @@ package lexer;
 public class Token {
     public int line;
     public int column;
-    public final int tag;
+    public final int type;
+    public final String value;
 
-    public Token(int tag, int line, int column) {
-        this.tag = tag;
+    public Token(int type, int line, int column) {
+        this(type, line, column, "");
+    }
+
+    public Token(int type, int line, int column, String value) {
+        this.type = type;
         this.line = line;
         this.column = column;
+        this.value = value;
     }
 
     public void setLine(int line) {

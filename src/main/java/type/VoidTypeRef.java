@@ -1,13 +1,13 @@
 package type;
 
-import ast.Location;
+import lexer.Token;
 
 /**
  * Created by sulvto on 16-12-18.
  */
 public class VoidTypeRef extends TypeRef {
-    public VoidTypeRef(Location location) {
-        super(location);
+    public VoidTypeRef(Token token) {
+        super(token);
     }
 
     public VoidTypeRef() {

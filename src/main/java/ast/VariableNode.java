@@ -1,20 +1,16 @@
 package ast;
 
+import lexer.Token;
+
 /**
  * Created by sulvto on 16-12-17.
  */
 public class VariableNode extends LHSNode {
     private String name;
-    private Location location;
 
-    public VariableNode(Location location, String name) {
-        this.location = location;
+    public VariableNode(Token token, String name) {
+        super(token);
         this.name = name;
-    }
-
-    @Override
-    public Location location() {
-        return location;
     }
 
     @Override

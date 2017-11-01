@@ -1,5 +1,6 @@
 package ast;
 
+import lexer.Token;
 import type.TypeRef;
 
 import java.util.List;
@@ -10,8 +11,8 @@ import java.util.List;
 public abstract class CompositeTypeDefinition extends TypeDefinition {
     private List<Slot> members;
 
-    public CompositeTypeDefinition(Location location, TypeRef ref, String name,List<Slot> members) {
-        super(location, ref, name);
+    public CompositeTypeDefinition(Token token, TypeRef ref, String name, List<Slot> members) {
+        super(token, ref, name);
         this.members = members;
     }
 

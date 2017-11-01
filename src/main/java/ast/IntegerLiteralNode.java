@@ -1,5 +1,6 @@
 package ast;
 
+import lexer.Token;
 import type.TypeRef;
 
 /**
@@ -8,8 +9,8 @@ import type.TypeRef;
 public class IntegerLiteralNode extends LiteralNode {
     private long value;
 
-    public IntegerLiteralNode(Location location, TypeRef typeRef, long value) {
-        super(location, typeRef);
+    public IntegerLiteralNode(Token token, TypeRef typeRef, long value) {
+        super(token, typeRef);
         this.value = value;
     }
 

@@ -1,5 +1,6 @@
 import base.Interpreter;
 import org.junit.Test;
+import stack.StackInterpreter;
 
 import java.io.File;
 import java.util.stream.Stream;
@@ -12,7 +13,7 @@ public class InterpreterTest {
             try {
                 System.out.println(file);
                 String[] args = {file.getPath()};
-                Interpreter.main(args);
+                StackInterpreter.main(args);
             } catch (Exception e) {
                 e.printStackTrace();
             }

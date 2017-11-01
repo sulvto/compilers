@@ -1,5 +1,7 @@
 package lexer;
 
+import java.lang.reflect.Field;
+
 /**
  * Created by sulvto on 16-12-8.
  */
@@ -13,8 +15,23 @@ public class Tag {
             DO = 281, FOR = 282, RETURN = 283, BREAK = 284,
             CONTINUE = 285, GOTO = 286, TYPEDEF = 287, IMPORT = 288,
             SIZEOF = 289, NUM = 290, REAL = 291, STRUCT = 292,
-            CHARACTER = 293, STRING = 294, INT = 295,FLOAT = 296,
-            BOOL = 297, LONG = 298, EOF=299;
+            CHARACTER = 293, STRING = 294, INT = 295, FLOAT = 296,
+            BOOL = 297, LONG = 298, EOF = 299;
 
 
+    public static String string(int tag) {
+        Field[] fields = Tag.class.getFields();
+
+        try {
+            for (int i = 0; i < fields.length; i++) {
+                if (fields[i].getInt(null) == tag) {
+                    return fields[i].getName();
+                }
+            }
+            char[] a = {(char) tag};
+            return new String(a);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

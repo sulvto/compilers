@@ -1,5 +1,7 @@
 package ast;
 
+import lexer.Token;
+
 /**
  * Created by sulvto on 16-12-8.
  */
@@ -8,8 +10,8 @@ public class IfNode extends StmtNode {
     private StmtNode thenBody;
     private StmtNode elseBody;
 
-    public IfNode(Location location, ExprNode cond, StmtNode thenBody, StmtNode elseBody) {
-        super(location);
+    public IfNode(Token token, ExprNode cond, StmtNode thenBody, StmtNode elseBody) {
+        super(token);
         this.cond = cond;
         this.thenBody = thenBody;
         this.elseBody = elseBody;

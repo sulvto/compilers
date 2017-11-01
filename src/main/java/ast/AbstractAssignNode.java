@@ -1,19 +1,17 @@
 package ast;
 
+import lexer.Token;
+
 /**
  * Created by sulvto on 16-12-18.
  */
 public class AbstractAssignNode extends ExprNode {
     protected ExprNode lhs, rhs;
 
-    public AbstractAssignNode(ExprNode left, ExprNode right) {
+    public AbstractAssignNode(ExprNode left, Token token, ExprNode right) {
+        super(token);
         this.lhs = left;
         this.rhs = right;
-    }
-
-    @Override
-    public Location location() {
-        return lhs.location();
     }
 
     @Override

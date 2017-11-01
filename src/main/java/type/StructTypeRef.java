@@ -1,20 +1,20 @@
 package type;
 
-import ast.Location;
+import lexer.Token;
 
 /**
  * Created by sulvto on 16-12-18.
  */
 public class StructTypeRef extends TypeRef {
-    private String name;
+    private Token name;
 
-    public StructTypeRef(Location location, String name) {
-        super(location);
+    public StructTypeRef(Token token, Token name) {
+        super(token);
         this.name = name;
     }
 
     @Override
     public String toString() {
-        return "struct " + name;
+        return "struct " + name.value;
     }
 }

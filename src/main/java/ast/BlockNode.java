@@ -1,6 +1,7 @@
 package ast;
 
 import entity.DefinedVariable;
+import lexer.Token;
 
 import java.util.List;
 
@@ -12,8 +13,8 @@ public class BlockNode extends StmtNode {
     private List<DefinedVariable> variables;
     private List<StmtNode> stmts;
 
-    public BlockNode(Location location, List<DefinedVariable> variables, List<StmtNode> stmts) {
-        super(location);
+    public BlockNode(Token token, List<DefinedVariable> variables, List<StmtNode> stmts) {
+        super(token);
         this.variables = variables;
         this.stmts = stmts;
     }
@@ -22,11 +23,6 @@ public class BlockNode extends StmtNode {
     protected void doDump(Dumper dumper) {
         dumper.printMember("variables", variables);
         dumper.printMember("stmts", stmts);
-    }
-
-    @Override
-    public ASTNodeType nodeType() {
-        return ASTNodeType.BLOCK;
     }
 
     public List<DefinedVariable> getVariables() {

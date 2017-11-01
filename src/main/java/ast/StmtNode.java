@@ -1,17 +1,14 @@
 package ast;
 
+import lexer.Token;
+
 /**
  * Created by sulvto on 16-12-8.
  */
 public abstract class StmtNode extends Node {
-    protected Location location;
 
-    public StmtNode(Location location) {
-        this.location = location;
+    public StmtNode(Token token) {
+        super(token);
     }
 
-    @Override
-    public Location location() {
-        return location;
-    }
 }

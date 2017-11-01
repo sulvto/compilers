@@ -1,5 +1,6 @@
 package ast;
 
+import lexer.Token;
 import type.TypeRef;
 
 /**
@@ -8,8 +9,8 @@ import type.TypeRef;
 public class StringLiteralNode extends LiteralNode {
     private String value;
 
-    public StringLiteralNode(Location location, TypeRef typeRef, String value) {
-        super(location, typeRef);
+    public StringLiteralNode(Token token, TypeRef typeRef, String value) {
+        super(token, typeRef);
         this.value = value;
     }
 

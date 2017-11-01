@@ -1,5 +1,6 @@
 package ast;
 
+import lexer.Token;
 import type.TypeRef;
 
 import java.util.List;
@@ -9,8 +10,8 @@ import java.util.List;
  */
 public class StructNode extends CompositeTypeDefinition {
 
-    public StructNode(Location location, TypeRef ref, String name, List<Slot> members) {
-        super(location, ref, name, members);
+    public StructNode(Token token, TypeRef ref, String name, List<Slot> members) {
+        super(token, ref, name, members);
     }
 
 }

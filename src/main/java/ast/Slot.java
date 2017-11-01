@@ -9,13 +9,9 @@ public class Slot extends Node {
     private String name;
 
     public Slot(TypeNode typeNode, String name) {
+        super(typeNode.token);
         this.typeNode = typeNode;
         this.name = name;
-    }
-
-    @Override
-    public Location location() {
-        return typeNode.location();
     }
 
     @Override

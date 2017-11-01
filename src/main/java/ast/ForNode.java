@@ -1,34 +1,34 @@
 package ast;
 
 import entity.DefinedVariable;
-
-import java.util.List;
+import lexer.Token;
 
 /**
  * Created by sulvto on 16-12-8.
  */
 public class ForNode extends StmtNode {
     private DefinedVariable variable;
+
     private ExprNode init, cond, incr;
     private StmtNode body;
 
-    public ForNode(Location location, ExprNode cond, ExprNode incr, StmtNode body) {
-        super(location);
+    public ForNode(Token token, ExprNode cond, ExprNode incr, StmtNode body) {
+        super(token);
         this.cond = cond;
         this.incr = incr;
         this.body = body;
     }
 
-    public ForNode(Location location, ExprNode init, ExprNode cond, ExprNode incr, StmtNode body) {
-        super(location);
+    public ForNode(Token token, ExprNode init, ExprNode cond, ExprNode incr, StmtNode body) {
+        super(token);
         this.init = init;
         this.cond = cond;
         this.incr = incr;
         this.body = body;
     }
 
-    public ForNode(Location location, DefinedVariable variable, ExprNode cond, ExprNode incr, StmtNode body) {
-        super(location);
+    public ForNode(Token token, DefinedVariable variable, ExprNode cond, ExprNode incr, StmtNode body) {
+        super(token);
         this.variable = variable;
         this.cond = cond;
         this.incr = incr;

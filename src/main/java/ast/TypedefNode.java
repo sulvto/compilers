@@ -1,5 +1,6 @@
 package ast;
 
+import lexer.Token;
 import type.TypeRef;
 import type.UserTypeRef;
 
@@ -9,8 +10,8 @@ import type.UserTypeRef;
 public class TypedefNode extends TypeDefinition {
     private TypeNode real;
 
-    public TypedefNode(Location location, TypeRef real, String name) {
-        super(location, new UserTypeRef(name), name);
+    public TypedefNode(Token token, TypeRef real, String name) {
+        super(token, new UserTypeRef(name), name);
         this.real = new TypeNode(real);
     }
 

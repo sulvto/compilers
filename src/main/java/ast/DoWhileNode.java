@@ -1,5 +1,7 @@
 package ast;
 
+import lexer.Token;
+
 /**
  * Created by sulvto on 16-12-8.
  */
@@ -7,8 +9,8 @@ public class DoWhileNode extends StmtNode {
     private ExprNode cond;
     private StmtNode body;
 
-    public DoWhileNode(Location location, StmtNode body, ExprNode cond) {
-        super(location);
+    public DoWhileNode(Token token, StmtNode body, ExprNode cond) {
+        super(token);
         this.cond = cond;
         this.body = body;
     }

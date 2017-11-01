@@ -12,46 +12,46 @@ public class Lexer {
     private int column = 0;
 
     char peek = ' ';
-    Hashtable<String, Word> wordTable = new Hashtable<>();
+    Hashtable<String, Integer> wordTable = new Hashtable<>();
     private InputStream inputStream;
 
     public Lexer(InputStream inputStream) {
         this.inputStream = inputStream;
 
-        reserve(new Word("true", Tag.TRUE));
-        reserve(new Word("false", Tag.FALSE));
-        reserve(new Word("void", Tag.VOID));
-        reserve(new Word("char", Tag.CHAR));
-        reserve(new Word("long", Tag.LONG));
-        reserve(new Word("int", Tag.INT));
-        reserve(new Word("float", Tag.FLOAT));
-        reserve(new Word("bool", Tag.BOOL));
-        reserve(new Word("union", Tag.UNION));
-        reserve(new Word("enum", Tag.ENUM));
-        reserve(new Word("static", Tag.STATIC));
-        reserve(new Word("extern", Tag.EXTERN));
-        reserve(new Word("const", Tag.CONST));
-        reserve(new Word("if", Tag.IF));
-        reserve(new Word("else", Tag.ELSE));
-        reserve(new Word("switch", Tag.SWITCH));
-        reserve(new Word("case", Tag.CASE));
-        reserve(new Word("default", Tag.DEFAULT));
-        reserve(new Word("while", Tag.WHILE));
-        reserve(new Word("do", Tag.DO));
-        reserve(new Word("for", Tag.FOR));
-        reserve(new Word("return", Tag.RETURN));
-        reserve(new Word("break", Tag.BREAK));
-        reserve(new Word("continue", Tag.CONTINUE));
-        reserve(new Word("goto", Tag.GOTO));
-        reserve(new Word("typedef", Tag.TYPEDEF));
-        reserve(new Word("struct", Tag.STRUCT));
-        reserve(new Word("import", Tag.IMPORT));
-        reserve(new Word("sizeof", Tag.SIZEOF));
+        reserve("true", Tag.TRUE);
+        reserve("false", Tag.FALSE);
+        reserve("void", Tag.VOID);
+        reserve("char", Tag.CHAR);
+        reserve("long", Tag.LONG);
+        reserve("int", Tag.INT);
+        reserve("float", Tag.FLOAT);
+        reserve("bool", Tag.BOOL);
+        reserve("union", Tag.UNION);
+        reserve("enum", Tag.ENUM);
+        reserve("static", Tag.STATIC);
+        reserve("extern", Tag.EXTERN);
+        reserve("const", Tag.CONST);
+        reserve("if", Tag.IF);
+        reserve("else", Tag.ELSE);
+        reserve("switch", Tag.SWITCH);
+        reserve("case", Tag.CASE);
+        reserve("default", Tag.DEFAULT);
+        reserve("while", Tag.WHILE);
+        reserve("do", Tag.DO);
+        reserve("for", Tag.FOR);
+        reserve("return", Tag.RETURN);
+        reserve("break", Tag.BREAK);
+        reserve("continue", Tag.CONTINUE);
+        reserve("goto", Tag.GOTO);
+        reserve("typedef", Tag.TYPEDEF);
+        reserve("struct", Tag.STRUCT);
+        reserve("import", Tag.IMPORT);
+        reserve("sizeof", Tag.SIZEOF);
     }
 
 
-    private void reserve(Word word) {
-        wordTable.put(word.lexeme, word);
+    private void reserve(String word, int tag) {
+        wordTable.put(word, tag);
     }
 
 
@@ -124,22 +124,22 @@ public class Lexer {
 
         switch (peek) {
             case '&':
-                if (readch('&')) return new Word("&&", Tag.AND, line, column);
+                if (readch('&')) return new Token(Tag.AND, line, column, "&&");
                 else return new Token('&', line, column);
             case '|':
-                if (readch('|')) return new Word("&&", Tag.OR, line, column);
+                if (readch('|')) return new Token(Tag.OR, line, column, "||");
                 else return new Token('|', line, column);
             case '!':
-                if (readch('=')) return new Word("&&", Tag.NE, line, column);
+                if (readch('=')) return new Token(Tag.NE, line, column, "!=");
                 else return new Token('!', line, column);
             case '=':
-                if (readch('=')) return new Word("&&", Tag.EQ, line, column);
+                if (readch('=')) return new Token(Tag.EQ, line, column, "==");
                 else return new Token('=', line, column);
             case '>':
-                if (readch('=')) return new Word("&&", Tag.GE, line, column);
+                if (readch('=')) return new Token(Tag.GE, line, column, ">=");
                 else return new Token('<', line, column);
             case '<':
-                if (readch('=')) return new Word("&&", Tag.LE, line, column);
+                if (readch('=')) return new Token(Tag.LE, line, column, "<=");
                 else return new Token('<', line, column);
         }
 
@@ -151,31 +151,28 @@ public class Lexer {
                 buf.append(peek);
             } while (peek != '\"');
             readch();
-            return new Word(buf.toString(), Tag.STRING, line, column);
+            return new Token(Tag.STRING, line, column, buf.toString());
         }
 
         // TODO Tag.CHARACTER
 
         if (Character.isDigit(peek)) {
-            int v = 0;
+            StringBuilder buf = new StringBuilder();
             do {
-                v = 10 * v + Character.digit(peek, 10);
+                buf.append(peek);
                 readch();
             } while (Character.isDigit(peek));
 
             if ('.' != peek) {
-                return new Num(v, line, column);
+                return new Token(Tag.NUM, line, column, buf.toString());
             }
 
-            float x = v;
-            float d = 10;
             for (; ; ) {
                 readch();
                 if (!Character.isDigit(peek)) break;
-                x = x + Character.digit(peek, 10) / d;
-                d *= 10;
+                buf.append(peek);
             }
-            return new Real(x, line, column);
+            return new Token(Tag.REAL, line, column, buf.toString());
         }
 
         if (Character.isLetter(peek)) {
@@ -186,14 +183,8 @@ public class Lexer {
             } while (Character.isLetterOrDigit(peek));
 
             String t = buf.toString();
-            Word word = wordTable.get(t);
-            if (word == null) {
-                word = new Word(t, Tag.ID);
-                wordTable.put(t, word);
-            }
-            word.setLine(line);
-            word.setColumn(column);
-            return word;
+            if (wordTable.get(t) != null) return new Token(wordTable.get(t), line, column, t);
+            else return new Token(Tag.ID, line, column, t);
         }
         Token token = new Token(peek, line, column);
         peek = ' ';

@@ -1,5 +1,7 @@
 package ast;
 
+import lexer.Token;
+
 import java.util.List;
 
 /**
@@ -9,8 +11,8 @@ public class SwitchNode extends StmtNode {
     private ExprNode cond;
     private List<CaseNode> cases;
 
-    public SwitchNode(Location location, ExprNode cond, List<CaseNode> caseNodes) {
-        super(location);
+    public SwitchNode(Token token, ExprNode cond, List<CaseNode> caseNodes) {
+        super(token);
         this.cond = cond;
         this.cases = caseNodes;
     }

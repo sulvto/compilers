@@ -1,5 +1,7 @@
 package ast;
 
+import lexer.Token;
+
 import java.io.PrintStream;
 import java.util.List;
 
@@ -62,9 +64,9 @@ public class Dumper {
     }
 
 
-    public void printClass(Object obj, Location location) {
+    public void printClass(Object obj, Token token) {
         printIndent();
-        stream.println("<<" + obj.getClass().getSimpleName() + ">>(" + location + ")");
+        stream.println("<<" + obj.getClass().getSimpleName() + ">>(" + token + ")");
     }
 
     public void printMember(String name, String str) {

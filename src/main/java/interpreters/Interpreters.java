@@ -4,7 +4,6 @@ import ast.*;
 import entity.DefinedFunction;
 import entity.DefinedVariable;
 
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,19 +38,19 @@ public class Interpreters {
     }
 
     public Object exec(Node node) {
-        switch (node.nodeType()) {
-            case BLOCK:
-                block((BlockNode) node);
-                break;
-            case RETURN:
-                ret((ReturnNode) node);
-                break;
-            case ASSIGN:
-                assign(node);
-                break;
-            case CALL:
-                return call((FuncallNode) node);
-        }
+//        switch (node.type()) {
+//            case Type.:
+//                block((BlockNode) node);
+//                break;
+//            case RETURN:
+//                ret((ReturnNode) node);
+//                break;
+//            case ASSIGN:
+//                assign(node);
+//                break;
+//            case CALL:
+//                return call((FuncallNode) node);
+//        }
 
         return null;
     }
@@ -72,14 +71,14 @@ public class Interpreters {
         throw RETURN_VALUE;
     }
 
-    public Object block(BlockNode body) {
+    public void block(BlockNode body) {
         List<DefinedVariable> variables = body.getVariables();
         pushLocalScope(variables);
         List<StmtNode> stmts = body.getStmts();
 //        stmt()
     }
 
-    private Object stmt(StmtNode stmtNode) {
+    private void stmt(StmtNode stmtNode) {
         // TODO
     }
 

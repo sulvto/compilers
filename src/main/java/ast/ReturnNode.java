@@ -1,13 +1,15 @@
 package ast;
 
+import lexer.Token;
+
 /**
  * Created by sulvto on 16-12-8.
  */
 public class ReturnNode extends StmtNode {
     private ExprNode expr;
 
-    public ReturnNode(Location location, ExprNode expr) {
-        super(location);
+    public ReturnNode(Token token, ExprNode expr) {
+        super(token);
         this.expr = expr;
     }
 
@@ -20,8 +22,4 @@ public class ReturnNode extends StmtNode {
         return expr;
     }
 
-    @Override
-    public ASTNodeType nodeType() {
-        return ASTNodeType.RETURN;
-    }
 }

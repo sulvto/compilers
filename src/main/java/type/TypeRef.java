@@ -1,18 +1,15 @@
 package type;
 
-import ast.Location;
+import lexer.Token;
 
 /**
  * Created by sulvto on 16-12-18.
  */
 public abstract class TypeRef {
-    private Location location;
+    public final Token token;
 
-    public TypeRef(Location location) {
-        this.location = location;
+    public TypeRef(Token token) {
+        this.token = token;
     }
 
-    public Location location() {
-        return location;
-    }
 }

@@ -1,7 +1,6 @@
 package symbols;
 
 import lexer.Tag;
-import lexer.Word;
 
 /**
  * Created by sulvto on 16-11-6.

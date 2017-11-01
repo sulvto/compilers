@@ -1,6 +1,6 @@
 package type;
 
-import ast.Location;
+import lexer.Token;
 
 /**
  * Created by sulvto on 16-12-18.
@@ -13,8 +13,8 @@ public class UserTypeRef extends TypeRef {
         this.name = name;
     }
 
-    public UserTypeRef(Location location, String name) {
-        super(location);
+    public UserTypeRef(Token token, String name) {
+        super(token);
         this.name = name;
     }
 

@@ -1,7 +1,6 @@
 package inter;
 
 import lexer.Tag;
-import lexer.Word;
 import symbols.Type;
 
 /**

@@ -1,5 +1,7 @@
 package ast;
 
+import lexer.Token;
+
 /**
  * Created by sulvto on 16-12-8.
  */
@@ -7,8 +9,8 @@ public class WhileNode extends StmtNode {
     private ExprNode cond;
     private StmtNode body;
 
-    public WhileNode(Location location, ExprNode cond, StmtNode body) {
-        super(location);
+    public WhileNode(Token token, ExprNode cond, StmtNode body) {
+        super(token);
         this.cond = cond;
         this.body = body;
     }
@@ -18,4 +20,5 @@ public class WhileNode extends StmtNode {
         dumper.printMember("cond", cond);
         dumper.printMember("body", body);
     }
+
 }

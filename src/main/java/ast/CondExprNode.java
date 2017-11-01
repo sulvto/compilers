@@ -7,15 +7,12 @@ public class CondExprNode extends ExprNode {
     private ExprNode cond, thenExpr, elseExpr;
 
     public CondExprNode(ExprNode cond, ExprNode thenExpr, ExprNode elseExpr) {
+        super(cond.token);
         this.cond = cond;
         this.thenExpr = thenExpr;
         this.elseExpr = elseExpr;
     }
 
-    @Override
-    public Location location() {
-        return cond.location();
-    }
 
     @Override
     protected void doDump(Dumper dumper) {

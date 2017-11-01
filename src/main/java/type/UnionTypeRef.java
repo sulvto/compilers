@@ -1,20 +1,20 @@
 package type;
 
-import ast.Location;
+import lexer.Token;
 
 /**
  * Created by sulvto on 16-12-18.
  */
 public class UnionTypeRef extends TypeRef {
-    private String name;
+    private Token name;
 
-    public UnionTypeRef(Location location, String name) {
-        super(location);
+    public UnionTypeRef(Token token, Token name) {
+        super(token);
         this.name = name;
     }
 
     @Override
     public String toString() {
-        return "union " + name;
+        return "union " + name.value;
     }
 }

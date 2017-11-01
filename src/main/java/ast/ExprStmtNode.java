@@ -1,13 +1,15 @@
 package ast;
 
+import lexer.Token;
+
 /**
  * Created by sulvto on 16-12-14.
  */
 public class ExprStmtNode extends StmtNode {
     private ExprNode expr;
 
-    public ExprStmtNode(Location location, ExprNode expr) {
-        super(location);
+    public ExprStmtNode(Token token, ExprNode expr) {
+        super(token);
         this.expr = expr;
     }
 

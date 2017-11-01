@@ -10,16 +10,13 @@ public class TypeNode extends Node {
     private TypeRef typeRef;
 
     public TypeNode(TypeRef typeRef) {
+        super(typeRef.token);
         this.typeRef = typeRef;
-    }
-
-    @Override
-    public Location location() {
-        return typeRef == null ? null : typeRef.location();
     }
 
     @Override
     protected void doDump(Dumper dumper) {
         // TODO
     }
+
 }

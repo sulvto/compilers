@@ -11,10 +11,10 @@ import java.util.List;
  */
 public class AST extends Node {
 
-    Location source;
     private Declarations declarations;
 
     public AST( Declarations declarations) {
+        super(null);
         this.declarations = declarations;
     }
 
@@ -26,11 +26,6 @@ public class AST extends Node {
         return declarations.defuns();
     }
 
-
-    @Override
-    public Location location() {
-        return source;
-    }
 
     @Override
     protected void doDump(Dumper dumper) {

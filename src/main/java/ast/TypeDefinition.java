@@ -1,5 +1,6 @@
 package ast;
 
+import lexer.Token;
 import type.TypeRef;
 
 /**
@@ -10,14 +11,10 @@ public abstract class TypeDefinition extends Node {
     protected String name;
     protected TypeNode typeNode;
 
-    public TypeDefinition(Location location, TypeRef ref, String name) {
-        this.location = location;
+    public TypeDefinition(Token token, TypeRef ref, String name) {
+        super(token);
         this.name = name;
         this.typeNode = new TypeNode(ref);
     }
 
-    @Override
-    public Location location() {
-        return location;
-    }
 }

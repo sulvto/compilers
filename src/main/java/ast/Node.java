@@ -1,12 +1,18 @@
 package ast;
 
+import lexer.Token;
+
 import java.io.PrintStream;
 
 /**
  * Created by sulvto on 16-12-8.
  */
 public abstract class Node implements Dumpable {
-    abstract public Location location();
+    public final Token token;
+
+    public Node(Token token) {
+        this.token = token;
+    }
 
     protected abstract void doDump(Dumper dumper);
 
@@ -18,11 +24,13 @@ public abstract class Node implements Dumpable {
         dump(new Dumper(stream));
     }
 
-    abstract public ASTNodeType nodeType();
+    public int type() {
+        return token.type;
+    }
 
     @Override
     public void dump(Dumper dumper) {
-        dumper.printClass(this, location());
+        dumper.printClass(this, token);
         doDump(dumper);
     }
 }
