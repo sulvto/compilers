@@ -14,6 +14,10 @@ public class TypeNode extends Node {
         this.typeRef = typeRef;
     }
 
+    public TypeRef typeRef() {
+        return typeRef;
+    }
+
     @Override
     protected void doDump(Dumper dumper) {
         // TODO

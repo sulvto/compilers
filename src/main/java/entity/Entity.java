@@ -31,4 +31,8 @@ public abstract class Entity implements Dumpable {
     public void refered() {
         nRefered++;
     }
+
+    public TypeNode typeNode() {
+        return typeNode;
+    }
 }

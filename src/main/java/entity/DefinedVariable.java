@@ -35,4 +35,5 @@ public class DefinedVariable extends Variable {
     public boolean hasInitializer() {
         return initializer != null;
     }
+
 }

@@ -22,8 +22,8 @@ public class AST extends Node {
 
     public List<Entity> declarations() {
         List<Entity> result = new ArrayList<>();
-        result.addAll(declarations.defvars());
-        result.addAll(declarations.defuns());
+        result.addAll(declarations.vardecls());
+        result.addAll(declarations.funcdecls());
         return result;
     }
 
@@ -45,6 +45,24 @@ public class AST extends Node {
 
     public List<DefinedFunction> definedFunctions() {
         return declarations.defuns();
+    }
+
+    public List<Entity> entitys() {
+        List<Entity> result = new ArrayList<>();
+        result.addAll(declarations.funcdecls());
+        result.addAll(declarations.vardecls());
+        result.addAll(declarations.defvars());
+        result.addAll(declarations.defunions());
+        result.addAll(declarations.constants());
+        return result;
+    }
+
+    public List<TypeDefinition> types() {
+        List<TypeDefinition> result = new ArrayList<>();
+        result.addAll(declarations.defstructs());
+        result.addAll(declarations.defunions());
+        result.addAll(declarations.typedefs());
+        return result;
     }
 
 

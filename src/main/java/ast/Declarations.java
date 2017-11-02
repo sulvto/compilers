@@ -14,12 +14,21 @@ import java.util.Set;
  */
 public class Declarations {
     private Set<DefinedVariable> defvars = new LinkedHashSet<>();
+    private Set<UndefinedVariable> vardecls = new LinkedHashSet<>();
     private Set<DefinedFunction> defuns = new LinkedHashSet<>();
+    private Set<UndefinedFunction> funcdecls = new LinkedHashSet<>();
     private Set<Constant> constants = new LinkedHashSet<>();
     private Set<StructNode> defstructs = new LinkedHashSet<>();
     private Set<UnionNode> defunions = new LinkedHashSet<>();
     private Set<TypedefNode> typedefs = new LinkedHashSet<>();
 
+    public Set<UndefinedVariable> vardecls() {
+        return vardecls;
+    }
+
+    public Set<UndefinedFunction> funcdecls() {
+        return funcdecls;
+    }
 
     public void addDefvar(DefinedVariable definedVariable) {
         defvars.add(definedVariable);

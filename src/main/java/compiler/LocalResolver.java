@@ -47,11 +47,12 @@ public class LocalResolver extends Visitor {
         ast.setConstantTable(constantTable);
     }
 
-    private void resolveGvarInitializers(List<DefinedVariable> definedVariables) {
-
+    private void resolveGvarInitializers(List<DefinedVariable> gvars) {
+        gvars.stream().filter(DefinedVariable::hasInitializer).forEach(definedVariable -> resolve(definedVariable.initializer()));
     }
 
     private void resolveConstantValues(List<Constant> constants) {
+        constants.forEach(constant -> resolve(constant.value()));
     }
 
     private void resolveFuncstions(List<DefinedFunction> definedFunctions) {
