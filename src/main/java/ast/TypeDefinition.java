@@ -24,4 +24,8 @@ public abstract class TypeDefinition extends Node {
     public abstract <T> T accept(DeclarationVisitor<T> visitor);
 
     public abstract Type definingType();
+
+    public TypeNode typeNode() {
+        return typeNode;
+    }
 }

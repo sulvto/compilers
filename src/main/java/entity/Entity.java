@@ -3,6 +3,7 @@ package entity;
 import ast.Dumpable;
 import ast.TypeNode;
 import lexer.Token;
+import type.Type;
 
 /**
  * Created by sulvto on 16-12-13.
@@ -20,7 +21,20 @@ public abstract class Entity implements Dumpable {
         this.nRefered = 0;
     }
 
-    public String getName() {
+    abstract public boolean isDefined();
+
+    abstract public boolean isInitialized();
+
+    public boolean isPrivate() {
+        return isPrivate;
+    }
+
+    public boolean isConstant() {
+        return false;
+    }
+
+
+    public String name() {
         return name.value;
     }
 
@@ -35,4 +49,10 @@ public abstract class Entity implements Dumpable {
     public TypeNode typeNode() {
         return typeNode;
     }
+
+    public Type type() {
+        return typeNode.type();
+    }
+
+    abstract public <T> T accept(EntityVisitor<T> visitor);
 }

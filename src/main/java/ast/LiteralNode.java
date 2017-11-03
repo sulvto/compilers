@@ -14,4 +14,7 @@ public abstract class LiteralNode extends ExprNode {
         this.typeNode = new TypeNode(typeRef);
     }
 
+    public TypeNode typeNode() {
+        return typeNode;
+    }
 }

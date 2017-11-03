@@ -20,4 +20,8 @@ public class TypedefNode extends TypeDefinition {
         dumper.printMember("name", name);
         dumper.printMember("typeNode", real);
     }
+
+    public TypeNode typeNode() {
+        return typeNode;
+    }
 }

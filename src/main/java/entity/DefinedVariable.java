@@ -32,6 +32,11 @@ public class DefinedVariable extends Variable {
         return null;
     }
 
+    @Override
+    public <T> T accept(EntityVisitor<T> visitor) {
+        return visitor.visit(this);
+    }
+
     public boolean hasInitializer() {
         return initializer != null;
     }

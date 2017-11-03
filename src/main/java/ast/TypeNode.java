@@ -1,5 +1,6 @@
 package ast;
 
+import type.Type;
 import type.TypeRef;
 
 /**
@@ -8,6 +9,8 @@ import type.TypeRef;
 public class TypeNode extends Node {
     private String name;
     private TypeRef typeRef;
+    private Type type;
+    private boolean resolved;
 
     public TypeNode(TypeRef typeRef) {
         super(typeRef.token);
@@ -20,7 +23,26 @@ public class TypeNode extends Node {
 
     @Override
     protected void doDump(Dumper dumper) {
-        // TODO
+        dumper.printMember("typeRef", typeRef);
+        dumper.printMember("type", type);
     }
 
+
+    public Type type() {
+        if (type == null) {
+            throw new Error("TypeNode not resolved:" + typeRef);
+        }
+        return type;
+    }
+
+    public void setType(Type type) {
+        if (this.type != null) {
+            throw new Error("TypeNode#setType called twice");
+        }
+        this.type = type;
+    }
+
+    public boolean isResolved() {
+        return resolved;
+    }
 }

@@ -3,6 +3,7 @@ package entity;
 import ast.BlockNode;
 import ast.Dumper;
 import ast.TypeNode;
+import lexer.Token;
 
 import java.util.List;
 
@@ -14,7 +15,7 @@ public class DefinedFunction extends Function {
     private BlockNode body;
     private LocalScope scope;
 
-    public DefinedFunction(boolean isPrivate, TypeNode type, String name, Params params, BlockNode body) {
+    public DefinedFunction(boolean isPrivate, TypeNode type, Token name, Params params, BlockNode body) {
         super(isPrivate, type, name);
         this.params = params;
         this.body = body;
@@ -22,7 +23,7 @@ public class DefinedFunction extends Function {
 
     @Override
     public void dump(Dumper dumper) {
-        dumper.printMember("name", name);
+        dumper.printMember("name", name.toString());
         dumper.printMember("params", params);
         dumper.printMember("body", body);
     }
@@ -31,8 +32,13 @@ public class DefinedFunction extends Function {
         return params.parameterList;
     }
 
-    public BlockNode getBody() {
+    public BlockNode body() {
         return body;
+    }
+
+    @Override
+    public boolean isDefined() {
+        return true;
     }
 
     @Override
@@ -40,7 +46,17 @@ public class DefinedFunction extends Function {
         return "";
     }
 
+    @Override
+    public <T> T accept(EntityVisitor<T> visitor) {
+        return visitor.visit(this);
+    }
+
     public void setScope(LocalScope scope) {
         this.scope = scope;
+    }
+
+    @Override
+    public List<Parameter> parameters() {
+        return params.parameterList;
     }
 }

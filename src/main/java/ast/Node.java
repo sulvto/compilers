@@ -14,6 +14,8 @@ public abstract class Node implements Dumpable {
         this.token = token;
     }
 
+    public abstract String location();
+
     protected abstract void doDump(Dumper dumper);
 
     public void dump() {
@@ -22,10 +24,6 @@ public abstract class Node implements Dumpable {
 
     public void dump(PrintStream stream) {
         dump(new Dumper(stream));
-    }
-
-    public int type() {
-        return token.type;
     }
 
     @Override

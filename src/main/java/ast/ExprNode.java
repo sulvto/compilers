@@ -11,4 +11,12 @@ public abstract class ExprNode extends Node {
     }
 
     public abstract <S, E> E accept(ASTVisitor<S, E> visitor);
+
+    public boolean isConstant() {
+        return false;
+    }
+
+    public boolean isAssignable() {
+        return false;
+    }
 }

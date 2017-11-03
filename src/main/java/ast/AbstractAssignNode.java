@@ -5,7 +5,7 @@ import lexer.Token;
 /**
  * Created by sulvto on 16-12-18.
  */
-public class AbstractAssignNode extends ExprNode {
+public abstract class AbstractAssignNode extends ExprNode {
     protected ExprNode lhs, rhs;
 
     public AbstractAssignNode(ExprNode left, Token token, ExprNode right) {

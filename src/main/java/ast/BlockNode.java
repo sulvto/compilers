@@ -27,11 +27,11 @@ public class BlockNode extends StmtNode {
         dumper.printMember("stmts", stmts);
     }
 
-    public List<DefinedVariable> getVariables() {
+    public List<DefinedVariable> variables() {
         return variables;
     }
 
-    public List<StmtNode> getStmts() {
+    public List<StmtNode> stmts() {
         return stmts;
     }
 

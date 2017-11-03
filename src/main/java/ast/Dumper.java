@@ -1,6 +1,8 @@
 package ast;
 
 import lexer.Token;
+import type.Type;
+import type.TypeRef;
 
 import java.io.PrintStream;
 import java.util.List;
@@ -75,5 +77,13 @@ public class Dumper {
 
     public void printMember(String name, long value) {
         printPair(name, value + "");
+    }
+
+    public void printMember(String name, TypeRef typeRef) {
+        printPair(name, typeRef.toString());
+    }
+
+    public void printMember(String name, Type type) {
+        printPair(name, type == null ? "null" : type.toString());
     }
 }
