@@ -11,4 +11,12 @@ public interface Literal extends Comparable<Literal> {
     String dump();
 
     boolean isZero();
+
+    int cmp(IntegerLiteral i);
+
+    int cmp(NamedSymbol sym);
+
+    int cmp(UnnamedSymbol sym);
+
+    int cmp(SuffixedSymbol sym);
 }
