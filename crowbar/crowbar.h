@@ -75,6 +75,19 @@ typedef struct CRB_String_tag {
     CRB_Boolean is_literal;
 } CRB_String;
 
+struct CRB_LocalEnvironment_tag {
+    Variable *variable;
+    GlobalVariableRef *global_variable;
+    RefInNativeFunction *ref_in_native_method;
+    struct CRB_LocalEnvironment_tag *next;
+};
+
+typedef struct {
+    int     current_heap_size;
+    int     current_threshold;
+    CRB_Object *header;
+} Heap;
+
 typedef struct {
     int stack_alloc_size;
     int stack_pointer;
@@ -88,6 +101,9 @@ struct CRB_Interpreter_tag {
     FunctionDefinition  *function_list;
     StatementList       *statement_list;
     int                 current_line_number;
+    Stack               stack;
+    Heap                heap;
+    CRB_LocalEnvironment *top_environment;
 };
 
 
