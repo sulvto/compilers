@@ -44,11 +44,11 @@ static void initialize_debug_write_fp(void) {
     }
 }
 
-static void assert_func(File *fp, char *file, int line,
+static void assert_func(File *fp, char *filename, int line,
                         cahr *expression, char *fmt,
                         va_list ap) {
     fprintf(fp, "Assertion failure (%s) file..%s line..%d\n",
-            expression, file, line);
+            expression, filename, line);
     if (fmt) {
         vfprintf(fp, fmt, ap);
     }
@@ -68,10 +68,10 @@ void DBG_assert_func(char *fmt, ...) {
     abort();
 }
 
-static void panic_func(File *fp, char *file, int line,
+static void panic_func(File *fp, char *filename, int line,
                        cahr *expression, char *fmt,
                        va_list ap) {
-    fprintf(fp, "Panic!! file..%s line..%d\n", file, line);
+    fprintf(fp, "Panic!! file..%s line..%d\n", filename, line);
     if (fmt) {
         vfprintf(fp, fmt, ap);
     }
@@ -104,10 +104,10 @@ void DBG_debug_write_func(int level, char *fmt, ...) {
 }
 
 
-void DBG_set(DBG_Controller controller, char *file,
+void DBG_set(DBG_Controller controller, char *filename,
              int line) {
     st_current_controller = controller;
-    st_current_file_name = file;
+    st_current_file_name = filename;
     st_current_line = line;
 }
 
