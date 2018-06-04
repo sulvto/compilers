@@ -3,44 +3,64 @@
 //
 #include "crowbar.h"
 
-static CRB_Value eval_boolean_expression(CRB_Boolean boolean_value) {
+static void push_value(CRB_Interpreter *interpreter, CRB_Value *value) {
+    DEB_assert(interpreter->stack.stack_pointer <= interpreter->stack.stack_alloc_size,
+               ("stack_pointer..%d, stack_alloc_size..%d\n",
+                       interpreter->stack.stack_pointer,
+                       interpreter->stack.stack_alloc_size));
+    if (interpreter->stack.stack_pointer == interpreter->stack.stack_alloc_size) {
+        interpreter->stack.stack_alloc_size += STACK_ALLOC_SIZE;
+        interpreter->stack = MEM_malloc(interpreter->stack.stack,
+                                        sizeof(CRB_Value) * interpreter->stack.stack_alloc_size);
+    }
+
+    interpreter->stack[interpreter->stack.stack_pointer] = *value;
+    interpreter->stack.stack_pointer++;
+}
+
+static CRB_Value pop_value(CRB_Interpreter *interpreter) {
+    return interpreter->stack.stack[--interpreter->stack.stack_pointer];
+}
+
+static CRB_Value *peek_value(CRB_Interpreter *interpreter, int index) {
+    return &interpreter->stack.stack[interpreter->stack.stack_pointer - index - 1];
+}
+
+static void eval_boolean_expression(CRB_Interpreter *interpreter, CRB_Boolean boolean_value) {
     CRB_Value value;
     value.type = CRB_BOOLEAN_VALUE;
     value.u.boolean_value = boolean_value;
-    return value;
+    push_value(interpreter, &value);
 }
 
-static CRB_Value eval_int_expression(int int_value) {
+static void eval_int_expression(CRB_Interpreter *interpreter, int int_value) {
     CRB_Value value;
     value.type = CRB_INT_VALUE;
     value.u.int_value = int_value;
-    return value;
+    push_value(interpreter, &value);
 }
 
-static CRB_Value eval_double_expression(double double_value) {
+static void eval_double_expression(CRB_Interpreter *interpreter, double double_value) {
     CRB_Value value;
     value.type = CRB_DOUBLE_VALUE;
     value.u.double_value = double_value;
-    return value;
+    push_value(interpreter, &value);
 }
 
-static CRB_Value eval_string_expression(double string_value) {
+static void eval_string_expression(CRB_Interpreter *interpreter, double string_value) {
     CRB_Value value;
     value.type = CRB_STRING_VALUE;
     value.u.string_value = string_value;
-    return value;
+    push_value(interpreter, &value);
 }
 
 
-static CRB_Value call_crowber_function(CRB_Interpreter *interpreter, LocalEnvironment *environment,
+static CRB_Value call_crowbar_function(CRB_Interpreter *interpreter, LocalEnvironment *environment,
                                        Expression *expression, FunctionDefinition *function) {
     CRB_Value value;
     StatementResult result;
     ArgumentList *arg_p;
     ParameterList *param_p;
-    LocalEnvironment *local_env;
-
-    local_env = alloc_local_environment();
 
     for (arg_p = expression->u.function_call_expression.argument, param_p = function->u.crowbar_f.parameter;
          arg_p;
@@ -51,8 +71,10 @@ static CRB_Value call_crowber_function(CRB_Interpreter *interpreter, LocalEnviro
             crb_runtime_error(expression->line_number, ARGUMENT_TOO_MANY_ERR,
                               MESSAGE_ARGUMENT_END);
         }
-        arg_val = eval_expression(interpreter, environment, arg_p->expression);
-        crb_add_local_variable(local_env, param_p->name, &arg_val);
+        eval_expression(interpreter, environment, arg_p->expression);
+        arg_val = pop_value(interpreter);
+        Variable *new_var = crb_add_local_variable(environment, param_p->name);
+        new_var->value = arg_val;
     }
 
     if (param_p) {
@@ -68,13 +90,11 @@ static CRB_Value call_crowber_function(CRB_Interpreter *interpreter, LocalEnviro
         value = CRB_NULL_VALUE;
     }
 
-    dispose_local_environment(interpreter, local_env);
-
     return value;
 }
 
-static CRB_Value eval_function_call_expression(CRB_Interpreter *interpreter, LocalEnvironment *environment,
-                                               Expression *expression) {
+static void eval_function_call_expression(CRB_Interpreter *interpreter, LocalEnvironment *environment,
+                                          Expression *expression) {
     CRV_Value value;
     FunctionDefinition *function;
 
@@ -98,14 +118,110 @@ static CRB_Value eval_function_call_expression(CRB_Interpreter *interpreter, Loc
     return value;
 }
 
+static void check_method_argument_count(int line_number, ArgumentList *arg_list, int arg_count) {
+    ArgumentList *arg_p;
+    int count = 0;
+    for (ArgumentList *arg_p = arg_list; arg_p; arg_p = arg_p->next) {
+        count++;
+    }
+
+    if (count != arg_count) {
+        crb_runtime_error(expression->line_number,
+                          count < arg_count ? ARGUMENT_TOO_FEW_ERR : ARGUMENT_TOO_MANY_ERR,
+                          MESSAGE_ARGUMENT_END);
+    }
+}
+
+static void eval_method_call_expression(CRB_Interpreter *interpreter, LocalEnvironment *environment,
+                                        Expression *expression) {
+    eval_expression(interpreter, environment, expression->u.method_call_expression.expression);
+    CRB_Value *left = peek_value(interpreter, 0);
+    CRB_Boolean error = CRB_FALSE;
+    CRB_Value result;
+
+    if (left->type == CRB_ARRAY_TYPE) {
+        if (strcmp(expression->u.method_call_expression.identifier, "add")) {
+            check_method_argument_count(expression->linr_number,
+                                        expression->u.method_call_expression.argument,
+                                        1);
+            eval_expression(interpreter, environment,
+                            expression->u.method_call_expression.argument->expression);
+            CRB_Value *add = peek_value(interpreter);
+            crb_array_add(interpreter, left->u.object, *add);
+            pop_value(interpreter);
+            result.type = CRB_NULL_VALUE;
+        } else if (strcmp(expression->u.method_call_expression.identifier, "size")) {
+            check_method_argument_count(expression->linr_number,
+                                        expression->u.method_call_expression.argument,
+                                        0);
+            result.type = CRB_INT_VALUE;
+            result.u.int_value = left->u.object->u.array.size;
+        } else if (strcmp(expression->u.method_call_expression.identifier, "resize")) {
+            check_method_argument_count(expression->linr_number,
+                                        expression->u.method_call_expression.argument,
+                                        1);
+            eval_expression(interpreter, environment,
+                            expression->u.method_call_expression.argument->espression);
+            CRB_Value new_size = pop_value(interpreter);
+            if (new_size.type != CRB_INT_VALUE) {
+                crb_runtime_error(expression->line_number,
+                                  ARRAY_RESIZE_ARGUMENT_ERR,
+                                  MESSAGE_ARGUMENT_END);
+            }
+            crb_array_resize(interpreter, left->u.object, new_size.u.int_value);
+            result.type = CRB_NULL_VALUE;
+        } else {
+            error = CRB_TRUE;
+        }
+    } else if (left->type == CRB_STRING_TYPE) {
+        if (strcmp(expression->u.method_call_expression.identifier, "length")) {
+            check_method_argument_count(expression->linr_number,
+                                        expression->u.method_call_expression.argument,
+                                        0);
+            result.type = CRB_INT_VALUE;
+            result.u.int_value = strlen(left->u.object->u.string.string);
+        } else {
+            error = CRB_TRUE;
+        }
+    } else {
+        error = CRB_TRUE;
+    }
+
+    if (error) {
+        crb_runtime_error(expression->line_number, NO_SUCH_METHOD_ERR, STRING_MESSAGE_ARGUMENT, "method_name",
+                          expression->u.method_call_expression.identifier, MESSAGE_ARGUMENT_END);
+    }
+
+    pop_value(interpreter);
+    push_value(interpreter, &result);
+}
+
+static void eval_array_expression(CRB_Interpreter *interpreter, LocalEnvironment *environment,
+                                  Expression *expression) {
+    // TODO
+}
+
+static void eval_index_expression(CRB_Interpreter *interpreter, LocalEnvironment *environment,
+                                  Expression *expression) {
+    // TODO
+}
+
+static void eval_inc_dec_expression(CRB_Interpreter *interpreter, LocalEnvironment *environment,
+                                    Expression *expression) {
+    // TODO
+}
+
 static void eval_binary_expression(CRB_Interpreter *interpreter, LocalEnvironment *environment,
                                    ExpressionType _operator, Expression *left, Expression *right) {
     CRB_Value *left_value;
     CRB_Value *right_value;
     CRB_Value result;
 
-    left_value = eval_expression(interpreter, environment, left);
-    right_value = eval_expression(interpreter, environment, right);
+    eval_expression(interpreter, environment, left);
+    left_value = pop_value(interpreter);
+
+    eval_expression(interpreter, environment, right);
+    right_value = pop_value(interpreter);
 
     if (left_value->type == CRB_INT_VALUE && right_value->type == CRB_INT_VALUE) {
         eval_binary_int(interpreter, _operator, left_value->u.int_value,
@@ -146,29 +262,28 @@ static void eval_binary_expression(CRB_Interpreter *interpreter, LocalEnvironmen
     // TODO
 }
 
-static CRB_Value eval_expression(CRB_Interpreter *interpreter, LocalEnvironment *environment, Expression *expression) {
-    CRB_Value value;
+static void eval_expression(CRB_Interpreter *interpreter, LocalEnvironment *environment, Expression *expression) {
 
     switch (expression->type) {
         case BOOLEAN_EXPRESSIOIN:
-            value = eval_boolean_expression(expression->u.boolean_value);
+            eval_boolean_expression(interpreter, expression->u.boolean_value);
             break;
         case INT_EXPRESSION:
-            value = eval_int_expression(expression->u.int_value);
+            eval_int_expression(expression->u.int_value);
             break;
         case DOUBLE_EXPRESSION:
-            value = eval_double_expression(expression->u.double_value);
+            eval_double_expression(expression->u.double_value);
             break;
         case STRING_EXPRESSION:
-            value = eval_string_expression(expression->u.string_value);
+            eval_string_expression(expression->u.string_value);
             break;
         case IDENTIFIER_EXPRESSION:
-            value = eval_identifier_expression(interpreter, environment, expression);
+            eval_identifier_expression(interpreter, environment, expression);
             break;
         case ASSIGN_EXPRESSION:
-            value = eval_assign_expression(interpreter, environment,
-                                           expression->u.assign_expression.variable,
-                                           expression->u.assign_expression.operand);
+            eval_assign_expression(interpreter, environment,
+                                   expression->u.assign_expression.variable,
+                                   expression->u.assign_expression.operand);
             break;
         case ADD_EXPRESSION:
         case SUB_EXPRESSION:
@@ -187,18 +302,31 @@ static CRB_Value eval_expression(CRB_Interpreter *interpreter, LocalEnvironment 
             break;
         case LOGICAL_AND_EXPRESSION:
         case LOGICAL_OR_EXPRESSION:
-            value = eval_logical_and_or_expression(interpreter, environment, expression->type,
-                                                   expression->u.binary_expression.left,
-                                                   expression->u.binary_expression.right);
+            eval_logical_and_or_expression(interpreter, environment, expression->type,
+                                           expression->u.binary_expression.left,
+                                           expression->u.binary_expression.right);
             break;
         case MINUS_EXPRESSION:
-            value = crb_eval_minus_expression(interpreter, environment, expression->u.minus_expression_s);
+            eval_minus_expression(interpreter, environment, expression->u.minus_expression);
             break;
         case FUNCTION_CALL_EXPRESSION:
-            value = eval_function_call_expression(interpreter, environment, expression);
+            eval_function_call_expression(interpreter, environment, expression);
+            break;
+        case METHOD_CALL_EXPRESSION:
+            eval_method_call_expression(interpreter, environment, expression);
             break;
         case NULL_EXPRESSION:
-            value = eval_null_expression();
+            eval_null_expression();
+            break;
+        case ARRAY_EXPRESSION:
+            eval_array_expression(interpreter, environment, expression);
+            break;
+        case INDEX_EXPRESSION:
+            eval_index_expression(interpreter, environment, expression);
+            break;
+        case INCREMENT_EXPRESSION:
+        case DECREMENT_EXPRESSION:
+            eval_inc_dec_expression(interpreter, environment, expression);
             break;
         case EXPRESSION_TYPE_COUNT_PLUS_1:
         default:
