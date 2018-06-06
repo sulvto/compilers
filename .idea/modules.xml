@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/LIP/Interpreter/Interpreter.iml" filepath="$PROJECT_DIR$/LIP/Interpreter/Interpreter.iml" />
+      <module fileurl="file://$PROJECT_DIR$/PackratParser/PackratParser.iml" filepath="$PROJECT_DIR$/PackratParser/PackratParser.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/compilers.iml" filepath="$PROJECT_DIR$/.idea/compilers.iml" />
+      <module fileurl="file://$PROJECT_DIR$/pie/pie.iml" filepath="$PROJECT_DIR$/pie/pie.iml" />
+    </modules>
+  </component>
+</project>
