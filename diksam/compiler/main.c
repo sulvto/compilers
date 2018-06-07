@@ -2,7 +2,9 @@
 // Created by sulvto on 18-6-6.
 //
 
-int main(int argc, chat *argv) {
+#include <stdio.h>
+
+int main(int argc, char *argv) {
     DKC_Compiler *compiler;
     FILE *fp;
     DVM_Executable *executable;
