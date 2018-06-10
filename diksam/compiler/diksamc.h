@@ -41,7 +41,7 @@ typedef enum {
 	LOGICAL_NOT_EXPRESSION,
 	FUNCTION_CALL_EXPRESSION,
 	INCREMENT_EXPRESSION,
-	DECREMENT_EXPERSSION,
+	DECREMENT_EXPRESSION,
 	CAST_EXPRESSION,
 	EXPRESSION_KIND_COUNT_PLUS_1
 } ExpressionKind;
@@ -71,7 +71,7 @@ typedef struct {
 typedef struct TypeDerive_tag {
 	DeriveTag	tag;
 	union {
-		FunctionDerive	function_d;
+		FunctionDerive	function_derive;
 	} u;
 	struct TypeDerive_tag *next;
 } TypeDerive;
@@ -308,7 +308,7 @@ struct FunctionDefinition_tag {
 	Declaration		**local_variable;
 	int 			index;
 	struct FunctionDefinition_tag *next;
-}
+};
 
 typedef enum {
 	EUC_ENCODING = 1,
