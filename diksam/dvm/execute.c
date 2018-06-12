@@ -307,6 +307,7 @@ static void return_function(DVM_VirtualMachine *dvm, Function **function_p,
 
 static DVM_Value execute(DVM_VirtualMachine *dvm, Function *function,
 						 DVM_Byte *code, int code_size) {
+	int base;
 	DVM_Value ret;
 	DVM_Value *stack = dvm->stack.stack;
 	DVM_Executable *executable = dvm->executable;

@@ -167,4 +167,22 @@ struct DVM_Executable_tag {
     int                 need_stack_size;
 };
 
+// heap.c
+DVM_Object *dvm_literal_to_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string);
+
+DVM_Object *dvm_create_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string);
+
+void dvm_garbage_collect(DVM_VirtualMachine *dvm);
+
+// native.c
+void dvm_add_netive_functions(DVM_VirtualMachine *dvm);
+
+// wchar.c
+
+// util.c
+
+// error.c
+
+
+
 #endif //DIKSAM_DVM_CODE_H
