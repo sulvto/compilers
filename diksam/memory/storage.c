@@ -1,7 +1,7 @@
 //
 // Created by sulvto on 18-6-12.
 //
-
+#include <stdio.h>
 #include "memory.h"
 
 typedef union {

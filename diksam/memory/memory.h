@@ -14,6 +14,6 @@ struct MEM_Controller_tag {
 	MEM_ErrorHandler	error_handler;
 	MEM_FailMode		fail_mode;
 	Header				*block_header;
-}
+};
 
 #endif //DIKSAM_MEM_H

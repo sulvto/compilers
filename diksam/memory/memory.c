@@ -1,9 +1,14 @@
 //
 // Created by sulvto on 18-6-12.
 //
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
 #include "memory.h"
 
-static void default_error_handler(MEM_Controller controller, char *filename, int line, char *message);
+static void default_error_handler(MEM_Controller controller,
+								  char *filename, int line, char *message);
 
 
 static struct MEM_Controller_tag st_default_controller = {
@@ -23,9 +28,9 @@ typedef union {
 #define MARK_SIZE	(4)
 
 typedef struct {
-	int size;
-	char *filename;
-	int line;
+	int     size;
+	char    *filename;
+	int     line;
 	Header	*prev;
 	Header	*next;
 	unsigned char	mark[MARK_SIZE];
@@ -33,6 +38,7 @@ typedef struct {
 
 #define ALIGN_SIZE	(sizeof(Align))
 #define	revalue_up_align(val)	((val) ? (((val) - 1) / ALIGN_SIZE + 1) : 0)
+#define HEADER_ALIGN_SIZE	(revalue_up_align(sizeof(HeaderStruct)))
 #define	MARK	(0xCD)
 
 union Header_tag {
@@ -40,7 +46,9 @@ union Header_tag {
 	Align		u[HEADER_ALIGN_SIZE];
 };
 
-static void default_error_handler(MEM_Controller controller, char *filename, int line, char *message) {
+static void
+default_error_handler(MEM_Controller controller,
+								  char *filename, int line, char *message) {
 	fprintf(controller->error_fp, "MEM:%s failed in %s at %d\n", message, filename, line);
 }
 
@@ -209,7 +217,7 @@ alloc_size = size;
 	return (ptr);
 }
 
-void MEM_free_func(MEM_Controller, void *prt) {
+void MEM_free_func(MEM_Controller controller, void *ptr) {
 	void *real_ptr;
 	if (ptr == NULL) return;
 
@@ -228,7 +236,7 @@ void MEM_free_func(MEM_Controller, void *prt) {
 }
 
 void MEM_set_error_handler(MEM_Controller controller, MEM_ErrorHandler handler) {
-	controller->error_handler = header;
+	controller->error_handler = handler;
 }
 
 void MEM_set_fail_mode(MEM_Controller controller, MEM_FailMode mode) {
@@ -239,14 +247,14 @@ void MEM_dump_blocks_func(MEM_Controller controller, FILE *fp) {
 #ifdef	DEBUG
 	Header *pos;
 	int counter = 0;
-	for (Header *pos = controller->block_header; pos; pos = pos->next) {
+	for (Header *pos = controller->block_header; pos; pos = pos->s.next) {
 		check_mark(pos);
 		fprintf(fp, "[%04d]%p********************\n", counter, (char *)pos + sizeof(Header));
 		fprintf(fp, "%s line %d size..%d\n", pos->s.filename, pos->s.line, pos->s.size);
 		fprintf(fp, "[");
 		for (int i = 0; i < pos->s.size; i++) {
 			if (isprint(*((char *)pos + sizeof(Header) + i))) {
-				fprintf(fp, "%c", *(((char *)pos + sizeof(Header) + i));
+				fprintf(fp, "%c", *(((char *)pos + sizeof(Header) + i)));
 			} else {
 				fprintf(fp, ".");
 			}
@@ -267,7 +275,7 @@ check_mark(real_ptr);
 
 void MEM_check_all_blocks_func(MEM_Controller controller, char *filename, int line) {
 #ifdef	DEBUG
-	for (Header *pos = controller->block_header; pos; pos = pos->next) {
+	for (Header *pos = controller->block_header; pos; pos = pos->s.next) {
 		check_mark(pos);
 	}
 #endif	// DEBUG
