@@ -5,8 +5,20 @@
 #ifndef DIKSAM_SHARE_H
 #define DIKSAM_SHARE_H
 
-#include "DVM.h"
 #include "DVM_code.h"
+#include "DKC.h"
+
+#define ARRAY_METHOD_SIZE   "size"
+#define ARRAY_METHOD_RESIZE "resize"
+#define ARRAY_METHOD_INSERT "insert"
+#define ARRAY_METHOD_REMOVE "remove"
+#define ARRAY_METHOD_ADD    "add"
+
+#define STRING_METHOD_LENGTH    "length"
+#define STRING_METHOD_SUBSTR    "SUBSTR"
+
+#define ARRAY_SIZE(array)   (sizeof(array) / sizeof((array)[0]))
+
 
 // dispose.c
 void dvm_dispose_executable(DVM_Executable *executable);

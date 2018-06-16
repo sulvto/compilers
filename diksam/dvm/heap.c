@@ -116,7 +116,7 @@ static void gc_sweep_objects(DVM_VirtualMachine *dvm) {
 	}
 }
 
-void garbage(DVM_VirtualMachine *dvm) {
+void dvm_garbage_collect(DVM_VirtualMachine *dvm) {
 	gc_mark_objects(dvm);
 	gc_sweep_objects(dvm);
 }
