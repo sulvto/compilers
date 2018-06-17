@@ -5,12 +5,21 @@
 #ifndef DIKSAM_DIKSAMC_H
 #define DIKSAM_DIKSAMC_H
 
+typedef struct TypeSpecifier_tag TypeSpecifier;
+typedef struct ClassDefinition_tag ClassDefinition;
+typedef struct FunctionDefinition_tag FunctionDefinition;
+typedef struct MemberDeclaration_tag MemberDeclaration;
+
+
+#define DEFAULT_CONSTRUCTOR_NAME	("init")
+
+#define LINE_BUF_SIZE			(1024)
 
 typedef enum {
 	INT_MESSAGE_ARGUMENT = 1,
 	DOUBLE_MESSAGE_ARGUMENT,
 	STRING_MESSAGE_ARGUMENT,
-	CHARACTER_MESSAGE_ARGUMENT,	
+	CHARACTER_MESSAGE_ARGUMENT,
 	POINTER_MESSAGE_ARGUMENT,
 	MESSAGE_ARGUMENT_END
 } MessageArgumentType;
@@ -40,18 +49,44 @@ typedef enum {
 	MINUS_EXPRESSION,
 	LOGICAL_NOT_EXPRESSION,
 	FUNCTION_CALL_EXPRESSION,
+	NULL_EXPRESSION,
+	ARRAY_LITERAL_EXPRESSION,
+	INDEX_EXPRESSION,
+	MEMBER_EXPRESSION,
 	INCREMENT_EXPRESSION,
 	DECREMENT_EXPRESSION,
 	CAST_EXPRESSION,
 	EXPRESSION_KIND_COUNT_PLUS_1
 } ExpressionKind;
 
+typedef struct PackageName_tag {
+	char 	*name;
+	struct ParameterList_tag 	*next;
+} PackageName;
+
+typedef enum {
+	DKH_SOURCE,
+	DKM_SOURCE
+} SourceSuffix;
+
+typedef struct RequireList_tag {
+	PackageName		*package_name;
+	int 			line_number;
+	struct RequireList_tag *next;
+} RequireList;
+
+typedef struct RenameList_tag {
+	PackageName *package_name;
+	char 		*original_name;
+	char 		*renamed_name;
+	int 		line_number;
+	struct RequireList_tag *next;
+} RenameList;
+
 typedef struct ArgumentList_tag {
 	Expression *expression;
 	struct ArgumentList_tag *next;
 } ArgumentList;
-
-typedef struct TypeSpecifier_tag TypeSpecifier;
 
 typedef struct ParameterList_tag {
 	char				*name;
@@ -61,23 +96,34 @@ typedef struct ParameterList_tag {
 } ParameterList;
 
 typedef enum {
-	FUNCTION_DERIVE
+	FUNCTION_DERIVE,
+	ARRAY_DERIVE
 } DeriveTag;
 
 typedef struct {
 	ParameterList *parameter_list;
 } FunctionDerive;
 
+typedef struct {
+	int 	dummy;	//
+} ArrayDerive;
+
 typedef struct TypeDerive_tag {
 	DeriveTag	tag;
 	union {
 		FunctionDerive	function_derive;
+		ArrayDerive		array_derive;
 	} u;
 	struct TypeDerive_tag *next;
 } TypeDerive;
 
 struct TypeSpecifier_tag {
 	DVM_BasicType	basic_type;
+	struct {
+		char *identifier;
+		ClassDefinition *class_definition;
+		int class_index;
+	} class_ref;
 	TypeDerive		*derive;
 };
 
@@ -94,17 +140,19 @@ typedef struct DeclarationList_tag {
 	struct DeclarationList_tag *next;
 } DeclarationList;
 
-
-typedef struct FunctionDefinition_tag FunctionDefinition;
-
 typedef struct {
 	char 		*name;
 	DVM_Boolean is_function;
 	union {
-		FunctionDefinition function;
+		FunctionDefinition  function;
 		Declaration			*declaration;
 	} u;
 } IdentifierExpression;
+
+typedef struct {
+	Expression *array;
+	Expression *index;
+} IndexExpression;
 
 typedef struct {
 	Expression *left;
@@ -121,15 +169,25 @@ typedef enum {
 } AssignmentOperator;
 
 typedef struct {
-	AssignmentOperator operator;
-	Expression *left;
-	Expression *right;
+	AssignmentOperator  _operator;
+	Expression          *left;
+	Expression          *right;
 } AssignExpression;
 
 typedef struct {
 	Expression 		*function;
 	ArgumentList	argument;
 } FunctionCallExpression;
+
+typedef struct {
+	Expression  *expression;
+	char        *member_name;
+} MemberExpression;
+
+typedef struct ExpressionList_tag {
+	Expression 		*expression;
+	struct ExpressionList_tag *next;
+} ExpressionList;
 
 typedef struct {
 	Expression *operand;
@@ -148,6 +206,16 @@ typedef struct {
 	Expression 	*operand;
 } CastExpression;
 
+typedef struct ArrayDimension_tag {
+	Expression *expression;
+	struct ArrayDimension_tag *next;
+} ArrayDimension;
+
+typedef struct {
+	TypeSpecifier 	*type;
+	ArrayDimension	*dimension;
+} ArrayCreation;
+
 struct Expression_tag {
 	TypeSpecifier *type;
 	ExpressionKind kind;
@@ -164,8 +232,12 @@ struct Expression_tag {
 		Expression				*minus_expression;
 		Expression				*logical_not;
 		FunctionCallExpression	function_call_expression;
+		MemberExpression		member_expression;
+		ExpressionList 			*array_literal;
+		IndexExpression 		*index_expression;
 		IncrementOrDecrement	inc_dec;
 		CastExpression			cast;
+		ArrayCreation 			array_creation;
 	} u;
 };
 
@@ -301,14 +373,72 @@ typedef struct StatementList_tag {
 
 struct FunctionDefinition_tag {
 	TypeSpecifier 	*type;
+	PackageName 	*package_name;
 	char			*name;
 	ParameterList	*parameter;
 	Block			*block;
 	int 			local_variable_count;
 	Declaration		**local_variable;
-	int 			index;
+	ClassDefinition	class_definition;
+	int 			end_line_number;
 	struct FunctionDefinition_tag *next;
 };
+
+typedef struct ExtendsList_tag {
+	char 				*identifier;
+	ClassDefinition 	*class_definition;
+	struct ExpressionList_tag *next;
+} ExtendsList;
+
+typedef enum {
+	METHOD_MEMBER,
+	FIELD_MEMBER
+} MemberKind;
+
+typedef struct {
+	DVM_Boolean		is_constructor;
+	DVM_Boolean 	is_abstract;
+	DVM_Boolean 	is_virtual;
+	DVM_Boolean 	is_override;
+	FunctionDefinition *function_definition;
+	int 			method_index;
+} MethodMember;
+
+typedef struct {
+	char *name;
+	char *type;
+	int field_index;
+} FieldMember;
+
+struct MemberDeclaration_tag {
+	MemberKind kind;
+	DVM_AccessMofdifier access_modifier;
+	union {
+		MethodMember method;
+		FieldMember field;
+	} u;
+	int line_number;
+	struct MemberDeclaration_tag *next;
+};
+
+struct ClassDefinition_tag {
+	DVN_Boolean 		is_abstract;
+	DVM_AccessModifier 		access_modifier;
+	DVM_ClassOrInterface	class_or_interface;
+	PackageName			*package_name;
+	char 				*name;
+	ExtendsList 		*extends;
+	ClassDefinition		*super_class;
+	ExtendsList			*interface_list;
+	MemberDeclaration 	*member;
+	int 				line_number;
+	struct ClassDefinition_tag *next;
+};
+
+typedef enum {
+	DKC_FILE_INPUT_MODE = 1,
+	DKC_STRING_INPUT_MODE
+} DKC_InputMode;
 
 typedef enum {
 	EUC_ENCODING = 1,
@@ -316,16 +446,309 @@ typedef enum {
 	UTF_8_ENCODING
 } Encoding;
 
+typedef struct {
+    DKC_InputMode input_mode;
+    union {
+        struct {
+            FILE *fp;
+        } file;
+        struct {
+            char **lines;
+        } string;
+    } u;
+} SourceInput;
+
+typedef struct CompilerList_tag {
+    DKC_Compiler    *compiler;
+    struct CompilerList_tag *next;
+} CompilerList;
+
 struct DKC_Compiler_tag {
 	MEM_Storage 		compile_storage;
-	int					function_count;
+	PackageName			*package_name;
+	SourceSuffix		source_suffix;
+	char 				*path;
+	RequireList			*require_list;
+	RenameList			*rename_list;
 	FunctionDefinition 	*function_list;
+	int					dvm_function_count;
+	DVM_Function		*dvm_function;
+	int 				dvm_class_count;
+	DVM_Class			*dvm_class;
 	DeclarationList		*declaration_list;
-	StatementList		&statement_list;
+	StatementList		*statement_list;
+	ClassDefinition		*class_definition_list;
 	int 				current_line_number;
 	Block 				*current_block;
+	ClassDefinition		*current_class_definition;
+	TryStatement		*current_try_statement;
+	CarchStatement		*current_catch_statement;
+	int 				current_finally_label;
 	DKC_InputMode		input_mode;
-	Encoding			*source_encoding;
+	CompilerList		*required_list;
+	int 				array_method_count;
+	FunctionDefinition	*array_method;
+	int 				string_method_count;
+	FunctionDefinition	*string_method;
+	Encoding			source_encoding;
 };
+
+// diksam.l
+void dkc_set_source_string(char **source);
+
+// create.c
+DeclarationList *dkc_chain_declaration(DeclarationList *list,
+									   Declaration *declaration);
+
+Declaration *dkc_alloc_declaration(TypeSpecifier *type, char *identifier);
+
+PackageName *dkc_create_package_name(char *identifier);
+
+PackageName *dkc_chain_package_name(PackageName *list, char *identifier);
+
+RequireList *dkc_create_require_list(PackageName *package_name);
+
+RequireList *dkc_chain_require_list(RequireList *list, RequireList *add);
+
+RenameList *dkc_create_rename_list(PackageName *package_name, char *identifier);
+
+RenameList *dkc_chain_require_list(RenameList *list, RenameList *add);
+
+void dkc_set_require_add_rename_list(RequireList *require_list, RenameList *rename_list);
+
+
+FunctionDefinition *dkc_create_function_definition(TypeSpecifier *type, char *identifier,
+												   ParameterList *parameter_list, Block *block);
+
+void dkc_function_define(TypeSpecifier *type, char *identifier, ParameterList *parameter_list,
+						 Block *block);
+
+ParameterList *dkc_create_parameter_list(TypeSpecifier *type, char *identifier);
+
+ParameterList *dkc_chain_parameter_list(ParameterList *list, TypeSpecifier *type, char *identifier);
+
+ArgumentList *dkc_create_argument_list(Expression *expression);
+
+ArgumentList *dkc_chain_argument_list(ArgumentList *list, Expression *expression);
+
+ExpressionList *dkc_create_expression_list(Expression *expression);
+
+ExpressionList *dkc_chain_expression_list(ExpressionList *list, Expression *expression);
+
+StatementList *dkc_create_statement_list(Statement *statement);
+
+StatementList *dkc_chain_statement_list(StatementList *list, Statement *statement);
+
+TypeSpecifier *dkc_create_type_specifier(DVM_BasicType basic_type);
+
+TypeSpecifier *dkc_create_class_type_specifier(char *identifier);
+
+TypeSpecifier *dkc_create_array_type_specifier(TypeSpecifier base);
+
+Expression *dkc_alloc_expression(ExpressionKind kind);
+
+Expression *dkc_create_comma_expression(Expression *left, Expression *right);
+
+Expression *dkc_create_binary_expression(ExpressionKind _operator, Expression *left, Expression *right);
+
+Expression *dkc_create_minus_expression(Expression *operand);
+
+Expression *dkc_create_instanceof_expression(Expression *operand, TypeSpecifier *type);
+
+Expression *dkc_create_identifier_expression(char *identifier);
+
+Expression *dkc_create_function_call_expression(Expression *operand, ArgumentList *arguments);
+
+Expression *dkc_create_down_cast_expression(Expression *operand, TypeSpecifier *type);
+
+Expression *dkc_create_member_expression(Expression *expression, char *member_name);
+
+Expression *dkc_create_boolean_expression(DVM_Boolean value);
+
+Expression *dkc_create_null_expression(void);
+
+Expression *dkc_create_new_expression(char *class_name, char *method_name,
+									  ArgumentList *argument);
+
+Expression *dkc_create_array_literal_expression(ExpressionList *list);
+
+Expression *dkc_create_basic_array_creation(DVM_BasicType basic_type,
+											  ArrayDimension *dim_expr_list,
+											  ArrayDimension *dim_list);
+
+Expression *dkc_create_class_array_creation(TypeSpecifier *type,
+											  ArrayDimension *dim_expr_list,
+											  ArrayDimension *dim_list);
+
+Expression *dkc_create_this_expression(void);
+
+Expression *dkc_create_super_expression(void);
+
+ArrayDimension *dkc_create_array_dimension(Expression *expression);
+
+ArrayDimension *dkc_chain_array_dimension(ArrayDimension *list, ArrayDimension *dim);
+
+Statement *dkc_alloc_statement(StatementType type);
+
+Statement *dkc_create_if_statement(Expression *condition, Block *then_block,
+                                   Elseif *elseif_list, Block *else_block);
+
+Elseif *dkc_chain_elseif_list(Elseif *list, Elseif *add);
+
+Elseif *dkc_create_elseif(Expression *expression, Block *block);
+
+Statement *dkc_create_while_statement(char *label, Expression *condition, Block *block);
+
+Statement *dkc_create_foreach_statement(char *label, char *variable, Expression *collection, Block *block);
+
+Statement *dkc_create_for_statement(char *label, Expression *init, Expression *condition, Expression *post, Block *block);
+
+Statement *dkc_create_do_while_statement(char *label, Block *block, Expression *condition);
+
+Block *dkc_alloc_block(void);
+
+Block *dkc_open_block(void);
+
+Block *dkc_close_block(Block *block, StatementList *statement_list);
+
+Statement *dkc_create_expression_statement(Expression *expression);
+
+Statement *dkc_create_return_statement(Expression *expression);
+
+Statement *dkc_create_break_statement(char *label);
+
+Statement *dkc_create_continue_statement(char *label);
+
+Statement *dkc_create_try_statement(Block *try_block, CatchClause *catch_clause, Block *finally_block);
+
+Statement *dkc_create_catch_clause(Expression *expression);
+
+CatchClause *dkc_start_catch_clause(void);
+
+CatchClause *dkc_end_catch_clause(CatchClause *catch_clause, TypeSpecifier *type, char *variable_name, Block *block);
+
+CatchClause *dkc_chain_catch_list(CatchClause *list, CatchClause *add);
+
+Statement *dkc_create_throw_statement(Expression *expression);
+
+Statement *dkc_create_declaration_statement(TypeSpecifier *type, char *identifier, Expression *initializer);
+
+void dkc_start_class_definition(ClassOrMemberModifierList *modifier, DVM_ClassOrInterface class_or_interface,
+                                char *identifier,
+                                ExtendsList *extends);
+
+void dkc_class_define(MemberDeclaration *member_list);
+
+ExtendsList *dkc_create_extends_list(char *identifier);
+
+ExtendsList *dkc_chain_extends_list(ExtendsList *list, char *add);
+
+ClassOrMemberModifierList dkc_create_class_or_member_modifier(ClassOrMemberModifierKind modifier);
+
+ClassOrMemberModifierList dkc_chain_class_or_member_modifier(ClassOrMemberModifierList list, ClassOrMemberModifierList add);
+
+MemberDeclaration *dkc_create_member_declaration(ClassOrMemberModifierList *modifier,
+                                                 FunctionDefinition *function_definition, DVM_Boolean is_constructor);
+
+MemberDeclaration *dkc_chain_member_declaration(MemberDeclaration *list, MemberDeclaration *add);
+
+FunctionDefinition *dkc_constructor_function_define(char *identifier, ParameterList *parameter_list, Block *block);
+
+MemberDeclaration *dkc_create_field_member(ClassOrMemberModifierList *modifier, TypeSpecifier *type, char *name);
+
+// string.c
+char *dkc_create_identifier(char *string);
+
+void dkc_open_string_literal(void);
+
+void dkc_add_string_literal(int letter);
+
+void dkc_reset_string_literal_buffer(void);
+
+DVM_Char *dkc_close_string_literal(void);
+
+int dkc_close_character_literal(void);
+
+// fix_tree.c
+void dkc_fix_tree(DKC_Compiler *compiler);
+
+// generate.c
+DVM_TypeSpecifier dkc_copy_type_specifier(TypeSpecifier *src);
+
+DVM_Executable *dkc_generate(DKC_Compiler *compiler);
+
+
+// util.c
+DKC_Compiler *dkc_get_current_compiler(void);
+
+void dkc_set_current_compiler(DKC_Compiler *compiler);
+
+void dkc_malloc(size_t size);
+
+void dkc_strdup(char *src);
+
+TypeSpecifier *dkc_alloc_type_specifier(DVM_BasicType type);
+
+TypeDerive *dkc_alloc_type_derive(DeriveTag derive_tag);
+
+TypeSpecifier *dkc_alloc_type_specifier2(TypeSpecifier *src);
+
+DVM_Boolean dkc_compare_parameter(ParameterList *parameter1, ParameterList *parameter2);
+
+DVM_Boolean dkc_compare_type(TypeSpecifier *type1, TypeSpecifier *type2);
+
+DVM_Boolean dkc_compare_package_name(PackageName *package1, PackageName *package2);
+
+FunctionDefinition *dkc_search_function(char *name);
+
+Declaration *dkc_search_declaration(char *identifier, Block *block);
+
+ClassDefinition *dkc_search_class(char *identifier);
+
+MemberDeclaration *dkc_search_member(ClassDefinition *class_definition, char *member_name);
+
+void dkc_vstr_clear(VString *v);
+
+void dkc_vstr_append_string(VString *v, char *string);
+
+void dkc_vstr_append_character(VString *v, int ch);
+
+void dkc_vwstr_clear(VString *v);
+
+void dkc_vwstr_append_string(VWString *v, char *string);
+
+void dkc_vwstr_append_character(VWString *v, int ch);
+
+char *dkc_get_type_name(TypeSpecifier *type);
+
+char *dkc_get_basic_type_name(DVM_TypeBasic type);
+
+DVM_Char *dkc_expression_to_string(Expression *expression);
+
+char *dkc_package_name_to_string(PackageName *package_name);
+
+// wchar.c
+sizt_t dkc_wcslen(DVM_Char *str);
+
+DVM_Char *dkc_wcscpy(DVM_Char *dest, DVM_Char *src);
+
+
+// error.c
+void dkc_compile_error(int line_number, CompileError id, ...);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #endif //DIKSAM_DIKSAMC_H

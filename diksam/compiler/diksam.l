@@ -87,7 +87,7 @@ static void inc_line_number(void) {
 }
 %}
 
-%start C_COMMENT CC_CIMMENT STRING_LITERAL_STATE SHIFT_JIS_2ND_CHAR
+%start C_COMMENT CC_COMMENT STRING_LITERAL_STATE SHIFT_JIS_2ND_CHAR
 
 %%
 <INITIAL>"if"	    return IF;
@@ -96,20 +96,33 @@ static void inc_line_number(void) {
 <INITIAL>"while"	return WHILE;
 <INITIAL>"for"	    return FOR;
 <INITIAL>"foreach"	return FOREACH;
-<INITIAL>"return"	return RETURN;
+<INITIAL>"return"	return RETURN_T;
 <INITIAL>"break"	return BREAK;
 <INITIAL>"continue"	return CONTINUE;
-<INITIAL>"true"	    return TRUE;
-<INITIAL>"false"	return FALSE;
+<INITIAL>"true"	    return TRUE_T;
+<INITIAL>"false"	return FALSE_T;
 <INITIAL>"try"	    return TRY;
 <INITIAL>"catch"	return CATCH;
 <INITIAL>"finally"	return FINALLY;
 <INITIAL>"throw"	return THROW;
-<INITIAL>"boolean"	return BOOLEAN;
-<INITIAL>"int"	    return INT;
-<INITIAL>"double"	return DOUBLE;
-<INITIAL>"string"	return STRING;
-<INITIAL>"("	    return LR;
+<INITIAL>"boolean"	return BOOLEAN_T;
+<INITIAL>"void"		return VOID_T;
+<INITIAL>"int"	    return INT_T;
+<INITIAL>"double"	return DOUBLE_T;
+<INITIAL>"string"	return STRING_T;
+<INITIAL>"new"		return NEW:
+<INITIAL>"class"	return CLASS_T:
+<INITIAL>"interface"	return INTERFACE_T:
+<INITIAL>"public"		return PUBLIC_T:
+<INITIAL>"private"		return PRIVATE_T:
+<INITIAL>"virtual"		return VIRTUAL_T:
+<INITIAL>"override"		return OBERRIDE_T:
+<INITIAL>"abstract"		return ABSTRACT_T:
+<INITIAL>"this"			return THIS_T:
+<INITIAL>"super"		return SUPER_T:
+<INITIAL>"constructor"	return CONSTRUCTOR:
+<INITIAL>"instanceof"	return INSTANCEOF:
+<INITIAL>"("	return LR;
 <INITIAL>")"	return RP;
 <INITIAL>"{"	return LC;
 <INITIAL>"}"	return RC;
@@ -139,6 +152,8 @@ static void inc_line_number(void) {
 <INITIAL>"--"	return DECREMENT;
 <INITIAL>"!"	return EXCLAMATION;
 <INITIAL>"."	return DOT;
+<INITIAL>"::"	return DOWN_CAST_BEGIN:
+<INITIAL>":>"	return DOWN_CAST_END:
 <INITIAL>[A-Za-z_][A-Za-z_0-9]*	{
     yylval.identifier = dkc_create_identifier(yytext);
     return IDENTIFIER;
@@ -167,6 +182,12 @@ static void inc_line_number(void) {
 
 <INITIAL> \" {
 	dkc_open_string_literal();
+	st_character_literal_state = DVM_FALSE;
+	BEGIN STRING_LITERAL_STATE;
+}
+<INITIAL> \' {
+	dkc_open_string_literal();
+	st_character_literal_state = DVM_TRUE;
 	BEGIN STRING_LITERAL_STATE;
 }
 <INITIAL>[\t];
@@ -193,17 +214,32 @@ static void inc_line_number(void) {
 	BEGIN	INITIAL;
 }
 <C_COMMENT>.	;
-<CC_CIMMENT>\n {
+<CC_COMMENT>\n {
 	inc_line_number();
 	BEGIN INITIAL;
 }
-<CC_CIMMENT>.	;
+<CC_COMMENT>.	;
 <STRING_LITERAL_STATE>\"	{
-	Expression *expression = dkc_alloc_expression(STRING_EXPRESSION);
-	expression->u.string_value = dkc_close_string_literal();
-	yylval.expression = expression;
-	BEGIN	INITIAL;
-	return STRING_LITERAL;
+	if (st_character_literal_state) {
+		dkc_add_string_literal('\"');
+	} else {
+		Expression *expression = dkc_alloc_expression(STRING_EXPRESSION);
+		expression->u.string_value = dkc_close_string_literal();
+		yylval.expression = expression;
+		BEGIN	INITIAL;
+		return STRING_LITERAL;
+	}
+}
+<STRING_LITERAL_STATE>\' 	{
+	if (st_character_literal_state) {
+		Expression *expression = dkc_alloc_expression(INT_EXPRESSION);
+        expression->u.int_value = dkc_close_character_literal();
+        yylval.expression = expression;
+        BEGIN	INITIAL;
+        return INT_LITERAL;
+	} else {
+		dkc_add_string_literal('\'');
+	}
 }
 <STRING_LITERAL_STATE>\n	{
 	dkc_add_string_literal('\n');
@@ -213,6 +249,10 @@ static void inc_line_number(void) {
 <STRING_LITERAL_STATE>\\n	dkc_add_string_literal('\n');
 <STRING_LITERAL_STATE>\\t	dkc_add_string_literal('\t');
 <STRING_LITERAL_STATE>\\\\\	dkc_add_string_literal('\\');
+<STRING_LITERAL_STATE>[\x81-\x9f\xe0-\xef][\x40-\x74\x80-\xfc] {
+	dkc_add_string_literal(yytext[0]);
+	dkc_add_string_literal(yytext[1]);
+}
 <STRING_LITERAL_STATE>.		{
 	Encoding enc = dkc_get_current_compiler()->source_encoding;
 	dkc_add_string_literal(yytext[0]);

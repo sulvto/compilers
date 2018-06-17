@@ -20,7 +20,7 @@ static DVM_Executable *alloc_executable() {
 	DVM_Executable *executable = MEM_malloc(sizeof(DVM_Executable));
 	executable->constant_pool_count = 0;
 	executable->constant_pool = NULL;
-	executable->global_variable_count = 0;	
+	executable->global_variable_count = 0;
 	executable->global_variable = NULL;
 	executable->function_count = 0;
 	executable->function = NULL;
@@ -117,9 +117,9 @@ static void add_global_variable(DKC_Compiler *compiler,
 }
 
 static void copy_function(FunctionDefinition *src, DVM_Function *dest) {
-    dest->type = copy_type_specifier(src->type);
-    dest->name = MEM_strdup(src->name);
-    dest->parameter = copy_paramter_list(src->parameter,
+	dest->type = copy_type_specifier(src->type);
+	dest->name = MEM_strdup(src->name);
+	dest->parameter = copy_paramter_list(src->parameter,
                                          &dest->parameter_count);
 
     if (src->block) {

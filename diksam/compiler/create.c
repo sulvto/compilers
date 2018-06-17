@@ -88,6 +88,21 @@ ArgumentList *dkc_chain_argument_list(ArgumentList *argument_list,
 	return argument_list;
 }
 
+ExpressionList *dkc_create_expression_list(Expression *expression) {
+	ExpressionList *list = dkc_malloc(sizeof(ExpressionList));
+	list->expression = expression;
+	list->next = NULL;
+	return list;
+}
+
+ExpressionList *dkc_chain_expression_list(ExpressionList *expression_list, Expression *expression) {
+	ExpressionList *pos;
+	for (pos = expression_list; pos->next; pos = pos->next );
+	pos->next= dkc_create_expression_list(expression);
+
+	return expression_list;
+}
+
 Expression *dkc_alloc_expression(ExpressionKind kind) {
 	Expression *expr = dkc_malloc(sizeof(Expression));	
 	expr->type = NULL;
@@ -153,6 +168,22 @@ Expression *dkc_create_incdec_expression(Expression *operand, ExpressionKind *in
 	return expr;
 }
 
+Expression *dkc_create_index_expression(Expression *array, Expression *index) {
+	Expression *expr = dkc_alloc_expression(INDEX_EXPRESSION);
+	expr->u.index_expression.array = array;
+	expr->u.index_expression.index = index;
+
+	return expr;
+}
+
+Expression *dkc_create_member_expression(Expression *expression, char *member_name) {
+	Expression *expr = dkc_alloc_expression(MEMBER_EXPRESSION);
+	expr->u.member_expression.expression = expression;
+	expr->u.member_expression.member_name = member_name;
+
+	return expr;
+}
+
 Expression *dkc_create_identifier_expression(char *identifier) {
 	Expression *expr = dkc_alloc_expression(IDENTIFIER_EXPRESSON);
 	expr->u.identifier.name = identifier;
@@ -160,9 +191,48 @@ Expression *dkc_create_identifier_expression(char *identifier) {
 	return expr;
 }
 
-Expression *dkc_create_boolean_expreession(DVM_Boolean boolean) {
+Expression *dkc_create_boolean_expression(DVM_Boolean boolean) {
 	Expression *expr = dkc_alloc_expression(BOOLEAN_EXPRESSION);
 	expr->u.boolean_value = boolean;
+
+	return expr;
+}
+
+Expression *dkc_create_null_expression() {
+	Expression *expr = dkc_alloc_expression(NULL_EXPRESSION);
+
+	return expr;
+}
+
+Expression *dkc_create_array_literal_expression(ExpressionList *expression_list) {
+	Expression *expr = dkc_alloc_expression(ARRAY_LITERAL_EXPRESSION);
+	expr->u.array_literal = expression_list;
+
+	return expr;
+}
+
+TypeSpecifier *dkc_create_type_specifier(DVM_BasicType basic_type) {
+	TypeSpecifier *type_specifier = dkc_malloc(sizeof(TypeSpecifier));
+	type_specifier->basic_type = basic_type;
+	type_specifier->derive = NULL;
+
+	return type_specifier;
+}
+
+ArrayDimension *dkc_chain_array_dimension(ArrayDimension *list, ArrayDimension *dim) {
+	ArrayDimension *pos;
+	for (pos = list; pos->next; pos = pos->next) ;
+	pos->next = dim;
+
+	return list;
+}
+
+Expression *dkc_create_array_creation(DVM_BasicType basic_type,
+									  ArrayDimension *dim_expr_list,
+									  ArrayDimension *dim_list) {
+	Expression *expr = dkc_alloc_expression(ARRAY_CREATION_EXPRESSION);
+	expr->u.array_creation.type = dkc_create_type_specifier(basic_type);
+	expr->u.array_creation.dimension = dkc_chain_array_dimension(dim_expr_list, dim_list);
 
 	return expr;
 }

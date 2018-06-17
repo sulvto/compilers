@@ -1,0 +1,4 @@
+compiler/y.output
+compiler/y.tab.c
+compiler/y.tab.h
+*.o
