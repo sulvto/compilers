@@ -72,6 +72,8 @@ static FunctionDefinition *create_built_in_method(BuiltInMethod *src, int method
         }
         function_definition_array[i].parameter = parameter_list;
     }
+
+    return function_definition_array;
 }
 
 DKC_Compiler *DKC_create_compiler(void) {
@@ -79,12 +81,11 @@ DKC_Compiler *DKC_create_compiler(void) {
 
     MEM_Storage storage = MEM_open_storage(0);
     DKC_Compiler *compiler = MEM_storage_malloc(storage,
-                                                sizeof(static DKC_Compiler_tag));
+                                                sizeof(struct DKC_Compiler_tag));
     dkc_set_current_compiler(compiler);
     compiler->compile_storage = storage;
     compiler->package_name = NULL;
     compiler->source_suffix = DKM_SOURCE;
-    compiler->path = path;
     compiler->require_list = NULL;
     compiler->rename_list = NULL;
     compiler->function_list = NULL;
@@ -119,10 +120,10 @@ static CompilerList *add_compiler_to_list(CompilerList *list, DKC_Compiler *comp
     new_item->next = NULL;
 
     if (list == NULL) {
-        return new_list;
+        return new_item;
     }
 
-    DKC_Compiler *pos;
+    CompilerList *pos;
     for (pos = list; pos->next; pos = pos->next);
 
     pos->next = new_item;
@@ -189,8 +190,8 @@ static DVM_Boolean add_executable_to_list(DVM_Executable *executable, DVM_Execut
     item->executable = executable;
     item->next = NULL;
 
-    if (list->next == NULL) {
-        list->next = item;
+    if (list->list == NULL) {
+        list->list = item;
     } else {
         tail->next = item;
     }
@@ -211,7 +212,7 @@ static DVM_Executable *do_compiler(DKC_Compiler *compiler, DVM_ExecutableList *e
     dkc_set_current_compiler(compiler);
 
     if (yyparse()) {
-        fprintf(sstderr, "Error!\n");
+        fprintf(stderr, "Error!\n");
         exit(1);
     }
 
@@ -294,19 +295,19 @@ DVM_ExecutableList *DKC_compile(DKC_Compiler *compiler, FILE *fp, char *path) {
     return executable_list;
 }
 
-DVM_Executable *DKC_compile_string(DKC_Compiler *compiler, char **lines) {
-    extern int yyparse(void);
-    DVM_Executable *executable;
-
-    dkc_set_source_string(lines);
-    compiler->current_line_number = 1;
-    compiler->input_mode = DKC_STRING_INPUT_MODE;
-
-    executable = do_compiler(compiler);
-
-    dkc_reset_string_lieral_buffer();
-
-    return executable;
+DVM_ExecutableList *DKC_compile_string(DKC_Compiler *compiler, char **lines) {
+//    extern int yyparse(void);
+//    DVM_Executable *executable;
+//
+//    dkc_set_source_string(lines);
+//    compiler->current_line_number = 1;
+//    compiler->input_mode = DKC_STRING_INPUT_MODE;
+//
+//    executable = do_compiler(compiler);
+//
+//    dkc_reset_string_lieral_buffer();
+//
+//    return executable;
 }
 
 void DVM_dispose_compiler(DKC_Compiler *compiler) {

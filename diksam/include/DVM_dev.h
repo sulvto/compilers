@@ -29,6 +29,18 @@ void DVM_array_set_double(DVM_VirtualMachine *dvm, DVM_ObjectRef array, int inde
 
 void DVM_array_set_object(DVM_VirtualMachine *dvm, DVM_ObjectRef array, int index, DVM_ObjectRef value);
 
+int DVM_array_size(DVM_VirtualMachine *dvm, DVM_Object *array);
+
+void DVM_array_resize(DVM_VirtualMachine *dvm, DVM_Object *array, int new_size);
+
+void DVM_array_insert(DVM_VirtualMachine *dvm, DVM_Object *array, int pos, DVM_Value value);
+
+void DVM_array_remove(DVM_VirtualMachine *dvm, DVM_Object *array, int pos);
+
+int DVM_string_length(DVM_VirtualMachine *dvm, DVM_Object *string);
+
+DVM_Value DVM_string_substr(DVM_VirtualMachine *dvm, DVM_Object *string, int pos, int length);
+
 
 // heap.c
 DVM_ObjectRef DVM_create_dvm_string(DVM_VirtualMachine *dvm, DVM_Char *string);

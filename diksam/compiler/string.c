@@ -2,7 +2,9 @@
 // Created by sulvto on 18-6-9.
 //
 #include "MEM.h"
-#include "DBG.h"
+#include "diksamc.h"
+
+#define STRING_ALLOC_SIZE   (256)
 
 static char *st_string_literal_buffer = NULL;
 static int st_string_literal_buffer_size = 0;
@@ -16,7 +18,7 @@ char *dkc_create_identifier(char *string) {
 }
 
 void dkc_open_string_literal(void) {
-	st_string_literal_buffer 
+	st_string_literal_buffer = 0;
 }
 
 DVM_Char *dkc_close_string_literal(void) {
@@ -27,7 +29,7 @@ DVM_Char *dkc_close_string_literal(void) {
 	int length = dvm_mbstowcs_len(st_string_literal_buffer);
 	if (length < 0) {
 		dkc_compiler_error(dkc_get_current_compiler()->current_line_number,
-							BAD_NULTIBYTE_CHARACTER_ERR,
+							BAD_MULTIBYTE_CHARACTER_ERR,
 							MESSAGE_ARGUMENT_END);
 	}
 

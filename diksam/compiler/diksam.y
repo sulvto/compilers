@@ -56,7 +56,7 @@
 %type 	<expression_list>	expression_list
 %type	<statement>			statement
 		if_statement while_statement for_statement foreach_statement
-		return_statement break_statement continue_statement try_statement
+		return_statement break_statement continue_statement
 		throw_statement declaration_statement
 %type 	<statement_list> 	statement_list
 %type	<block>				block
@@ -363,7 +363,7 @@ postfix_expression
 		}
 		| primary_expression DECREMENT
 		{
-			$$ = dkc_create_incdec_expression($1, DECREMENT_EXPERSSION);
+			$$ = dkc_create_incdec_expression($1, DECREMENT_EXPRESSION);
 		}
 		| primary_expression INSTANCEOF type_specifier
 		{
@@ -537,7 +537,7 @@ statement
 		| return_statement
 		| break_statement
 		| continue_statement
-		| try_statement
+//		| try_statement
 		| throw_statement
 		| declaration_statement
 		;
@@ -631,20 +631,20 @@ continue_statement
 			$$ = dkc_create_continue_statement($2);
 		}
 		;
-try_statement
-		: TRY block CATCH LP IDENTIFIER RP block FINALLY block
-		{
-			$$ = dkc_create_try_statement($2, $5, $7, $9);
-		}
-		| TRY block FINALLY block
-		{
-			$$ = dkc_create_try_statement($2, NULL, NULL, $4);
-		}
-		| TRY block CATCH LP IDENTIFIER RP block
-		{
-			$$ = dkc_create_try_statement($2, $5, $7, NULL);
-		}
-		;
+// try_statement
+// 		: TRY block CATCH LP IDENTIFIER RP block FINALLY block
+// 		{
+// 			$$ = dkc_create_try_statement($2, $5, $7, $9);
+// 		}
+// 		| TRY block FINALLY block
+// 		{
+// 			$$ = dkc_create_try_statement($2, NULL, NULL, $4);
+// 		}
+// 		| TRY block CATCH LP IDENTIFIER RP block
+// 		{
+// 			$$ = dkc_create_try_statement($2, $5, $7, NULL);
+// 		}
+// 		;
 throw_statement
 		: THROW expression SEMICOLON
 		{

@@ -2,18 +2,33 @@
 // Created by sulvto on 18-6-10.
 //
 
-extern ErrorDedinition dkc_error_message_format[];
+#include <stdarg.h>
+#include "diksamc.h"
 
-static void format_message(int line_number, ErrorDedinition *format, VString *v, va_list ap) {
+extern ErrorDefinition dkc_error_message_format[];
+
+typedef struct {
+	MessageArgumentType type;
+	char *name;
+	union {
+		int int_value;
+		double double_value;
+		char *string_value;
+		void *pointer_value;
+		int character_value;
+	} u;
+} MessageArgument;
+
+static void format_message(int line_number, ErrorDefinition *format, VString *v, va_list ap) {
 	int i;
-	char buf[LINR_BUF_SIZE];
+	char buf[LINE_BUF_SIZE];
 	DVM_Char wc_buf[LINE_BUF_SIZE];
 	int argument_name_index;
 	char argument_name[LINE_BUF_SIZE];
 	MessageArgument argument[MESSAGE_ARGUMENT_MAX];
 	MessageArgument current_argument;
 
-	create_message_argument(atg_name, ap);
+	create_message_argument(argument_name, ap);
 
 	DVM_Char *wc_format = dkc_mbstowcs_alloc(line_number, format->format);
 	DBG_assert(wc_format != NULL, ("wc_format is null.\n"));
@@ -25,7 +40,7 @@ static void format_message(int line_number, ErrorDedinition *format, VString *v,
 		}
 		assert(wc_format[i+1] == L'(');
 		i += 2;
-		for (argument_name_index = 0; ec_f[i] != L')'; argument_name_index++, i++) {
+		for (argument_name_index = 0; wc_format[i] != L')'; argument_name_index++, i++) {
 			// TODO
 		}
 	}

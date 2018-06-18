@@ -5,6 +5,9 @@
 #ifndef DIKSAM_DVM_CODE_H
 #define DIKSAM_DVM_CODE_H
 
+#include <wchar.h>
+#include "DVM.h"
+
 typedef struct DVM_TypeSpecifier_tag DVM_TypeSpecifier;
 
 typedef enum {
@@ -46,7 +49,7 @@ struct DVM_TypeSpecifier_tag {
     DVM_TypeDerive  *derive;
 };
 
-typedef schar_t DVM_Char;
+typedef wchar_t DVM_Char;
 typedef unsigned char	DVM_Byte;
 
 typedef enum {
@@ -191,7 +194,7 @@ typedef struct {
 typedef enum {
 	DVM_FILE_ACCESS,
 	DVM_PUBLIC_ACCESS,
-	DVM_PRIVATE_ACCESS,
+	DVM_PRIVATE_ACCESS
 } DVM_AccessModifier;
 
 typedef struct {

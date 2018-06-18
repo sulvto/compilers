@@ -56,7 +56,7 @@ static int string_input(char *buf, int max_size) {
 						- st_current_char_index, max_size);
 	strncpy(buf, &st_source_string[st_current_source_line][st_current_char_index], len);
 
-	st_current_char_index += size;
+	st_current_char_index += len;
 
 	return len;
 }
@@ -85,6 +85,9 @@ int yywrap(void) {
 static void inc_line_number(void) {
 	dkc_get_current_compiler()->current_line_number++;
 }
+
+DVM_Boolean st_character_literal_state;
+
 %}
 
 %start C_COMMENT CC_COMMENT STRING_LITERAL_STATE SHIFT_JIS_2ND_CHAR
@@ -110,26 +113,26 @@ static void inc_line_number(void) {
 <INITIAL>"int"	    return INT_T;
 <INITIAL>"double"	return DOUBLE_T;
 <INITIAL>"string"	return STRING_T;
-<INITIAL>"new"		return NEW:
-<INITIAL>"class"	return CLASS_T:
-<INITIAL>"interface"	return INTERFACE_T:
-<INITIAL>"public"		return PUBLIC_T:
-<INITIAL>"private"		return PRIVATE_T:
-<INITIAL>"virtual"		return VIRTUAL_T:
-<INITIAL>"override"		return OBERRIDE_T:
-<INITIAL>"abstract"		return ABSTRACT_T:
-<INITIAL>"this"			return THIS_T:
-<INITIAL>"super"		return SUPER_T:
-<INITIAL>"constructor"	return CONSTRUCTOR:
-<INITIAL>"instanceof"	return INSTANCEOF:
-<INITIAL>"("	return LR;
+<INITIAL>"new"		return NEW;
+<INITIAL>"class"	return CLASS_T;
+<INITIAL>"interface"	return INTERFACE_T;
+<INITIAL>"public"		return PUBLIC_T;
+<INITIAL>"private"		return PRIVATE_T;
+<INITIAL>"virtual"		return VIRTUAL_T;
+<INITIAL>"override"		return OVERRIDE_T;
+<INITIAL>"abstract"		return ABSTRACT_T;
+<INITIAL>"this"			return THIS_T;
+<INITIAL>"super"		return SUPER_T;
+<INITIAL>"constructor"	return CONSTRUCTOR;
+<INITIAL>"instanceof"	return INSTANCEOF;
+<INITIAL>"("	return LP;
 <INITIAL>")"	return RP;
 <INITIAL>"{"	return LC;
 <INITIAL>"}"	return RC;
 <INITIAL>";"	return SEMICOLON;
 <INITIAL>":"	return COLON;
 <INITIAL>","	return COMMA;
-<INITIAL>"&&"	return LOGICAL_ANF;
+<INITIAL>"&&"	return LOGICAL_AND;
 <INITIAL>"||"	return LOGICAL_OR;
 <INITIAL>"="	return ASSIGN_T;
 <INITIAL>"=="	return EQ;
@@ -152,8 +155,8 @@ static void inc_line_number(void) {
 <INITIAL>"--"	return DECREMENT;
 <INITIAL>"!"	return EXCLAMATION;
 <INITIAL>"."	return DOT;
-<INITIAL>"::"	return DOWN_CAST_BEGIN:
-<INITIAL>":>"	return DOWN_CAST_END:
+<INITIAL>"::"	return DOWN_CAST_BEGIN;
+<INITIAL>":>"	return DOWN_CAST_END;
 <INITIAL>[A-Za-z_][A-Za-z_0-9]*	{
     yylval.identifier = dkc_create_identifier(yytext);
     return IDENTIFIER;
@@ -165,14 +168,14 @@ static void inc_line_number(void) {
 
 	return INT_LITERAL;
 }
-<INITIAL> "0" {
+<INITIAL>"0" {
 	Expression *expression = dkc_alloc_expression(INT_EXPRESSION);
 	expression->u.int_value = 0;
 	yylval.expression = expression;
 
 	return INT_LITERAL;
 }
-<INITIAL> [0-9]+\.[0-9]+ {
+<INITIAL>[0-9]+\.[0-9]+ {
 	Expression *expression = dkc_alloc_expression(DOUBLE_EXPRESSION);
     sscanf(yytext, "%lf", &expression->u.double_value);
     yylval.expression = expression;
@@ -180,21 +183,21 @@ static void inc_line_number(void) {
 	return DOUBLE_LITERAL;
 }
 
-<INITIAL> \" {
+<INITIAL>\" {
 	dkc_open_string_literal();
 	st_character_literal_state = DVM_FALSE;
 	BEGIN STRING_LITERAL_STATE;
 }
-<INITIAL> \' {
+<INITIAL>\' {
 	dkc_open_string_literal();
 	st_character_literal_state = DVM_TRUE;
 	BEGIN STRING_LITERAL_STATE;
 }
 <INITIAL>[\t];
 <INITIAL>[\t\r\n] {inc_line_number();}
-<INITIAL>"/*" 	BEGIN C_COMMENT;
-<include>"//" 	BEGIN CC_COMMENT;
-<include>.		{
+<INITIAL>"/*"	BEGIN C_COMMENT;
+<INITIAL>"//"	BEGIN CC_COMMENT;
+<INITIAL>.		{
 	char buf[LINE_BUF_SIZE];
 	
 	if (isprint(yytext[0])) {
@@ -205,7 +208,7 @@ static void inc_line_number(void) {
 	}
 
 	dkc_compiler_error(dkc_get_current_compiler()->current_line_number,
-						CHARCTER_INVALID_ERR,
+						CHARACTER_INVALID_ERR,
 						STRING_MESSAGE_ARGUMENT, "bad_char", buf,
 						MESSAGE_ARGUMENT_END);
 }

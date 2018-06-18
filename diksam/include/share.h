@@ -8,14 +8,28 @@
 #include "DVM_code.h"
 #include "DKC.h"
 
+typedef struct {
+	char    *mnemonic;
+	char    *parameter;
+	int    stack_increment;
+} OpcodeInfo;
+
+typedef enum {
+	SEARCH_FILE_SUCCESS,
+	SEARCH_FILE_NOT_FOUND,
+	SEARCH_FILE_PATH_TOO_LONG
+} SearchFileStatus;
+
 #define ARRAY_METHOD_SIZE   "size"
 #define ARRAY_METHOD_RESIZE "resize"
 #define ARRAY_METHOD_INSERT "insert"
 #define ARRAY_METHOD_REMOVE "remove"
 #define ARRAY_METHOD_ADD    "add"
+#define ARRAY_PREFIX   "array#"
 
 #define STRING_METHOD_LENGTH    "length"
 #define STRING_METHOD_SUBSTR    "SUBSTR"
+#define STRING_PREFIX   "string#"
 
 #define ARRAY_SIZE(array)   (sizeof(array) / sizeof((array)[0]))
 

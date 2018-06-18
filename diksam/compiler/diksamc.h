@@ -5,15 +5,25 @@
 #ifndef DIKSAM_DIKSAMC_H
 #define DIKSAM_DIKSAMC_H
 
+#include "MEM.h"
+#include "DKC.h"
+#include "DVM_code.h"
+#include "share.h"
+
 typedef struct TypeSpecifier_tag TypeSpecifier;
 typedef struct ClassDefinition_tag ClassDefinition;
 typedef struct FunctionDefinition_tag FunctionDefinition;
 typedef struct MemberDeclaration_tag MemberDeclaration;
-
+typedef struct Expression_tag Expression;
 
 #define DEFAULT_CONSTRUCTOR_NAME	("init")
 
 #define LINE_BUF_SIZE			(1024)
+#define MESSAGE_ARGUMENT_MAX    (256)
+
+typedef struct {
+	char *format;
+} ErrorDefinition;
 
 typedef enum {
 	INT_MESSAGE_ARGUMENT = 1,
@@ -24,13 +34,22 @@ typedef enum {
 	MESSAGE_ARGUMENT_END
 } MessageArgumentType;
 
+typedef enum {
+	PARSE_ERR = 1,
+	CHARACTER_INVALID_ERR,
+	FUNCTION_MULTIPLE_DEFINE_ERR,
+	BAD_MULTIBYTE_CHARACTER_ERR,
+	LABEL_NOT_FOUND_ERR,
+	REQUIRE_FILE_NOT_FOUND_ERR,
+	COMPILE_ERROR_COUNT_PLUS_1
+} CompileError;
 
 typedef enum {
 	BOOLEAN_EXPRESSION = 1,
 	INT_EXPRESSION,
 	DOUBLE_EXPRESSION,
 	STRING_EXPRESSION,
-	IDENTIFIER_EXPRESSON,
+	IDENTIFIER_EXPRESSION,
 	COMMA_EXPRESSION,
 	ASSIGN_EXPRESSION,
 	ADD_EXPRESSION,
@@ -50,12 +69,19 @@ typedef enum {
 	LOGICAL_NOT_EXPRESSION,
 	FUNCTION_CALL_EXPRESSION,
 	NULL_EXPRESSION,
+	THIS_EXPRESSION,
+	SUPER_EXPRESSION,
 	ARRAY_LITERAL_EXPRESSION,
 	INDEX_EXPRESSION,
 	MEMBER_EXPRESSION,
 	INCREMENT_EXPRESSION,
 	DECREMENT_EXPRESSION,
+	INSTENCEOF_EXPRESSION,
+	DOWN_CAST_EXPRESSION,
 	CAST_EXPRESSION,
+	UP_CAST_EXPRESSION,
+	NEW_EXPRESSION,
+	ARRAY_CREATION_EXPRESSION,
 	EXPRESSION_KIND_COUNT_PLUS_1
 } ExpressionKind;
 
@@ -140,14 +166,29 @@ typedef struct DeclarationList_tag {
 	struct DeclarationList_tag *next;
 } DeclarationList;
 
+typedef enum {
+	VARIABLE_IDENTIFIER,
+	FUNCTION_IDENTIFIER
+} IdentifierKind;
+
+typedef struct {
+	FunctionDefinition  *function_definition;
+	int                 function_index;
+} FunctionIdentifier;
+
 typedef struct {
 	char 		*name;
-	DVM_Boolean is_function;
+	IdentifierKind  kind;
 	union {
-		FunctionDefinition  function;
+		FunctionIdentifier  function;
 		Declaration			*declaration;
 	} u;
 } IdentifierExpression;
+
+typedef struct {
+	Expression *left;
+	Expression *right;
+} CommaExpression;
 
 typedef struct {
 	Expression *array;
@@ -169,14 +210,14 @@ typedef enum {
 } AssignmentOperator;
 
 typedef struct {
-	AssignmentOperator  _operator;
+	AssignmentOperator  operator;
 	Expression          *left;
-	Expression          *right;
+	Expression          *operand;
 } AssignExpression;
 
 typedef struct {
 	Expression 		*function;
-	ArgumentList	argument;
+	ArgumentList	*argument;
 } FunctionCallExpression;
 
 typedef struct {
@@ -234,7 +275,7 @@ struct Expression_tag {
 		FunctionCallExpression	function_call_expression;
 		MemberExpression		member_expression;
 		ExpressionList 			*array_literal;
-		IndexExpression 		*index_expression;
+		IndexExpression 		index_expression;
 		IncrementOrDecrement	inc_dec;
 		CastExpression			cast;
 		ArrayCreation 			array_creation;
@@ -254,7 +295,7 @@ typedef enum {
 typedef struct {
 	Statement	*statement;
 	int 		continue_label;
-	int 		block_label;
+	int 		break_label;
 } StatementBlockInfo;
 
 typedef struct {
@@ -262,14 +303,19 @@ typedef struct {
 	int 				end_label;
 } FunctionBlockInfo;
 
+typedef struct StatementList_tag {
+	Statement                   *statement;
+	struct StatementList_tag    *next;
+} StatementList;
+
 typedef struct Block_tag {
-	BlockType type;
-	struct Block_tag *outer_block;
-	StatementList *statement_list;
-	DeclarationList *declaration_list;
+	BlockType           type;
+	struct Block_tag    *outer_block;
+	StatementList       *statement_list;
+	DeclarationList     *declaration_list;
 	union {
-		StatementBlockInfo statement;
-		FunctionBlockInfo function;
+		StatementBlockInfo  statement;
+		FunctionBlockInfo   function;
 	} parent;
 } Block;
 
@@ -320,10 +366,18 @@ typedef struct {
 	char *label;
 } ContinueStatement;
 
+typedef struct CatchClause_tag {
+	TypeSpecifier   type;
+	char            *variable_name;
+	Declaration     *variable_declaration;
+	Block           *block;
+	int             line_number;
+	struct CatchClause_tag *next;
+} CatchClause;
+
 typedef struct {
 	Block 	*try_block;
-	Block 	catch_block;
-	char 	*exception;
+	CatchClause *catch_clause;
 	Block 	*finally_block;
 } TryStatement;
 
@@ -345,7 +399,7 @@ typedef enum {
     TRY_STATEMENT,
     THROW_STATEMENT,
     DECLARATION_STATEMENT,
-    STATEMENT_TYPE_COUNT_PLUS_1,
+    STATEMENT_TYPE_COUNT_PLUS_1
 } StatementType;
 
 struct Statement_tag {
@@ -366,11 +420,6 @@ struct Statement_tag {
     } u;
 };
 
-typedef struct StatementList_tag {
-    Statement                   *statement;
-    struct StatementList_tag    *next;
-} StatementList;
-
 struct FunctionDefinition_tag {
 	TypeSpecifier 	*type;
 	PackageName 	*package_name;
@@ -379,7 +428,7 @@ struct FunctionDefinition_tag {
 	Block			*block;
 	int 			local_variable_count;
 	Declaration		**local_variable;
-	ClassDefinition	class_definition;
+	ClassDefinition	*class_definition;
 	int 			end_line_number;
 	struct FunctionDefinition_tag *next;
 };
@@ -412,7 +461,7 @@ typedef struct {
 
 struct MemberDeclaration_tag {
 	MemberKind kind;
-	DVM_AccessMofdifier access_modifier;
+	DVM_AccessModifier access_modifier;
 	union {
 		MethodMember method;
 		FieldMember field;
@@ -422,7 +471,7 @@ struct MemberDeclaration_tag {
 };
 
 struct ClassDefinition_tag {
-	DVN_Boolean 		is_abstract;
+	DVM_Boolean 		is_abstract;
 	DVM_AccessModifier 		access_modifier;
 	DVM_ClassOrInterface	class_or_interface;
 	PackageName			*package_name;
@@ -482,7 +531,7 @@ struct DKC_Compiler_tag {
 	Block 				*current_block;
 	ClassDefinition		*current_class_definition;
 	TryStatement		*current_try_statement;
-	CarchStatement		*current_catch_statement;
+	CatchClause         *current_catch_clause;
 	int 				current_finally_label;
 	DKC_InputMode		input_mode;
 	CompilerList		*required_list;
@@ -492,6 +541,30 @@ struct DKC_Compiler_tag {
 	FunctionDefinition	*string_method;
 	Encoding			source_encoding;
 };
+
+typedef enum {
+	ABSTRACT_MODIFIER,
+	PUBLIC_MODIFIER,
+	PRIVATE_MODIFIER,
+	OVERRIDE_MODIFIER,
+	VIRTUAL_MODIFIER,
+	NOT_SPECIFIED_MODIFIER
+} ClassOrMemberModifierKind;
+
+typedef struct {
+	ClassOrMemberModifierKind   is_abstract;
+	ClassOrMemberModifierKind   access_modifier;
+	ClassOrMemberModifierKind   is_virtual;
+	ClassOrMemberModifierKind   is_override;
+} ClassOrMemberModifierList;
+
+typedef struct {
+	char *string;
+} VString;
+
+typedef struct {
+	DVM_Char *string;
+} VWString;
 
 // diksam.l
 void dkc_set_source_string(char **source);
@@ -512,7 +585,7 @@ RequireList *dkc_chain_require_list(RequireList *list, RequireList *add);
 
 RenameList *dkc_create_rename_list(PackageName *package_name, char *identifier);
 
-RenameList *dkc_chain_require_list(RenameList *list, RenameList *add);
+RenameList *dkc_chain_rename_list(RenameList *list, RenameList *add);
 
 void dkc_set_require_add_rename_list(RequireList *require_list, RenameList *rename_list);
 
@@ -543,7 +616,7 @@ TypeSpecifier *dkc_create_type_specifier(DVM_BasicType basic_type);
 
 TypeSpecifier *dkc_create_class_type_specifier(char *identifier);
 
-TypeSpecifier *dkc_create_array_type_specifier(TypeSpecifier base);
+TypeSpecifier *dkc_create_array_type_specifier(TypeSpecifier *base);
 
 Expression *dkc_alloc_expression(ExpressionKind kind);
 
@@ -683,7 +756,7 @@ DKC_Compiler *dkc_get_current_compiler(void);
 
 void dkc_set_current_compiler(DKC_Compiler *compiler);
 
-void dkc_malloc(size_t size);
+void *dkc_malloc(size_t size);
 
 void dkc_strdup(char *src);
 
@@ -721,14 +794,14 @@ void dkc_vwstr_append_character(VWString *v, int ch);
 
 char *dkc_get_type_name(TypeSpecifier *type);
 
-char *dkc_get_basic_type_name(DVM_TypeBasic type);
+char *dkc_get_basic_type_name(DVM_BasicType type);
 
 DVM_Char *dkc_expression_to_string(Expression *expression);
 
 char *dkc_package_name_to_string(PackageName *package_name);
 
 // wchar.c
-sizt_t dkc_wcslen(DVM_Char *str);
+size_t dkc_wcslen(DVM_Char *str);
 
 DVM_Char *dkc_wcscpy(DVM_Char *dest, DVM_Char *src);
 

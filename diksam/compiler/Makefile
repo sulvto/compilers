@@ -4,9 +4,9 @@ OBJS = lex.yy.o y.tab.o interface.o create.o \
         fix_tree.o generate.o string.o wchar.o \
         util.o error.o error_message.o
 
-CFLAGS  = -c -g -Wall -Wswitvh-enum -ansi -pedantic -DDEBUG -DSHIFT_JIS_SOURCE
+CFLAGS  = -c -g -Wall -Wswitch-enum -ansi -pedantic -DDEBUG -DSHIFT_JIS_SOURCE -std=c99
 
-INCLUDE = -I../include
+INCLUDES = -I../include
 
 $(TARGET):$(OBJS)
 	ld -r -o $@ $(OBJS)

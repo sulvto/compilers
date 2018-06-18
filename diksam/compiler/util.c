@@ -43,20 +43,24 @@ FunctionDefinition *dkc_search_function(char *name) {
 
 Declaration *dkc_search_declaration(char *name, Block *block) {
 	Block *block_pos;
-	Declaration *decl_pos;
+	DeclarationList *declaration_pos;
 
-	for (block_pos = block; block_pos; block_pos = block_pos->next) {
-		for (decl_pos = block_pos->declaration_list; decl_pos; decl_pos = decl_pos->next) {
-			if (strcmp(decl_pos->declaration->name, name) == 0) {
-				return decl_pos->declaration;
+	for (block_pos = block; block_pos; block_pos = block_pos->outer_block) {
+		for (declaration_pos = block_pos->declaration_list;
+		     declaration_pos;
+		     declaration_pos = declaration_pos->next) {
+			if (strcmp(declaration_pos->declaration->name, name) == 0) {
+				return declaration_pos->declaration;
 			}
 		}
 	}
 
 	DKC_Compiler *compiler = dkc_get_current_compiler();
-	for (decl_pos = compiler->declaration_list; decl_pos; decl_pos = decl_pos->next) {
-		if (strcmp(decl_pos->declaration->name, name) == 0) {
-			return decl_pos->declaration;
+	for (declaration_pos = compiler->declaration_list;
+	     declaration_pos;
+	     declaration_pos = declaration_pos->next) {
+		if (strcmp(declaration_pos->declaration->name, name) == 0) {
+			return declaration_pos->declaration;
 		}
 	}
 
@@ -65,10 +69,15 @@ Declaration *dkc_search_declaration(char *name, Block *block) {
 
 TypeSpecifier *dkc_alloc_type_specifier(DVM_BasicType type) {
 	TypeSpecifier *type_specifier =  dkc_malloc(sizeof(TypeSpecifier));
-	type_specifier->type = type;
+	type_specifier->basic_type = type;
 	type_specifier->derive = NULL;
 
-	return type;
+	if (type == DVM_CLASS_TYPE) {
+		type_specifier->class_ref.identifier = NULL;
+		type_specifier->class_ref.class_definition = NULL;
+	}
+
+	return type_specifier;
 }
 
 
@@ -142,7 +151,7 @@ void dkc_vwstr_append_character(VWString *v, int ch);
 
 char *dkc_get_type_name(TypeSpecifier *type);
 
-char *dkc_get_basic_type_name(DVM_TypeBasic type) {
+char *dkc_get_basic_type_name(DVM_BasicType type) {
     switch (type) {
         case DVM_VOID_TYPE:     return "void";
         case DVM_BOOLEAN_TYPE:  return "boolean";
