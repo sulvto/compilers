@@ -5,6 +5,7 @@
 #ifndef DIKSAM_DKC_H
 #define DIKSAM_DKC_H
 
+#include <stdio.h>
 #include "DVM_code.h"
 
 typedef struct DKC_Compiler_tag DKC_Compiler;

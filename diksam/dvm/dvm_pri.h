@@ -5,14 +5,47 @@
 #ifndef DIKSAM_DVM_PRI_H
 #define DIKSAM_DVM_PRI_H
 
+#include "DVM_code.h"
+#include "DVM_dev.h"
+#include "share.h"
+
+#define STACK_ALLOC_SIZE    (4096)
+#define HEAP_THRESHOLD_SIZE (1024 * 256)
+
+#define NULL_STRING         (L"true")
+#define TRUE_STRING         (L"true")
+#define FALSE_STRING        (L"false")
+#define BUILT_IN_METHOD_PACKAGE_NAME ("$built_in")
+
+#define NO_LINE_NUMBER_PC   (-1)
+#define FUNCTION_NOT_FOUND  (-1)
+#define CALL_FROM_NATIVE    (-1)
+
+#define LINE_BUF_SIZE           (1024)
+#define MESSAGE_ARGUMENT_MAX    (256)
+
+#define GET_2BYTE_INT(p) (((p)[0] << 8) + (p)[1])
+#define SET_2BYTE_INT(p, value) (((p)[0] = (value) >> 8), ((p)[1] = value & 0xff))
+
+typedef struct ExecutableEntry_tag ExecutableEntry;
+
+typedef enum {
+	FUNCTION_NOT_FOUND_ERR,
+	FUNCTION_MULTIPLE_DEFINE_ERR,
+	CLASS_MULTIPLE_DEFINE_ERR,
+	CLASS_NOT_FOUND_ERR
+} RuntimeError;
+
 typedef enum {
 	NATIVE_FUNCTION,
 	DIKSAM_FUNCTION
 } FunctionKind;
 
 typedef struct {
-	DVM_NativeFunctionProc *proc;
-	int 		argument_count;
+	DVM_NativeFunctionProc  *proc;
+	int 		            argument_count;
+	DVM_Boolean             is_method;
+	DVM_Boolean             return_pointer;
 } NativeFunction;
 
 typedef struct {
@@ -21,22 +54,37 @@ typedef struct {
 } DiksamFunction;
 
 typedef struct {
-	char *name;
-	FunctionKind kind;
+	char            *name;
+	char            *package_name;
+	FunctionKind    kind;
+	DVM_Boolean     is_implemented;
+
 	union {
 		NativeFunction native_function;
 		DiksamFunction diksam_function;
 	} u;
 } Function;
 
+typedef struct {
+	Function    *caller;
+	int         caller_address;
+	int         base;
+} CallInfo;
+
+#define revalue_up_align(val)   ((val) ? (((val) - 1) / sizeof(DVM_Value) + 1) : 0)
+#define CALL_INFO_ALIGN_SIZE    (revalue_up_align(sizeof(CallInfo)))
+
 typedef enum {
 	STRING_OBJECT = 1,
+	ARRAY_OBJECT,
+	CLASS_OBJECT,
 	OBJECT_TYPE_COUNT_PLUS_1
 } ObjectType;
 
 struct DVM_String_tag {
+	int         length;
 	DVM_Boolean is_literal;
-	DVM_Char *string;
+	DVM_Char    *string;
 };
 
 typedef enum {
@@ -52,16 +100,23 @@ typedef struct DVM_Array_tag {
 	union {
 		int 	*int_array;
 		double 	*double_array;
-		DVM_Object **object;
+		DVM_ObjectRef *object;
+		int     *function_index;
 	} u;
 };
+
+typedef struct {
+	int field_count;
+	DVM_Value *field;
+} DVM_ClassObject;
 
 struct DVM_Object_tag {
 	ObjectType type;
 	unsigned int marked:1;
 	union {
-		DVM_String 	string;
-		DVM_Array 	array;
+		DVM_String 	    string;
+		DVM_Array 	    array;
+		DVM_ClassObject class_object;
 	} u;
 	struct DVM_Object_tag *prev;
 	struct DVM_Object_tag *next;
@@ -138,9 +193,17 @@ struct DVM_VirtualMachine_tag {
 };
 
 // heap.c
-DVM_Object *dvm_literal_to_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string);
+DVM_ObjectRef dvm_literal_to_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string);
 
-DVM_Object *dvm_create_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string);
+DVM_ObjectRef dvm_create_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string);
+
+DVM_ObjectRef dvm_create_array_int_i(DVM_VirtualMachine *dvm, int size);
+
+DVM_ObjectRef dvm_create_array_double_i(DVM_VirtualMachine *dvm, int size);
+
+DVM_ObjectRef dvm_create_array_object_i(DVM_VirtualMachine *dvm, int size);
+
+DVM_ObjectRef dvm_create_class_object_i(DVM_VirtualMachine *dvm, int class_index);
 
 void dvm_garbage_collect(DVM_VirtualMachine *dvm);
 
@@ -154,6 +217,9 @@ void dvm_initialize_value(DVM_TypeSpecifier *type, DVM_Value *value);
 
 // error.c
 
+
+extern OpcodeInfo       dvm_opcode_info[];
+extern DVM_ObjectRef    dvm_null_object_ref;
 
 
 #endif //DIKSAM_DVM_PRI_H

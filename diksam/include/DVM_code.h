@@ -22,7 +22,8 @@ typedef enum {
 } DVM_BasicType;
 
 typedef enum {
-    DVM_FUNCTION_DERIVE
+    DVM_FUNCTION_DERIVE,
+	DVM_ARRAY_DERIVE
 } DVM_DeriveTag;
 
 typedef struct {
@@ -230,7 +231,7 @@ typedef struct {
 	DVM_Boolean				is_implemented;
 	DVM_ClassIdentifier		*super_class;
 	int 					interface_count;
-	DVM_ClassIdentifier		*_interface;
+	DVM_ClassIdentifier		*interface;
 	int 					field_count;
 	DVM_Field				*field;
 	int 					method_count;

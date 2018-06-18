@@ -42,6 +42,8 @@ int dvm_dump_instruction(FILE *fp, DVM_Byte *code, int index);
 
 void dvm_disassemble(DVM_Executable *executable);
 
+// wchar.c
 
+wchar_t dvm_mbstowcs_alloc(DVM_VirtualMachine *dvm, const char *src);
 
 #endif //DIKSAM_SHARE_H

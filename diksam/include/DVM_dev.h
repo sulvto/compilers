@@ -10,8 +10,16 @@
 
 typedef struct DVM_Array_tag DVM_Array;
 
+typedef DVM_Value DVM_NativeFunctionProc(DVM_VirtualMachine *dvm, int arg_count, DVM_Value *args);
+
+
+typedef enum {
+	DVM_STRING_MESSAGE_ARGUMENT,
+	DVM_MESSAGE_ARGUMENT_END
+} DVM_MessageArgumentType;
+
 // execute.c
-DVM_Value DVM_add_native_function(DVM_VirtualMachine *dvm, char *package_name, char *function_name,
+void DVM_add_native_function(DVM_VirtualMachine *dvm, char *package_name, char *function_name,
                                   DVM_NativeFunctionProc *proc, int arg_count, DVM_Boolean is_method,
                                   DVM_Boolean return_pointer);
 

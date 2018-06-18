@@ -1,7 +1,7 @@
 //
 // Created by sulvto on 18-6-12.
 //
-
+#include "dvm_pri.h"
 
 static void check_gc(DVM_VirtualMachine *dvm) {
 	if (dvm->heap.current_heap_size > dvm->heap.current_threshold) {
@@ -9,39 +9,37 @@ static void check_gc(DVM_VirtualMachine *dvm) {
 		dvm_garbage_collect(dvm);
 		fprintf(stderr, "done.\n");
 
-		dvm->heap.current_threshold = dvm->heap.current_heap_size 
+		dvm->heap.current_threshold = dvm->heap.current_heap_size
 										+ HEAP_THRESHOLD_SIZE;
 	}
 }
 
-static DVM_Object *alloc_object(DVM_VirtualMachine *dvm, ObjectType type) {
+static DVM_ObjectRef alloc_object(DVM_VirtualMachine *dvm, ObjectType type) {
 	check_gc(dvm);
-	DVM_Object *object = MEM_malloc(sizeof(DVM_Object));
-	object->type = type;
-	object->marked = DVM_FALSE;
-	object->prev = NULL;
-	object->next = dvm->heap.header;
-	dvm->heap.header = object;
-	if (object->next) {
-		object->next->prev = object;
+	DVM_ObjectRef object_ref;
+	object_ref.v_table = NULL;
+	object_ref.data = MEM_malloc(sizeof(DVM_Object));
+	dvm->heap.current_heap_size += sizeof(DVM_Object);
+	object_ref.data->type = type;
+	object_ref.data->marked = DVM_FALSE;
+	object_ref.data->prev = NULL;
+	object_ref.data->next = dvm->heap.header;
+	dvm->heap.header = object_ref.data;
+	if (object_ref.data->next) {
+		object_ref.data->next->prev = object_ref.data;
 	}
 
-	return object;
+	return object_ref;
 }
 
-DVM_Object *dvm_literal_to_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string) {
-	DVM_Object *ret = alloc_object(dvm, STRING_OBJECT);
-	ret->u.string.string = string;
-	ret->u.string.is_literal = DVM_TRUE;
-
-	return ret;
-}
-
-DVM_Object *dvm_create_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string) {
-	DVM_Object *ret = alloc_object(dvm, STRING_OBJECT);
-	ret->u.string.string = string;
-	dvm->heap.current_heap_size += sizeof(DVM_Char) * (dvm_wcslen(string) + 1);
-	ret->u.string.is_literal = DVM_FALSE;
+DVM_ObjectRef DVM_create_dvm_string(DVM_VirtualMachine *dvm, DVM_Char *string) {
+	DVM_ObjectRef ret = alloc_object(dvm, STRING_OBJECT);
+	int length = dvm_wcslen(string);
+	ret.v_table = dvm->string_v_table;
+	ret.data->u.string.string = string;
+	dvm->heap.current_heap_size += sizeof(DVM_Char) * (length + 1);
+	ret.data->u.string.is_literal = DVM_FALSE;
+	ret.data->u.string.length = length;
 
 	return ret;
 }
@@ -58,29 +56,42 @@ static void gc_reset_mark(DVM_Object *object) {
 	object->marked = DVM_FALSE;
 }
 
+static DVM_Boolean is_reference_type(DVM_TypeSpecifier *type) {
+	if (((type->basic_type == DVM_STRING_TYPE || type->basic_type == DVM_CLASS_TYPE)
+	&& type->derive_count == 0)
+			|| (type->derive_count > 0 && type->derive[0].tag == DVM_ARRAY_DERIVE)) {
+		return DVM_TRUE;
+	}
+	return DVM_FALSE;
+}
+
 static void gc_mark_objects(DVM_VirtualMachine *dvm) {
 	for (DVM_Object *object = dvm->heap.header; object; object = object->next) {
 		gc_reset_mark(object);
 	}
 
-	for (int i = 0; i < dvm->static_v.variable_count; i++) {
-		if (dvm->executable->global_variable[i].type->basic_type == DVM_STRING_TYPE) {
-			gc_mark(dvm->static_v.variable[i].object);
+	ExecutableEntry *executable_pos ;
+	for (executable_pos = dvm->executable_entry; executable_pos; executable_pos = executable_pos->next) {
+		for (int i = 0; i < executable_pos->static_v.variable_count; i++) {
+			if (is_reference_type(executable_pos->executable->global_variable[i].type)) {
+				gc_mark(&executable_pos->static_v.variable[i].object);
+			}
 		}
 	}
 
 	for (int i = 0; i < dvm->stack.stack_pointer; i++) {
 		if (dvm->stack.pointer_flags[i]) {
-			gc_mark(dvm->stack.stack[i].object);
+			gc_mark(&dvm->stack.stack[i].object);
 		}
 	}
+	gc_mark(&dvm->current_exception);
 }
 
 static void gc_dispose_object(DVM_VirtualMachine *dvm, DVM_Object *object) {
 	switch (object->type) {
 		case STRING_OBJECT:
 			if (!object->u.string.is_literal) {
-				dvm->heap.current_heap_size 
+				dvm->heap.current_heap_size
 						-= sizeof(DVM_Char) * (dvm_ecslen(object->u.string.string) + 1);
 				MEM_free(object->u.string.string);
 			}

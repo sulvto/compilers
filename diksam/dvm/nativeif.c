@@ -1,7 +1,8 @@
 //
 // Created by sulvto on 18-6-16.
 //
-
+#include "MEM.h"
+#include "dvm_pri.h"
 
 int DVM_array_get_int(DVM_VirtualMachine *dvm, DVM_ObjectRef array, int index) {
     check_array(array, index,
@@ -45,13 +46,13 @@ void DVM_array_set_double(DVM_VirtualMachine *dvm, DVM_ObjectRef array, int inde
 }
 
 void DVM_array_set_object(DVM_VirtualMachine *dvm, DVM_ObjectRef array, int index, DVM_ObjectRef value) {
-    check_array(array, index,
+	check_array(array, index,
                 dvm->current_executable->executable,
                 dvm->current_function,
                 dvm->pc);
-    array.data->u.array.u.object[index] = value;
+	array.data->u.array.u.object[index] = value;
 }
 
-void DVM_array_size(DVM_VirtualMachine *dvm, DVM_Object *array) {
+int DVM_array_size(DVM_VirtualMachine *dvm, DVM_Object *array) {
     return array->u.array.size;
 }

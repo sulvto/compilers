@@ -27,7 +27,7 @@ typedef struct {
 typedef union {
 	int 			int_value;
 	double 			double_value;
-	DVM_ObjectRef 	*object;
+	DVM_ObjectRef 	object;
 } DVM_Value;
 
 DVM_VirtualMachine *DVM_create_virtual_machine(void);
