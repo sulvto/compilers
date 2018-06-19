@@ -207,7 +207,7 @@ DVM_Boolean st_character_literal_state;
 		sprintf(buf, "0x%02x", (unsigned char)yytext[0]);
 	}
 
-	dkc_compiler_error(dkc_get_current_compiler()->current_line_number,
+	dkc_compile_error(dkc_get_current_compiler()->current_line_number,
 						CHARACTER_INVALID_ERR,
 						STRING_MESSAGE_ARGUMENT, "bad_char", buf,
 						MESSAGE_ARGUMENT_END);

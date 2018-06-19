@@ -3,7 +3,9 @@
 //
 
 #include "MEM.h"
+#include "DBG.h"
 #include "diksamc.h"
+#include "DVM_dev.h"
 
 static void add_function_to_compiler(FunctionDefinition *function_definition) {
 	DKC_Compiler *compiler = dkc_get_current_compiler();
@@ -52,7 +54,7 @@ void dkc_function_define(TypeSpecifier *type,
 
 	if (dkc_search_function(identifier) 
 		|| dkc_search_declaration(identifier, NULL)) {
-		dkc_compiler_error(dkc_get_current_compiler()->current_line_number,
+		dkc_compile_error(dkc_get_current_compiler()->current_line_number,
 						FUNCTION_MULTIPLE_DEFINE_ERR,
 						STRING_MESSAGE_ARGUMENT, "name", identifier,
 						MESSAGE_ARGUMENT_END);
@@ -74,6 +76,130 @@ void dkc_function_define(TypeSpecifier *type,
 	}
 }
 
+PackageName *dkc_create_package_name(char *identifier) {
+	PackageName *package_name = MEM_malloc(sizeof(PackageName));
+	package_name->name = identifier;
+	package_name->next = NULL;
+
+	return package_name;
+}
+
+PackageName *dkc_chain_package_name(PackageName *list, char *identifier) {
+	PackageName *pos;
+	for (pos = list; pos->next; pos = pos->next);
+	pos->next = dkc_create_package_name(identifier);
+
+	return list;
+}
+
+RequireList *dkc_create_require_list(PackageName *package_name) {
+	DKC_Compiler *compiler = dkc_get_current_compiler();
+
+	char *current_package_name = dkc_package_name_to_string(compiler->package_name);
+	char *req_package_name = dkc_package_name_to_string(package_name);
+	if (dvm_compare_string(req_package_name, current_package_name)
+			&& compiler->source_suffix == DKH_SOURCE) {
+		dkc_compile_error(compiler->current_line_number, REQUIRE_ITSELF_ERR, MESSAGE_ARGUMENT_END);
+	}
+
+	MEM_free(current_package_name);
+	MEM_free(req_package_name);
+
+	RequireList *require_list = dkc_malloc(sizeof(RequireList));
+	require_list->line_number = dkc_get_current_compiler()->current_line_number;
+	require_list->package_name = package_name;
+	require_list->next = NULL;
+
+	return require_list;
+}
+
+
+RequireList *dkc_chain_require_list(RequireList *list, RequireList *add) {
+	RequireList *pos;
+	char buf[LINE_BUF_SIZE];
+
+	for (pos = list; pos->next; pos = pos->next) {
+		if (dkc_compare_package_name(pos->package_name, add->package_name)) {
+			char *package_name = dkc_package_name_to_string(add->package_name);
+			dvm_strncpy(buf, package_name, LINE_BUF_SIZE);
+			MEM_free(package_name);
+			dkc_compile_error(dkc_get_current_compiler()->current_line_number, REQUIRE_DUPLICATE_ERR,
+			                  STRING_MESSAGE_ARGUMENT, "package_name", buf,
+			                  MESSAGE_ARGUMENT_END);
+		}
+	}
+
+	pos->next = add;
+
+	return list;
+}
+
+RenameList *dkc_create_rename_list(PackageName *package_name, char *identifier) {
+	PackageName *tail;
+	PackageName *pre_tail;
+	for (tail = package_name; tail->next; tail = tail->next) {
+		pre_tail = tail;
+	}
+
+	if (pre_tail == NULL) {
+		dkc_compile_error(dkc_get_current_compiler()->current_line_number,
+		                  RENAME_HAS_NO_PACKAGED_NAME_ERR,
+		                  MESSAGE_ARGUMENT_END);
+	}
+
+	pre_tail->next = NULL;
+
+	RenameList *rename_list = dkc_malloc(sizeof(RenameList));
+	rename_list->line_number = dkc_get_current_compiler()->current_line_number;
+	rename_list->package_name = package_name;
+	rename_list->original_name = tail->name;
+	rename_list->renamed_name = identifier;
+	rename_list->next = NULL;
+
+	return rename_list;
+}
+
+RenameList *dkc_chain_rename_list(RenameList *list, RenameList *add) {
+	RenameList *pos;
+	for (pos = list; pos->next; pos = pos->next);
+	pos->next = add;
+
+	return list;
+}
+
+static RequireList *add_default_package(RequireList *require_list) {
+	RequireList *pos;
+	DVM_Boolean default_package_required  =DVM_FALSE;
+	for (pos = require_list; pos; pos = pos->next) {
+		char *temp_name = dkc_package_name_to_string(pos->package_name);
+		if (strcmp(temp_name, DVM_DIKSAM_DEFAULT_PACKAGE) == 0) {
+			default_package_required = DVM_TRUE;
+		}
+		MEM_free(temp_name);
+	}
+
+	if (!default_package_required) {
+		PackageName *package_name = dkc_create_package_name(DVM_DIKSAM_DEFAULT_PACKAGE_P1);
+		package_name = dkc_chain_package_name(package_name, DVM_DIKSAM_DEFAULT_PACKAGE_P2);
+		RequireList *require_temp = require_list;
+		require_list = dkc_create_require_list(package_name);
+		require_list->next = require_temp;
+	}
+
+	return require_list;
+}
+
+void dkc_set_require_and_rename_list(RequireList *require_list, RenameList *rename_list) {
+	DKC_Compiler *compiler = dkc_get_current_compiler();
+	char *current_package_name = dkc_package_name_to_string(compiler->package_name);
+	if (!dvm_compare_string(current_package_name, DVM_DIKSAM_DEFAULT_PACKAGE)) {
+		require_list = add_default_package(require_list);
+	}
+	MEM_free(current_package_name);
+	compiler->require_list = require_list;
+	compiler->rename_list = rename_list;
+}
+
 ParameterList *dkc_create_parameter(TypeSpecifier *type, char *identifier) {
 	ParameterList *parameter = dkc_malloc(sizeof(ParameterList));
 	parameter->name = identifier;
@@ -84,7 +210,7 @@ ParameterList *dkc_create_parameter(TypeSpecifier *type, char *identifier) {
 	return parameter;
 }
 
-ParameterList *dkc_chain_parameter_list(ParameterList *parameter_list,
+ParameterList *dkc_chain_parameter(ParameterList *parameter_list,
                                         TypeSpecifier *type, char *identifier) {
 	ParameterList *pos;
 	for (pos = parameter_list; pos->next; pos = pos->next);
@@ -201,6 +327,14 @@ Expression *dkc_create_function_call_expression(Expression *function, ArgumentLi
 	return expr;
 }
 
+Expression *dkc_create_down_cast_expression(Expression *operand, TypeSpecifier *type) {
+	Expression *expression = dkc_alloc_expression(DOWN_CAST_EXPRESSION);
+	expression->u.down_cast.operand = operand;
+	expression->u.down_cast.type = type;
+
+	return expression;
+}
+
 Expression *dkc_create_incdec_expression(Expression *operand, ExpressionKind inc_or_dec) {
 	Expression *expr = dkc_alloc_expression(inc_or_dec);
 	expr->u.inc_dec.operand = operand;
@@ -224,6 +358,14 @@ Expression *dkc_create_member_expression(Expression *expression, char *member_na
 	return expr;
 }
 
+Expression *dkc_create_instanceof_expression(Expression *operand, TypeSpecifier *type) {
+	Expression *expression = dkc_alloc_expression(INSTENCEOF_EXPRESSION);
+	expression->u.instanceof_expression.operand = operand;
+	expression->u.instanceof_expression.type = type;
+
+	return expression;
+}
+
 Expression *dkc_create_identifier_expression(char *identifier) {
 	Expression *expr = dkc_alloc_expression(IDENTIFIER_EXPRESSION);
 	expr->u.identifier.name = identifier;
@@ -244,11 +386,54 @@ Expression *dkc_create_null_expression() {
 	return expr;
 }
 
+Expression *dkc_create_this_expression(void) {
+	Expression *expr = dkc_alloc_expression(THIS_EXPRESSION);
+
+	return expr;
+}
+
+Expression *dkc_create_super_expression(void) {
+	Expression *expr = dkc_alloc_expression(SUPER_EXPRESSION);
+
+	return expr;
+}
+
+Expression *dkc_create_new_expression(char *class_name, char *method_name,
+                                      ArgumentList *argument) {
+	Expression *expression = dkc_alloc_expression(NEW_EXPRESSION);
+	expression->u.new_expression.class_name = class_name;
+	expression->u.new_expression.class_definition = NULL;
+	expression->u.new_expression.method_name = method_name;
+	expression->u.new_expression.method_declaration = NULL;
+	expression->u.new_expression.argument = argument;
+
+	return expression;
+}
+
 Expression *dkc_create_array_literal_expression(ExpressionList *expression_list) {
 	Expression *expr = dkc_alloc_expression(ARRAY_LITERAL_EXPRESSION);
 	expr->u.array_literal = expression_list;
 
 	return expr;
+}
+
+Expression *dkc_create_basic_array_creation(DVM_BasicType basic_type,
+                                            ArrayDimension *dim_expr_list,
+                                            ArrayDimension *dim_list) {
+	TypeSpecifier *type = dkc_create_type_specifier(basic_type);
+	Expression *expression = dkc_create_class_array_creation(type, dim_expr_list, dim_list);
+
+	return expression;
+}
+
+Expression *dkc_create_class_array_creation(TypeSpecifier *type,
+                                            ArrayDimension *dim_expr_list,
+                                            ArrayDimension *dim_list) {
+	Expression *expression = dkc_alloc_expression(ARRAY_CREATION_EXPRESSION);
+	expression->u.array_creation.type = type;
+	expression->u.array_creation.dimension = dkc_chain_array_dimension(dim_expr_list, dim_list);
+
+	return expression;
 }
 
 TypeSpecifier *dkc_create_type_specifier(DVM_BasicType basic_type) {
@@ -257,6 +442,36 @@ TypeSpecifier *dkc_create_type_specifier(DVM_BasicType basic_type) {
 	type_specifier->derive = NULL;
 
 	return type_specifier;
+}
+
+TypeSpecifier *dkc_create_class_type_specifier(char *identifier) {
+	TypeSpecifier *type = dkc_alloc_type_specifier(DVM_CLASS_TYPE);
+	type->class_ref.identifier = identifier;
+	type->class_ref.class_definition = NULL;
+	type->line_number = dkc_get_current_compiler()->current_line_number;
+
+	return type;
+}
+
+TypeSpecifier *dkc_create_array_type_specifier(TypeSpecifier *base) {
+	TypeDerive *new_derive = dkc_alloc_type_derive(ARRAY_DERIVE);
+	if (base->derive == NULL) {
+		base->derive = new_derive;
+	} else {
+		TypeDerive *pos;
+		for (pos = base->derive; pos->next != NULL; pos = pos->next);
+		pos->next = new_derive;
+	}
+
+	return base;
+}
+
+ArrayDimension *dkc_create_array_dimension(Expression *expression) {
+	ArrayDimension *dimension = dkc_malloc(sizeof(ArrayDimension));
+	dimension->expression = expression;
+	dimension->next = NULL;
+
+	return dimension;
 }
 
 ArrayDimension *dkc_chain_array_dimension(ArrayDimension *list, ArrayDimension *dim) {
@@ -396,6 +611,94 @@ Statement *dkc_create_throw_statement(Expression *expression) {
 	return statement;
 }
 
+Block *dkc_alloc_block(void) {
+	Block *new_block = dkc_malloc(sizeof(Block));
+	new_block->type = UNDEFINED_BLOCK;
+	new_block->outer_block = NULL;
+	new_block->statement_list = NULL;
+	new_block->declaration_list = NULL;
+
+	return new_block;
+}
+
+Block *dkc_open_block(void) {
+	DKC_Compiler *compiler = dkc_get_current_compiler();
+
+	Block *new_block = dkc_alloc_block();
+
+	new_block->outer_block = compiler->current_block;
+	compiler->current_block = new_block;
+
+	return new_block;
+}
+
+Block *dkc_close_block(Block *block, StatementList *statement_list) {
+	DKC_Compiler *compiler = dkc_get_current_compiler();
+	DBG_assert(block == compiler->current_block, ("block mismatch.\n"));
+
+	block->statement_list = statement_list;
+	compiler->current_block = block->outer_block;
+
+	return block;
+}
+
+static DVM_AccessModifier conv_access_modifier(ClassOrMemberModifierKind kind) {
+	if (kind == PUBLIC_MODIFIER) {
+		return DVM_PUBLIC_ACCESS;
+	} else if (kind == PRIVATE_MODIFIER) {
+		return DVM_PRIVATE_ACCESS;
+	} else {
+		DBG_assert(kind == NOT_SPECIFIED_MODIFIER, ("kind..%d\n", kind));
+		return DVM_FILE_ACCESS;
+	}
+}
+
+void dkc_start_class_definition(ClassOrMemberModifierList *modifier, DVM_ClassOrInterface class_or_interface,
+                                char *identifier,
+                                ExtendsList *extends) {
+	DKC_Compiler *compiler = dkc_get_current_compiler();
+	ClassDefinition *class_definition = dkc_malloc(sizeof(ClassDefinition));
+	class_definition->is_abstract = (class_or_interface == DVM_INTERFACE_DEFINITION);
+	class_definition->access_modifier = DVM_FILE_ACCESS;
+	if (modifier) {
+		if (modifier->is_abstract == ABSTRACT_MODIFIER) {
+			class_definition->is_abstract = DVM_TRUE;
+		}
+		class_definition->access_modifier = conv_access_modifier(modifier->access_modifier);
+	}
+
+	class_definition->class_or_interface = class_or_interface;
+	class_definition->package_name = compiler->package_name;
+	class_definition->name = identifier;
+	class_definition->extends = extends;
+	class_definition->super_class = NULL;
+	class_definition->interface_list = NULL;
+	class_definition->member = NULL;
+	class_definition->next = NULL;
+	class_definition->line_number = compiler->current_line_number;
+
+	DBG_assert(compiler->current_class_definition == NULL, ("current_class_definition is not NULL."));
+
+	compiler->current_class_definition = class_definition;
+}
+
+void dkc_class_define(MemberDeclaration *member_list) {
+	DKC_Compiler *compiler = dkc_get_current_compiler();
+	ClassDefinition *class_definition = compiler->current_class_definition;
+
+	DBG_assert(class_definition != NULL, ("current_class_definition is NULL."));
+
+	if (compiler->class_definition_list == NULL) {
+		compiler->class_definition_list = class_definition;
+	} else {
+		ClassDefinition *pos;
+		for (pos = compiler->class_definition_list; pos->next; pos = pos->next);
+		pos->next = class_definition;
+	}
+	class_definition->member = member_list;
+	compiler->current_class_definition = NULL;
+}
+
 Declaration *dkc_alloc_declaration(TypeSpecifier *type, char *identifier) {
 	Declaration *declaration = dkc_malloc(sizeof(Declaration));
 	declaration->name = identifier;
@@ -413,4 +716,175 @@ Statement *dkc_create_declaration_statement(TypeSpecifier *type, char *identifie
 	statement->u.declaration_s = declaration;
 
 	return statement;
-} 
+}
+
+static MemberDeclaration *alloc_member_declaration(MemberKind kind, ClassOrMemberModifierList *modifier) {
+	MemberDeclaration *member_declaration = dkc_malloc(sizeof(MemberDeclaration));
+	member_declaration->kind = kind;
+	if (modifier) {
+		member_declaration->access_modifier = conv_access_modifier(modifier->access_modifier);
+	} else {
+		member_declaration->access_modifier = DVM_FILE_ACCESS;
+	}
+	member_declaration->line_number = dkc_get_current_compiler()->current_line_number;
+	member_declaration->next = NULL;
+
+	return member_declaration;
+}
+
+MemberDeclaration *dkc_create_field_member(ClassOrMemberModifierList *modifier, TypeSpecifier *type, char *name) {
+	MemberDeclaration *member_declaration = alloc_member_declaration(FIELD_MEMBER, modifier);
+	member_declaration->u.field.name = name;
+	member_declaration->u.field.type = type;
+
+	return member_declaration;
+}
+
+ClassOrMemberModifierList dkc_create_class_or_member_modifier(ClassOrMemberModifierKind modifier) {
+	ClassOrMemberModifierList ret;
+
+	ret.is_abstract = NOT_SPECIFIED_MODIFIER;
+	ret.is_override = NOT_SPECIFIED_MODIFIER;
+	ret.is_virtual = NOT_SPECIFIED_MODIFIER;
+	ret.access_modifier = NOT_SPECIFIED_MODIFIER;
+
+	switch (modifier) {
+		case ABSTRACT_MODIFIER:
+			ret.is_abstract = ABSTRACT_MODIFIER;
+			break;
+		case PUBLIC_MODIFIER:
+			ret.access_modifier = PUBLIC_MODIFIER;
+			break;
+		case PRIVATE_MODIFIER:
+			ret.access_modifier = PRIVATE_MODIFIER;
+			break;
+		case OVERRIDE_MODIFIER:
+			ret.is_override = OVERRIDE_MODIFIER;
+			break;
+		case VIRTUAL_MODIFIER:
+			ret.is_virtual = VIRTUAL_MODIFIER;
+			break;
+		case NOT_SPECIFIED_MODIFIER:
+			DBG_assert(0, ("modifier..%d", modifier));
+	}
+
+	return ret;
+}
+
+ClassOrMemberModifierList dkc_chain_class_or_member_modifier(ClassOrMemberModifierList list,
+                                                             ClassOrMemberModifierList add) {
+	if (add.is_abstract != NOT_SPECIFIED_MODIFIER) {
+		DBG_assert(add.is_abstract == ABSTRACT_MODIFIER, ("add.is_abstract..%d", add.is_abstract));
+		if (list.is_abstract != NOT_SPECIFIED_MODIFIER) {
+			dkc_compile_error(dkc_get_current_compiler()->current_line_number, ABSTRACT_MULTIPLE_SPECIFIED_ERR,
+			                  MESSAGE_ARGUMENT_END);
+		}
+		list.is_abstract = ABSTRACT_MODIFIER;
+	} else if (add.access_modifier != NOT_SPECIFIED_MODIFIER) {
+		DBG_assert(add.access_modifier == PUBLIC_MODIFIER || add.access_modifier == PRIVATE_MODIFIER,
+		           ("add.access_modifier..", add.access_modifier));
+		if (list.access_modifier != NOT_SPECIFIED_MODIFIER) {
+			dkc_compile_error(dkc_get_current_compiler()->current_line_number, ACCESS_MODIFIER_MULTIPLE_SPECIFIED_ERR,
+			                  MESSAGE_ARGUMENT_END);
+		}
+		list.access_modifier = add.access_modifier;
+	} else if (add.is_override != NOT_SPECIFIED_MODIFIER) {
+		DBG_assert(add.is_override == OVERRIDE_MODIFIER, ("add.is_override..", add.is_override));
+		if (list.is_override != NOT_SPECIFIED_MODIFIER) {
+			dkc_compile_error(dkc_get_current_compiler()->current_line_number, OVERRIDE_MODIFIER_MULTIPLE_SPECIFIED_ERR,
+			                  MESSAGE_ARGUMENT_END);
+		}
+		list.is_override = add.is_override;
+	} else if (add.is_virtual != NOT_SPECIFIED_MODIFIER) {
+		DBG_assert(add.is_virtual == VIRTUAL_MODIFIER, ("add.is_virtual..", add.access_modifier));
+		if (list.is_virtual != NOT_SPECIFIED_MODIFIER) {
+			dkc_compile_error(dkc_get_current_compiler()->current_line_number, VIRTUAL_MODIFIER_MULTIPLE_SPECIFIED_ERR,
+			                  MESSAGE_ARGUMENT_END);
+		}
+		list.is_virtual = add.is_virtual;
+	}
+
+	return list;
+}
+
+
+MemberDeclaration *dkc_create_method_member(ClassOrMemberModifierList *modifier,
+                                            FunctionDefinition *function_definition, DVM_Boolean is_constructor) {
+	MemberDeclaration *ret = alloc_member_declaration(METHOD_MEMBER, modifier);
+	ret->u.method.is_constructor = is_constructor;
+	ret->u.method.is_abstract = DVM_FALSE;
+	ret->u.method.is_virtual = DVM_FALSE;
+	ret->u.method.is_override = DVM_FALSE;
+
+	if (modifier) {
+		if (modifier->is_abstract == ABSTRACT_MODIFIER) {
+			ret->u.method.is_abstract = DVM_TRUE;
+		}
+		if (modifier->is_virtual == VIRTUAL_MODIFIER) {
+			ret->u.method.is_virtual = DVM_TRUE;
+		}
+		if (modifier->is_override == OVERRIDE_MODIFIER) {
+			ret->u.method.is_override = DVM_TRUE;
+		}
+	}
+
+	DKC_Compiler *compiler = dkc_get_current_compiler();
+	if (compiler->current_class_definition->class_or_interface ==DVM_INTERFACE_DEFINITION) {
+		ret->u.method.is_abstract = DVM_TRUE;
+		ret->u.method.is_virtual = DVM_TRUE;
+	}
+
+	ret->u.method.function_definition = function_definition;
+
+	if (ret->u.method.is_abstract) {
+		if (function_definition->block) {
+			dkc_compile_error(compiler->current_line_number, ABSTRACT_METHOD_HAS_BODY_ERR, MESSAGE_ARGUMENT_END);
+		}
+	} else {
+		if (function_definition->block == NULL) {
+			dkc_compile_error(compiler->current_line_number, CONCRETE_METHOD_HAS_NO_BODY_ERR, MESSAGE_ARGUMENT_END);
+		}
+	}
+
+	function_definition->class_definition = compiler->current_class_definition;
+
+	return ret;
+}
+
+FunctionDefinition *dkc_method_function_define(TypeSpecifier *type, char *identifier, ParameterList *parameter_list,
+                                               Block *block) {
+	return dkc_create_function_definition(type, identifier, parameter_list, block);
+}
+
+FunctionDefinition *dkc_constructor_function_define(char *identifier, ParameterList *parameter_list, Block *block) {
+	TypeSpecifier *type = dkc_create_type_specifier(DVM_VOID_TYPE);
+	FunctionDefinition *function_definition = dkc_method_function_define(type, identifier, parameter_list, block);
+
+	return function_definition;
+}
+
+MemberDeclaration *dkc_chain_member_declaration(MemberDeclaration *list, MemberDeclaration *add) {
+	MemberDeclaration *pos;
+	for (pos = list; pos->next; pos = pos->next) ;
+	pos->next = add;
+
+	return list;
+}
+
+ExtendsList *dkc_create_extends_list(char *identifier) {
+	ExtendsList *list = dkc_malloc(sizeof(ExtendsList));
+	list->identifier = identifier;
+	list->class_definition = NULL;
+	list->next = NULL;
+
+	return list;
+}
+
+ExtendsList *dkc_chain_extends_list(ExtendsList *list, char *add) {
+	ExtendsList *pos;
+	for (pos = list; pos->next; pos = pos->next);
+
+	pos->next = dkc_create_extends_list(add);
+
+	return list;
+}

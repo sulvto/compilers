@@ -175,7 +175,7 @@ class_type_specifier
 array_type_specifier
 		: basic_type_specifier LB RB
 		{
-			TypeSpecifier *basic_type = dkc_create_basic_type_specifier($1);
+			TypeSpecifier *basic_type = dkc_create_type_specifier($1);
 			$$ = dkc_create_array_type_specifier(basic_type);
 		}
 		| IDENTIFIER LB RB
@@ -367,7 +367,7 @@ postfix_expression
 		}
 		| primary_expression INSTANCEOF type_specifier
 		{
-			$$= dkc_create_instenceof_expression($1, $3);
+			$$= dkc_create_instanceof_expression($1, $3);
 		}
 		;
 primary_expression

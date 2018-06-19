@@ -22,8 +22,14 @@ void *dkc_malloc(size_t size) {
 	return p;
 }
 
-void dkc_strdup(char *src) {
-    // TODO
+char *dkc_strdup(char *src) {
+	DKC_Compiler *compiler = dkc_get_current_compiler();
+
+	char *p = MEM_storage_malloc(compiler->compile_storage, strlen(src) + 1);
+
+	strcpy(p, src);
+
+	return p;
 }
 
 FunctionDefinition *dkc_search_function(char *name) {
@@ -134,18 +140,54 @@ ClassDefinition *dkc_search_class(char *identifier) {
 
 MemberDeclaration *dkc_search_member(ClassDefinition *class_definition, char *member_name) {
     DKC_Compiler *compiler = dkc_get_current_compiler();
+	// TODO
     return NULL;
 }
 
-void dkc_vstr_clear(VString *v);
+void dkc_vstr_clear(VString *v) {
+	v->string = NULL;
+}
 
-void dkc_vstr_append_string(VString *v, char *string);
+static int my_strlen(char *string) {
+	if (string == NULL) {
+		return 0;
+	}
 
-void dkc_vstr_append_character(VString *v, int ch);
+	return strlen(string);
+}
 
-void dkc_vwstr_clear(VString *v);
+void dkc_vstr_append_string(VString *v, char *string) {
+	int old_len = my_strlen(v->string);
+	int new_size = old_len + strlen(string) + 1;
+	v->string = MEM_realloc(v->string, new_size);
+	strcpy(&v->string[old_len], string);
+}
 
-void dkc_vwstr_append_string(VWString *v, char *string);
+void dkc_vstr_append_character(VString *v, int ch) {
+	int current_len = my_strlen(v->string);
+	v->string = MEM_realloc(v->string, current_len + 2);
+	v->string[current_len] = current_len;
+	v->string[current_len + 1] = '\0';
+}
+
+void dkc_vwstr_clear(VString *v) {
+	v->string = NULL;
+}
+
+static int my_wcslen(DVM_Char *string) {
+	if (string == NULL) {
+		return 0;
+	}
+
+	return dvm_wcslen(string);
+}
+
+void dkc_vwstr_append_string(VWString *v, char *string) {
+	int old_len = my_wcslen(v->string);
+	int new_size = sizeof(DVM_Char) * (old_len + dvm_wcslen(string) + 1);
+	v->string = MEM_realloc(v->string, new_size);
+	dvm_wcscpy(&v->string[old_len], string);
+}
 
 void dkc_vwstr_append_character(VWString *v, int ch);
 
@@ -162,7 +204,7 @@ char *dkc_get_basic_type_name(DVM_BasicType type) {
         case DVM_NULL_TYPE:     return "null";
         case DVM_BASE_TYPE:
         default:
-            DGB_assert(0, ("bad case. type..%d\n", type));
+            DBG_assert(0, ("bad case. type..%d\n", type));
     }
 
     return NULL;

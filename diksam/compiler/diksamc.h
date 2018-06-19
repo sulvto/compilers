@@ -18,8 +18,13 @@ typedef struct Expression_tag Expression;
 
 #define DEFAULT_CONSTRUCTOR_NAME	("init")
 
+#define smaller(a, b)   ((a) < (b) ? (a) : (b))
+
 #define LINE_BUF_SIZE			(1024)
 #define MESSAGE_ARGUMENT_MAX    (256)
+
+#define ABSTRACT_METHOD_INDEX   (-1)
+
 
 typedef struct {
 	char *format;
@@ -40,7 +45,18 @@ typedef enum {
 	FUNCTION_MULTIPLE_DEFINE_ERR,
 	BAD_MULTIBYTE_CHARACTER_ERR,
 	LABEL_NOT_FOUND_ERR,
+	PACKAGE_NAME_TOO_LONG_ERR,
+	REQUIRE_DUPLICATE_ERR,
 	REQUIRE_FILE_NOT_FOUND_ERR,
+	REQUIRE_ITSELF_ERR,
+	ABSTRACT_MULTIPLE_SPECIFIED_ERR,
+	ACCESS_MODIFIER_MULTIPLE_SPECIFIED_ERR,
+	OVERRIDE_MODIFIER_MULTIPLE_SPECIFIED_ERR,
+	VIRTUAL_MODIFIER_MULTIPLE_SPECIFIED_ERR,
+	ABSTRACT_METHOD_HAS_BODY_ERR,
+	CONCRETE_METHOD_HAS_NO_BODY_ERR,
+	RENAME_HAS_NO_PACKAGED_NAME_ERR,
+	TOO_LONG_CHARACTER_LITERAL_ERR,
 	COMPILE_ERROR_COUNT_PLUS_1
 } CompileError;
 
@@ -84,6 +100,12 @@ typedef enum {
 	ARRAY_CREATION_EXPRESSION,
 	EXPRESSION_KIND_COUNT_PLUS_1
 } ExpressionKind;
+
+
+#define dkc_is_array(type)  ((type)->derive && ((type)->derive->tag == ARRAY_DERIVE))
+
+#define dkc_is_string(type)  ((type)->basic_type == DVM_STRING_TYPE && (type)->derive == NULL)
+
 
 typedef struct PackageName_tag {
 	char 	*name;
@@ -150,6 +172,7 @@ struct TypeSpecifier_tag {
 		ClassDefinition *class_definition;
 		int class_index;
 	} class_ref;
+	int             line_number;
 	TypeDerive		*derive;
 };
 
@@ -221,8 +244,10 @@ typedef struct {
 } FunctionCallExpression;
 
 typedef struct {
-	Expression  *expression;
-	char        *member_name;
+	Expression          *expression;
+	char                *member_name;
+	MemberDeclaration   *declaration;
+	int                 method_index;
 } MemberExpression;
 
 typedef struct ExpressionList_tag {
@@ -233,6 +258,16 @@ typedef struct ExpressionList_tag {
 typedef struct {
 	Expression *operand;
 } IncrementOrDecrement;
+
+typedef struct {
+	Expression      *operand;
+	TypeSpecifier   *type;
+} InstanceofExpression;
+
+typedef struct {
+	Expression      *operand;
+	TypeSpecifier   *type;
+} DownCastExpression;
 
 typedef enum {
 	INT_TO_DOUBLE_CAST,
@@ -246,6 +281,15 @@ typedef struct {
 	CastType 	type;
 	Expression 	*operand;
 } CastExpression;
+
+typedef struct {
+	char            *class_name;
+	ClassDefinition *class_definition;
+	int             class_index;
+	char            *method_name;
+	MemberDeclaration *method_declaration;
+	ArgumentList    *argument;
+} NewExpression;
 
 typedef struct ArrayDimension_tag {
 	Expression *expression;
@@ -277,7 +321,10 @@ struct Expression_tag {
 		ExpressionList 			*array_literal;
 		IndexExpression 		index_expression;
 		IncrementOrDecrement	inc_dec;
+		InstanceofExpression    instanceof_expression;
+		DownCastExpression      down_cast;
 		CastExpression			cast;
+		NewExpression           new_expression;
 		ArrayCreation 			array_creation;
 	} u;
 };
@@ -455,7 +502,7 @@ typedef struct {
 
 typedef struct {
 	char *name;
-	char *type;
+	TypeSpecifier *type;
 	int field_index;
 } FieldMember;
 
@@ -587,7 +634,7 @@ RenameList *dkc_create_rename_list(PackageName *package_name, char *identifier);
 
 RenameList *dkc_chain_rename_list(RenameList *list, RenameList *add);
 
-void dkc_set_require_add_rename_list(RequireList *require_list, RenameList *rename_list);
+void dkc_set_require_and_rename_list(RequireList *require_list, RenameList *rename_list);
 
 
 FunctionDefinition *dkc_create_function_definition(TypeSpecifier *type, char *identifier,
@@ -596,9 +643,9 @@ FunctionDefinition *dkc_create_function_definition(TypeSpecifier *type, char *id
 void dkc_function_define(TypeSpecifier *type, char *identifier, ParameterList *parameter_list,
 						 Block *block);
 
-ParameterList *dkc_create_parameter_list(TypeSpecifier *type, char *identifier);
+ParameterList *dkc_create_parameter(TypeSpecifier *type, char *identifier);
 
-ParameterList *dkc_chain_parameter_list(ParameterList *list, TypeSpecifier *type, char *identifier);
+ParameterList *dkc_chain_parameter(ParameterList *list, TypeSpecifier *type, char *identifier);
 
 ArgumentList *dkc_create_argument_list(Expression *expression);
 
@@ -718,12 +765,16 @@ ExtendsList *dkc_chain_extends_list(ExtendsList *list, char *add);
 
 ClassOrMemberModifierList dkc_create_class_or_member_modifier(ClassOrMemberModifierKind modifier);
 
-ClassOrMemberModifierList dkc_chain_class_or_member_modifier(ClassOrMemberModifierList list, ClassOrMemberModifierList add);
+ClassOrMemberModifierList dkc_chain_class_or_member_modifier(ClassOrMemberModifierList list,
+                                                             ClassOrMemberModifierList add);
 
 MemberDeclaration *dkc_create_member_declaration(ClassOrMemberModifierList *modifier,
                                                  FunctionDefinition *function_definition, DVM_Boolean is_constructor);
 
 MemberDeclaration *dkc_chain_member_declaration(MemberDeclaration *list, MemberDeclaration *add);
+
+FunctionDefinition *dkc_method_function_define(TypeSpecifier *type, char *identifier, ParameterList *parameter_list,
+                                               Block *block);
 
 FunctionDefinition *dkc_constructor_function_define(char *identifier, ParameterList *parameter_list, Block *block);
 
@@ -758,7 +809,7 @@ void dkc_set_current_compiler(DKC_Compiler *compiler);
 
 void *dkc_malloc(size_t size);
 
-void dkc_strdup(char *src);
+char *dkc_strdup(char *src);
 
 TypeSpecifier *dkc_alloc_type_specifier(DVM_BasicType type);
 

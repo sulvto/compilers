@@ -67,7 +67,7 @@ static FunctionDefinition *create_built_in_method(BuiltInMethod *src, int method
             if (parameter_list) {
                 parameter_list = dkc_chain_parameter(parameter_list, type, src[i].parameter[param_index].name);
             } else {
-                parameter_list = dkc_create_parameter(parameter_list, type, src[i].parameter[param_index].name);
+                parameter_list = dkc_create_parameter(type, src[i].parameter[param_index].name);
             }
         }
         function_definition_array[i].parameter = parameter_list;
@@ -147,6 +147,28 @@ static DKC_Compiler *search_compiler(CompilerList *list, PackageName *package_na
     return NULL;
 }
 
+static void make_search_path(int line_number, PackageName *package_name, char *buf) {
+	PackageName *pos;
+	int len = 0;
+	int prev_len = 0;
+	int suffix_len = strlen(DIKSAM_REQUIRE_SUFFIX);
+
+	for (pos = package_name; pos; pos = pos->next) {
+		prev_len = len;
+		len += strlen(pos->name);
+		if (len > FILENAME_MAX - (2 + suffix_len)) {
+			dkc_compile_error(line_number, PACKAGE_NAME_TOO_LONG_ERR, MESSAGE_ARGUMENT_END);
+		}
+		strcpy(&buf[prev_len], pos->name);
+		if (pos->name) {
+			buf[strlen(buf)] = FILE_SEPARATOR;
+			len++;
+		}
+	}
+
+	strcpy(&buf[len], DIKSAM_REQUIRE_SUFFIX);
+}
+
 static void get_require_input(RequireList *require, char *path, SourceInput *source_input) {
     char *search_path = getenv("DKM_REQUIRE_SEARCH_PATH");
     if (search_path == NULL) {
@@ -161,11 +183,11 @@ static void get_require_input(RequireList *require, char *path, SourceInput *sou
     SearchFileStatus status = dvm_search_file(search_path, search_file, path, fp);
     if (status != SEARCH_FILE_SUCCESS) {
         if (status == SEARCH_FILE_NOT_FOUND) {
-            dkc_compiler_error(require->line_number, REQUIRE_FILE_NOT_FOUND_ERR,
+            dkc_compile_error(require->line_number, REQUIRE_FILE_NOT_FOUND_ERR,
                                STRING_MESSAGE_ARGUMENT, "file", search_file,
                                MESSAGE_ARGUMENT_END);
         } else {
-            dkc_compiler_error(require->line_number, REQUIRE_FILE_NOT_FOUND_ERR,
+            dkc_compile_error(require->line_number, REQUIRE_FILE_NOT_FOUND_ERR,
                                STRING_MESSAGE_ARGUMENT, "status", (int) status,
                                MESSAGE_ARGUMENT_END);
         }
@@ -179,7 +201,7 @@ static DVM_Boolean add_executable_to_list(DVM_Executable *executable, DVM_Execut
     DVM_ExecutableItem *tail;
 
     for (DVM_ExecutableItem *pos = list->list; pos; pos = pos->next) {
-        if (dkc_compare_string(pos->executable->package_name, executable->package_name)
+        if (dkc_compare_package_name(pos->executable->package_name, executable->package_name)
                 && pos->executable->is_required == executable->is_required) {
             return DVM_FALSE;
         }
@@ -199,7 +221,7 @@ static DVM_Boolean add_executable_to_list(DVM_Executable *executable, DVM_Execut
     return DVM_TRUE;
 }
 
-static DVM_Executable *do_compiler(DKC_Compiler *compiler, DVM_ExecutableList *executable_list, char *path, DVM_Boolean is_required) {
+static DVM_Executable *do_compile(DKC_Compiler *compiler, DVM_ExecutableList *executable_list, char *path, DVM_Boolean is_required) {
     extern int yyparse(void);
     extern FILE *yyin;
 
@@ -239,7 +261,7 @@ static DVM_Executable *do_compiler(DKC_Compiler *compiler, DVM_ExecutableList *e
             dkc_set_source_string(source_input.u.string.lines);
         }
 
-        do_compiler(req_compiler, executable_list, path, DVM_TRUE);
+        do_compile(req_compiler, executable_list, path, DVM_TRUE);
     }
 
     dkc_fix_tree(compiler);
@@ -287,10 +309,10 @@ DVM_ExecutableList *DKC_compile(DKC_Compiler *compiler, FILE *fp, char *path) {
 
     executable_list = MEM_malloc(sizeof(DVM_ExecutableList));
     executable_list->list = NULL;
-    executable_list->top_level = do_compiler(compiler, executable_list, NULL, DVM_FALSE);
+    executable_list->top_level = do_compile(compiler, executable_list, NULL, DVM_FALSE);
 
     dispose_compiler_list();
-    dkc_reset_string_lieral_buffer();
+	dkc_reset_string_literal_buffer();
 
     return executable_list;
 }
@@ -303,9 +325,9 @@ DVM_ExecutableList *DKC_compile_string(DKC_Compiler *compiler, char **lines) {
 //    compiler->current_line_number = 1;
 //    compiler->input_mode = DKC_STRING_INPUT_MODE;
 //
-//    executable = do_compiler(compiler);
+//    executable = do_compile(compiler);
 //
-//    dkc_reset_string_lieral_buffer();
+//    dkc_reset_string_literal_buffer();
 //
 //    return executable;
 }

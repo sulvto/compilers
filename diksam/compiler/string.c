@@ -28,7 +28,7 @@ DVM_Char *dkc_close_string_literal(void) {
 
 	int length = dvm_mbstowcs_len(st_string_literal_buffer);
 	if (length < 0) {
-		dkc_compiler_error(dkc_get_current_compiler()->current_line_number,
+		dkc_compile_error(dkc_get_current_compiler()->current_line_number,
 							BAD_MULTIBYTE_CHARACTER_ERR,
 							MESSAGE_ARGUMENT_END);
 	}
@@ -47,4 +47,28 @@ void dkc_add_string_literal(int letter) {
 	}
 
 	st_string_literal_buffer[st_string_literal_buffer_size++] = letter;
+}
+
+void dkc_reset_string_literal_buffer(void) {
+	MEM_free(st_string_literal_buffer);
+	st_string_literal_buffer = NULL;
+	st_string_literal_buffer_size = 0;
+	st_string_literal_buffer_alloc_size = 0;
+}
+
+int dkc_close_character_literal(void) {
+	DVM_Char buf[16];
+	dkc_add_string_literal('\0');
+	int new_string_len = dvm_mbstowcs_len(st_string_literal_buffer);
+	if (new_string_len < 0) {
+		dkc_compile_error(dkc_get_current_compiler()->current_line_number, BAD_MULTIBYTE_CHARACTER_ERR,
+		                  MESSAGE_ARGUMENT_END);
+	} else if (new_string_len > 1) {
+		dkc_compile_error(dkc_get_current_compiler()->current_line_number, TOO_LONG_CHARACTER_LITERAL_ERR,
+		                  MESSAGE_ARGUMENT_END);
+	}
+
+	dvm_mbstowcs(st_string_literal_buffer, buf);
+
+	return buf[0];
 }
