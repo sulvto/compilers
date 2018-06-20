@@ -5,6 +5,9 @@ OBJS = memory.o storage.o
 
 $(TARGET):$(OBJS)
 	ld -r -o $@ $(OBJS)
+
+clean:
+	rm -f *.o *~
 .c.o:
 	$(CC) $(CFLAGS) -I../include $*.c
 memory.o: memory.c memory.h ../include/MEM.h

@@ -2,6 +2,7 @@
 // Created by sulvto on 18-6-12.
 //
 #include <stdio.h>
+#include <assert.h>
 #include "memory.h"
 
 typedef union {
@@ -28,10 +29,12 @@ struct MEM_Storage_tag {
 	int 	current_page_size;
 };
 
+#define larger(a, b) (((a) > (b)) ? (a) : (b))
+
 MEM_Storage MEM_open_storage_func(MEM_Controller controller, char *filename, int line, int page_size) {
 	MEM_Storage storage = MEM_malloc_func(controller, filename, line, sizeof(struct MEM_Storage_tag));
 	storage->page_list = NULL;
-	assert(page_size > 0);
+	assert(page_size >= 0);
 	if (page_size > 0) {
 		storage->current_page_size = page_size;
 	} else {
@@ -46,7 +49,7 @@ void *MEM_storage_malloc_func(MEM_Controller controller, char *filename, int lin
 
 	void *p;
 
-	if (storage->page_list == NULL && (storage->page_list->use_cell_num + cell_num < storage->page_list->cell_num)) {
+	if (storage->page_list != NULL && (storage->page_list->use_cell_num + cell_num < storage->page_list->cell_num)) {
 		p = &(storage->page_list->cell[storage->page_list->use_cell_num]);
 		storage->page_list->use_cell_num += cell_num;
 	} else {

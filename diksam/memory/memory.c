@@ -115,6 +115,15 @@ void set_tail(void *ptr, int alloc_size) {
 	memset(tail, MARK, MARK_SIZE);
 }
 
+static void check_mark_sub(unsigned char *mark, int size) {
+	for (int i = 0; i< size; i++) {
+		if (mark[i] != MARK) {
+			fprintf(stderr, "bad mark\n");
+			abort();
+		}
+	}
+}
+
 void check_mark(Header *header) {
 	unsigned char *tail;
 	check_mark_sub(header->s.mark, (char*)&header[1] - (char*)header->s.mark);
