@@ -38,6 +38,6 @@ DVM_Value DVM_execute(DVM_VirtualMachine *dvm);
 
 void DVM_dispose_executable_list(DVM_ExecutableList *executable_list);
 
-void DVM_dispose_virtual_machine(DVM_Value *dvm);
+void DVM_dispose_virtual_machine(DVM_VirtualMachine *dvm);
 
 #endif //DIKSAM_DVM_H

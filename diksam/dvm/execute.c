@@ -270,6 +270,40 @@ static DVM_ObjectRef create_array_literal_object(DVM_VirtualMachine *dvm, int si
     return array;
 }
 
+#define check_null_pointer(executable, function, pc, object) \
+		{ if ((object)->data == NULL) check_null_pointer_func((executable), (function), (pc), (object)); }
+
+static void check_null_pointer_func(DVM_Executable *executable, Function *function, int pc, DVM_ObjectRef *object){
+	if (object->data == NULL) {
+		dvm_error_i(executable, function, pc, NULL_POINTER_ERR, DVM_MESSAGE_ARGUMENT_END);
+	}
+}
+
+static DVM_Boolean check_instanceof_i(DVM_VirtualMachine *dvm, DVM_ObjectRef *object, int target_index, DVM_Boolean *is_interface,
+                                      int *interface_index) {
+	for (ExecutableClass *pos = object->v_table->executable_class->super_class; pos; pos = pos->super_class) {
+		if (pos->class_index == target_index) {
+			*is_interface = DVM_FALSE;
+			return DVM_TRUE;
+		}
+	}
+
+	for (int i = 0; i < object->v_table->executable_class->interface_count; i++) {
+		if (object->v_table->executable_class->interface[i]->class_index == target_index) {
+			*is_interface = DVM_FALSE;
+			*interface_index = i;
+			return DVM_TRUE;
+		}
+	}
+	return DVM_FALSE;
+}
+
+static DVM_Boolean check_instanceof(DVM_VirtualMachine *dvm, DVM_ObjectRef *object, int target_index) {
+	DVM_Boolean is_interface_dummy;
+	int interface_index_dummy;
+	return check_instanceof_i(dvm, object, target_index, &is_interface_dummy, &interface_index_dummy);
+}
+
 static DVM_Value execute(DVM_VirtualMachine *dvm, Function *function,
                          DVM_Byte *code, int code_size) {
     int base;
@@ -860,7 +894,7 @@ static DVM_Value execute(DVM_VirtualMachine *dvm, Function *function,
                 if (object->v_table->executable_class->class_index == target_index) {
                     STI_WRITE(dvm, -1, DVM_TRUE);
                 } else {
-                    STI_WRITE(dvm, -1, check_instenceof(dvm, object, target_index));
+                    STI_WRITE(dvm, -1, check_instanceof(dvm, object, target_index));
                 }
                 pc += 3;
                 break;
@@ -888,5 +922,9 @@ DVM_Value DVM_execute(DVM_VirtualMachine *dvm) {
 }
 
 void DVM_dispose_executable_list(DVM_ExecutableList *executable_list) {
+
+}
+
+void DVM_dispose_virtual_machine(DVM_VirtualMachine *dvm) {
 
 }

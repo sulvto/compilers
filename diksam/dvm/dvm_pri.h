@@ -27,14 +27,29 @@
 #define GET_2BYTE_INT(p) (((p)[0] << 8) + (p)[1])
 #define SET_2BYTE_INT(p, value) (((p)[0] = (value) >> 8), ((p)[1] = value & 0xff))
 
+#define is_pointer_type(type) ((type)->basic_type == DVM_STRING_TYPE \
+								|| (type)->basic_type == DVM_CLASS_TYPE \
+								|| ((type)->basic_type == DVM_NULL_TYPE \
+								|| (type)->derive_count > 0 \
+									&& (type)->derive[0].tag == DVM_ARRAY_DERIVE))
+
+
 typedef struct ExecutableEntry_tag ExecutableEntry;
 
 typedef enum {
+	BAD_MULTIBYTE_CHARACTER_ERR,
 	FUNCTION_NOT_FOUND_ERR,
 	FUNCTION_MULTIPLE_DEFINE_ERR,
+	INDEX_OUT_OF_BOUNDS_ERR,
+	NULL_POINTER_ERR,
 	CLASS_MULTIPLE_DEFINE_ERR,
-	CLASS_NOT_FOUND_ERR
+	CLASS_NOT_FOUND_ERR,
+	RUNTIME_ERROR_COUNT_PLUS_1
 } RuntimeError;
+
+typedef struct {
+	DVM_Char *string;
+} VString;
 
 typedef enum {
 	NATIVE_FUNCTION,
@@ -90,7 +105,8 @@ struct DVM_String_tag {
 typedef enum {
 	INT_ARRAY = 1,
 	DOUBLE_ARRAY,
-	OBJECT_ARRAY
+	OBJECT_ARRAY,
+	FUNCTION_INDEX_ARRAY
 } ArrayType;
 
 typedef struct DVM_Array_tag {
@@ -215,11 +231,23 @@ void dvm_add_native_functions(DVM_VirtualMachine *dvm);
 // util.c
 void dvm_initialize_value(DVM_TypeSpecifier *type, DVM_Value *value);
 
+void dvm_vstr_clear(VString *v);
+
+void dvm_vstr_append_string(VString *v, DVM_Char *string);
+
+void dvm_vstr_append_character(VString *v, DVM_Char ch);
+
 // error.c
+void dvm_error_i(DVM_Executable *executable, Function *function, int pc, RuntimeError id, ...);
+
+void dvm_error_n(DVM_VirtualMachine *dvm, DVM_ErrorDefinition *error_definition, RuntimeError id, ...);
+
+int dvm_conv_pc_to_line_number(DVM_Executable *executable, Function *function, int pc);
+
 
 
 extern OpcodeInfo       dvm_opcode_info[];
 extern DVM_ObjectRef    dvm_null_object_ref;
-
+extern DVM_ErrorDefinition dvm_error_message_format[];
 
 #endif //DIKSAM_DVM_PRI_H

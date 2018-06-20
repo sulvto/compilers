@@ -8,15 +8,32 @@
 #include "DVM.h"
 #include "DVM_code.h"
 
+#define DVM_DIKSAM_DEFAULT_PACKAGE_P1   "diksam"
+#define DVM_DIKSAM_DEFAULT_PACKAGE_P2   "lang"
+#define DVM_DIKSAM_DEFAULT_PACKAGE \
+(DVM_DIKSAM_DEFAULT_PACKAGE_P1 "." DVM_DIKSAM_DEFAULT_PACKAGE_P2)
+
 typedef struct DVM_Array_tag DVM_Array;
 
 typedef DVM_Value DVM_NativeFunctionProc(DVM_VirtualMachine *dvm, int arg_count, DVM_Value *args);
 
 
 typedef enum {
+	DVM_INT_MESSAGE_ARGUMENT,
+	DVM_DOUBLE_MESSAGE_ARGUMENT,
 	DVM_STRING_MESSAGE_ARGUMENT,
+	DVM_POINTER_MESSAGE_ARGUMENT,
+	DVM_CHARACTER_MESSAGE_ARGUMENT,
 	DVM_MESSAGE_ARGUMENT_END
 } DVM_MessageArgumentType;
+
+typedef struct {
+	char *format;
+} DVM_ErrorDefinition;
+
+typedef struct {
+	DVM_ErrorDefinition *message_format;
+} DVM_NativeLibInfo;
 
 // execute.c
 void DVM_add_native_function(DVM_VirtualMachine *dvm, char *package_name, char *function_name,

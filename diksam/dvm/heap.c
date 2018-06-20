@@ -1,7 +1,17 @@
 //
 // Created by sulvto on 18-6-12.
 //
+#include "MEM.h"
+#include "DBG.h"
 #include "dvm_pri.h"
+
+DVM_ObjectRef dvm_literal_to_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string) {
+	// TODO
+}
+
+DVM_ObjectRef dvm_create_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string) {
+	// TODO
+}
 
 static void check_gc(DVM_VirtualMachine *dvm) {
 	if (dvm->heap.current_heap_size > dvm->heap.current_threshold) {
@@ -10,7 +20,7 @@ static void check_gc(DVM_VirtualMachine *dvm) {
 		fprintf(stderr, "done.\n");
 
 		dvm->heap.current_threshold = dvm->heap.current_heap_size
-										+ HEAP_THRESHOLD_SIZE;
+		                              + HEAP_THRESHOLD_SIZE;
 	}
 }
 
@@ -30,6 +40,63 @@ static DVM_ObjectRef alloc_object(DVM_VirtualMachine *dvm, ObjectType type) {
 	}
 
 	return object_ref;
+}
+
+DVM_ObjectRef alloc_array(DVM_VirtualMachine *dvm, ArrayType type, int size) {
+	DVM_ObjectRef ret = alloc_object(dvm, ARRAY_OBJECT);
+	ret.data->u.array.type = type;
+	ret.data->u.array.size = size;
+	ret.data->u.array.alloc_size = size;
+	ret.v_table = dvm->array_v_table;
+
+	return ret;
+}
+
+DVM_ObjectRef dvm_create_array_int_i(DVM_VirtualMachine *dvm, int size) {
+	DVM_ObjectRef ret = alloc_array(dvm, INT_ARRAY, size);
+	ret.data->u.array.u.int_array = MEM_malloc(sizeof(int) * size);
+	dvm->heap.current_heap_size += sizeof(int) * size;
+	for (int i = 0; i < size; i++) {
+		ret.data->u.array.u.int_array[i] = 0;
+	}
+
+	return ret;
+}
+
+DVM_ObjectRef dvm_create_array_double_i(DVM_VirtualMachine *dvm, int size) {
+	DVM_ObjectRef ret = alloc_array(dvm, DOUBLE_ARRAY, size);
+	ret.data->u.array.u.double_array = MEM_malloc(sizeof(double) * size);
+	dvm->heap.current_heap_size += sizeof(double) * size;
+	for (int i = 0; i < size; i++) {
+		ret.data->u.array.u.double_array[i] = 0.0;
+	}
+
+	return ret;
+}
+
+DVM_ObjectRef dvm_create_array_object_i(DVM_VirtualMachine *dvm, int size) {
+	DVM_ObjectRef ret = alloc_array(dvm, DOUBLE_ARRAY, size);
+	ret.data->u.array.u.object = MEM_malloc(sizeof(DVM_ObjectRef) * size);
+	dvm->heap.current_heap_size += sizeof(DVM_ObjectRef) * size;
+	for (int i = 0; i < size; i++) {
+		ret.data->u.array.u.object[i] = dvm_null_object_ref;
+	}
+
+	return ret;
+}
+
+DVM_ObjectRef dvm_create_class_object_i(DVM_VirtualMachine *dvm, int class_index) {
+	DVM_ObjectRef obj = alloc_object(dvm, CLASS_OBJECT);
+	ExecutableClass *executable_class = dvm->_class[class_index];
+
+	obj.v_table = executable_class->class_table;
+	obj.data->u.class_object.field_count = executable_class->field_count;
+	obj.data->u.class_object.field = MEM_malloc(sizeof(sizeof(DVM_Value) * executable_class->field_count));
+	for (int i = 0; i < executable_class->field_count; i++) {
+		dvm_initialize_value(executable_class->field_type[i], &obj.data->u.class_object.field[i]);
+	}
+
+	return obj;
 }
 
 DVM_ObjectRef DVM_create_dvm_string(DVM_VirtualMachine *dvm, DVM_Char *string) {
@@ -92,7 +159,7 @@ static void gc_dispose_object(DVM_VirtualMachine *dvm, DVM_Object *object) {
 		case STRING_OBJECT:
 			if (!object->u.string.is_literal) {
 				dvm->heap.current_heap_size
-						-= sizeof(DVM_Char) * (dvm_ecslen(object->u.string.string) + 1);
+						-= sizeof(DVM_Char) * (dvm_wcslen(object->u.string.string) + 1);
 				MEM_free(object->u.string.string);
 			}
 			break;

@@ -7,6 +7,18 @@
 #include "DVM_dev.h"
 #include "dvm_pri.h"
 
+extern DVM_ErrorDefinition dvm_native_error_message_format[];
+
+static DVM_NativeLibInfo st_lib_info = {
+		dvm_native_error_message_format
+};
+
+typedef enum {
+	INSERT_INDEX_OUT_OF_BOUNDS_ERR,
+	REMOVE_INDEX_OUT_OF_BOUNDS_ERR,
+	NATIVE_RUNTIME_ERROR_COUNT_PLUS_1
+} NativeRuntimeError;
+
 static DVM_Value nv_print_proc(DVM_VirtualMachine *dvm, int arg_count, DVM_Value *args) {
 	DVM_Value ret;
 	DVM_Char *string;
@@ -51,7 +63,10 @@ static DVM_Value nv_array_insert_proc(DVM_VirtualMachine *dvm, int arg_count, DV
 
 	array_size = DVM_array_size(dvm, array);
 	if (pos < 0 || pos > array_size) {
-		dvm_error_n();
+		dvm_error_n(dvm, st_lib_info.message_format,
+		            INSERT_INDEX_OUT_OF_BOUNDS_ERR,
+		            DVM_INT_MESSAGE_ARGUMENT, "pos", pos,
+		            DVM_INT_MESSAGE_ARGUMENT, "size", array_size, DVM_MESSAGE_ARGUMENT_END);
 		return ret;
 	}
 
@@ -73,7 +88,10 @@ static DVM_Value nv_array_remove_proc(DVM_VirtualMachine *dvm, int arg_count, DV
 	DBG_assert(array->type == ARRAY_OBJECT, ("array->object..%d", array->type));
 	array_size = DVM_array_size(dvm, array);
 	if (pos < 0 || pos >= array_size) {
-		dvm_error_n();
+		dvm_error_n(dvm, st_lib_info.message_format,
+		            REMOVE_INDEX_OUT_OF_BOUNDS_ERR,
+		            DVM_INT_MESSAGE_ARGUMENT, "pos", pos,
+		            DVM_INT_MESSAGE_ARGUMENT, "size", array_size, DVM_MESSAGE_ARGUMENT_END);
 		return ret;
 	}
 

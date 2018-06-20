@@ -170,7 +170,7 @@ typedef struct {
 
 
 typedef struct {
-    int line_umber;
+    int line_number;
     int start_pc;
     int pc_count;
 } DVM_LineNumber;

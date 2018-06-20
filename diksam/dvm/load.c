@@ -7,6 +7,62 @@
 #include "DBG.h"
 #include "dvm_pri.h"
 
+static VTableItem st_array_method_v_table[] = {
+		{ARRAY_PREFIX ARRAY_METHOD_INSERT, FUNCTION_NOT_FOUND},
+		{ARRAY_PREFIX ARRAY_METHOD_RESIZE, FUNCTION_NOT_FOUND},
+		{ARRAY_PREFIX ARRAY_METHOD_SIZE,   FUNCTION_NOT_FOUND},
+		{ARRAY_PREFIX ARRAY_METHOD_REMOVE, FUNCTION_NOT_FOUND},
+		{ARRAY_PREFIX ARRAY_METHOD_ADD,    FUNCTION_NOT_FOUND},
+};
+
+static VTableItem st_string_method_v_table[] = {
+		{STRING_PREFIX STRING_METHOD_LENGTH, FUNCTION_NOT_FOUND},
+		{STRING_PREFIX STRING_METHOD_SUBSTR, FUNCTION_NOT_FOUND}
+};
+
+
+static int search_function(DVM_VirtualMachine *dvm, char *package_name, char *name) {
+	for (int i = 0; i < dvm->function_count; i++) {
+		// TODO package_name
+		if (strcmp(dvm->function[i]->name, name) == 0) {
+			return i;
+		}
+	}
+
+	return FUNCTION_NOT_FOUND;
+}
+
+static DVM_VTable *alloc_v_table(ExecutableClass *executable_class) {
+	DVM_VTable *v_table = MEM_malloc(sizeof(DVM_VTable));
+	v_table->executable_class = executable_class;
+	v_table->table = NULL;
+
+	return v_table;
+}
+
+static void set_built_in_methods(DVM_VirtualMachine *dvm) {
+	DVM_VTable *array_v_table = alloc_v_table(NULL);
+	array_v_table->table_size = ARRAY_SIZE(st_array_method_v_table);
+	array_v_table->table = MEM_malloc(sizeof(VTableItem) * array_v_table->table_size);
+	for (int i = 0; i < array_v_table->table_size; i++) {
+		array_v_table->table[i] = st_array_method_v_table[i];
+		array_v_table->table[i].index = search_function(dvm, BUILT_IN_METHOD_PACKAGE_NAME,
+		                                                array_v_table->table[i].name);
+	}
+	dvm->array_v_table = array_v_table;
+
+	DVM_VTable *string_v_table = alloc_v_table(NULL);
+
+	string_v_table->table_size = ARRAY_SIZE(st_string_method_v_table);
+	string_v_table->table = MEM_malloc(sizeof(VTableItem) * string_v_table->table_size);
+	for (int i = 0; i < string_v_table->table_size; i++) {
+		string_v_table->table[i] = st_string_method_v_table[i];
+		string_v_table->table[i].index = search_function(dvm, BUILT_IN_METHOD_PACKAGE_NAME,
+		                                                 string_v_table->table[i].name);
+	}
+	dvm->string_v_table = string_v_table;
+}
+
 DVM_VirtualMachine *DVM_create_virtual_machine(void) {
     DVM_VirtualMachine *dvm = MEM_malloc(sizeof(DVM_VirtualMachine));
     dvm->stack.alloc_size = STACK_ALLOC_SIZE;
@@ -31,7 +87,7 @@ DVM_VirtualMachine *DVM_create_virtual_machine(void) {
 
 	dvm_add_native_functions(dvm);
 
-	set_built_in_method(dvm);
+	set_built_in_methods(dvm);
 
     return dvm;
 }
@@ -51,17 +107,6 @@ void DVM_add_native_function(DVM_VirtualMachine *dvm, char *package_name, char *
 	dvm->function[dvm->function_count]->u.native_function.return_pointer = return_pointer;
 
     dvm->function_count++;
-}
-
-static int search_function(DVM_VirtualMachine *dvm, char *package_name, char *name) {
-    for (int i = 0; i < dvm->function_count; i++) {
-        // TODO package_name
-        if (strcmp(dvm->function[i]->name, name) == 0) {
-            return i;
-        }
-    }
-
-    return FUNCTION_NOT_FOUND;
 }
 
 static void convert_code(DVM_VirtualMachine *dvm,
@@ -124,31 +169,31 @@ static void add_functions(DVM_VirtualMachine *dvm, ExecutableEntry *executable_e
 
     for (src_index = 0; src_index < executable_entry->executable->function_count; src_index++) {
         for (dest_index = 0; dest_index < dvm->function_count; dest_index++) {
-            if (0 == strcmp(executable_entry->executable->function[src_index].name, dvm->function[dest_index]->name)
-                && dvm_compare_package_name(
-                    (executable_entry->executable->function[src_index].package_name, dvm->function[dest_index]->package_name))) {
-                if (executable_entry->executable->function[src_index].is_implemented
-                        &&dvm->function[dest_index]->is_implemented)  {
-                    char *package_name;
-                    if (dvm->function[dest_index]->package_name) {
-                        package_name = dvm->function[dest_index]->package_name;
-                    } else {
-                        package_name = "";
-                    }
+	        if (0 == strcmp(executable_entry->executable->function[src_index].name, dvm->function[dest_index]->name)
+	            && dvm_compare_package_name(executable_entry->executable->function[src_index].package_name,
+	                                        dvm->function[dest_index]->package_name)) {
+		        if (executable_entry->executable->function[src_index].is_implemented
+		            && dvm->function[dest_index]->is_implemented) {
+			        char *package_name;
+			        if (dvm->function[dest_index]->package_name) {
+				        package_name = dvm->function[dest_index]->package_name;
+			        } else {
+				        package_name = "";
+			        }
 
-                        dvm_error_i(NULL, NULL, NO_LINE_NUMBER_PC,
-                                  FUNCTION_MULTIPLE_DEFINE_ERR,
-                                  DVM_STRING_MESSAGE_ARGUMENT, "package", package_name,
-                                    DVM_STRING_MESSAGE_ARGUMENT, "name", dvm->function[dest_index]->name,
-                                  DVM_MESSAGE_ARGUMENT_END);
-                }
-                new_func_flags[src_index] = DVM_FALSE;
-                if (executable_entry->executable->function[src_index].is_implemented) {
-                    implement_diksam_function(dvm, dest_index, executable_entry, src_index);
-                }
+			        dvm_error_i(NULL, NULL, NO_LINE_NUMBER_PC,
+			                    FUNCTION_MULTIPLE_DEFINE_ERR,
+			                    DVM_STRING_MESSAGE_ARGUMENT, "package", package_name,
+			                    DVM_STRING_MESSAGE_ARGUMENT, "name", dvm->function[dest_index]->name,
+			                    DVM_MESSAGE_ARGUMENT_END);
+		        }
+		        new_func_flags[src_index] = DVM_FALSE;
+		        if (executable_entry->executable->function[src_index].is_implemented) {
+			        implement_diksam_function(dvm, dest_index, executable_entry, src_index);
+		        }
 
-                break;
-            }
+		        break;
+	        }
         }
         if (dest_index == dvm->function_count) {
             new_func_flags[src_index] = DVM_TRUE;
@@ -247,23 +292,15 @@ static void add_fields(DVM_Executable *executable, DVM_Class *src, ExecutableCla
     set_field_types(executable, src, dest->field_type, 0);
 }
 
-static DVM_VTable *alloc_v_table(ExecutableClass *executable_class) {
-    DVM_VTable *v_table = MEM_malloc(sizeof(DVM_VTable));
-    v_table->executable_class = executable_class;
-    v_table->table = NULL;
-
-    return v_table;
-}
-
 static void set_v_table(DVM_VirtualMachine *dvm, DVM_Class *class_p, DVM_Method *src, VTableItem *dest,DVM_Boolean set_name) {
 	if (set_name) {
 		dest->name = MEM_strdup(src->name);
 	}
 
-	char *function_name = dvm_create_method_function_mathod(class_p->name, src->name);
+	char *function_name = dvm_create_method_function_name(class_p->name, src->name);
 	int function_index = search_function(dvm, class_p->package_name, function_name);
 	if (function_index == FUNCTION_NOT_FOUND && !src->is_abstract) {
-		dvm_class_i(NULL, NULL, NO_LINE_NUMBER_PC, FUNCTION_NOT_FOUND_ERR,
+		dvm_error_i(NULL, NULL, NO_LINE_NUMBER_PC, FUNCTION_NOT_FOUND_ERR,
 		            DVM_STRING_MESSAGE_ARGUMENT, "name", function_name,
 		            DVM_MESSAGE_ARGUMENT_END);
 	}
