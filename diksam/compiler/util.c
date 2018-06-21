@@ -2,6 +2,7 @@
 // Created by sulvto on 18-6-9.
 //
 
+#include <string.h>
 #include "MEM.h"
 #include "DBG.h"
 #include "diksamc.h"
@@ -32,18 +33,48 @@ char *dkc_strdup(char *src) {
 	return p;
 }
 
+static FunctionDefinition *search_renamed_function(DKC_Compiler *compiler, RenameList *rename) {
+	for (CompilerList *pos = compiler->required_list; pos; pos = pos->next) {
+		if (!dkc_compare_package_name(rename->package_name, pos->compiler->package_name)) {
+			continue;
+		}
+
+		for (FunctionDefinition *fun_def_pos = pos->compiler->function_list; fun_def_pos; fun_def_pos = fun_def_pos->next) {
+			if (strcmp(fun_def_pos->name, rename->original_name)==0 && fun_def_pos->class_definition == NULL) {
+				return fun_def_pos;
+			}
+		}
+	}
+
+	return NULL;
+}
+
 FunctionDefinition *dkc_search_function(char *name) {
 	DKC_Compiler *compiler = dkc_get_current_compiler();
 
-	for (FunctionDefinition *pos = compiler->function_list; pos->next; pos = pos->next) {
+	for (FunctionDefinition *pos = compiler->function_list; pos; pos = pos->next) {
         if (strcmp(pos->name, name) == 0 && pos->class_definition == NULL) {
             return pos;
-
         }
     }
 
+	for (RenameList *pos = compiler->rename_list; pos; pos = pos->next) {
+		if (strcmp(pos->renamed_name, name) == 0) {
+			FunctionDefinition *fun_def = search_renamed_function(compiler, pos);
+			if (fun_def) {
+				return fun_def;
+			}
+		}
+	}
 
-    // TODO
+	for (CompilerList *pos = compiler->required_list; pos; pos = pos->next) {
+		for (FunctionDefinition *fun_def_pos = pos->compiler->function_list; fun_def_pos; fun_def_pos = fun_def_pos->next) {
+			if (strcmp(fun_def_pos->name, name) == 0 && fun_def_pos->class_definition == NULL) {
+				return fun_def_pos;
+			}
+		}
+	}
+
 	return NULL;
 }
 

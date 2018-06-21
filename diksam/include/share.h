@@ -21,6 +21,7 @@ typedef enum {
 } SearchFileStatus;
 
 #define FILE_SEPARATOR  ('/')
+#define FILE_PATH_SEPARATOR (':')
 
 #define DIKSAM_REQUIRE_SUFFIX   (".dkh")
 
@@ -76,7 +77,7 @@ int dvm_print_wcs(FILE *fp, wchar_t *string);
 int dvm_print_wcs_ln(FILE *fp, wchar_t *string);
 
 // util.c
-SearchFileStatus dvm_search_file(char *search_path, char *search_file, char *found_path, FILE **fp);
+SearchFileStatus dvm_search_file(char *search_path, char *search_file, char *found_path);
 
 DVM_Boolean dvm_compare_string(char *str1, char *str2);
 

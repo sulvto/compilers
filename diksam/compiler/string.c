@@ -19,7 +19,7 @@ char *dkc_create_identifier(char *string) {
 }
 
 void dkc_open_string_literal(void) {
-	st_string_literal_buffer = 0;
+	st_string_literal_buffer_size = 0;
 }
 
 DVM_Char *dkc_close_string_literal(void) {

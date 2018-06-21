@@ -26,7 +26,6 @@ int dvm_wcscmp(wchar_t *s1, wchar_t *s2) {
 }
 
 int dvm_mbstowcs_len(const char *src) {
-	printf("dvm_mbstowcs_len\t");
 	int src_index, dest_index;
 	int status;
 	mbstate_t ps;
@@ -40,7 +39,6 @@ int dvm_mbstowcs_len(const char *src) {
 		src_index += status;
 	}
 
-	printf("dvm_mbstowcs_len end\n");
 	return dest_index;
 }
 

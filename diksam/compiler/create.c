@@ -18,6 +18,9 @@ static void add_function_to_compiler(FunctionDefinition *function_definition) {
 	}
 }
 
+/**
+ * create and add to compiler
+ */
 FunctionDefinition *dkc_create_function_definition(TypeSpecifier *type,
 				char *identifier, ParameterList *parameter_list, 
 				Block *block) {
@@ -48,9 +51,6 @@ FunctionDefinition *dkc_create_function_definition(TypeSpecifier *type,
 void dkc_function_define(TypeSpecifier *type,
 				char *identifier, ParameterList *parameter_list, 
 				Block *block) {
-	FunctionDefinition *function_def;
-	FunctionDefinition *pos;
-	DKC_Compiler *compiler;
 
 	if (dkc_search_function(identifier) 
 		|| dkc_search_declaration(identifier, NULL)) {
@@ -59,20 +59,8 @@ void dkc_function_define(TypeSpecifier *type,
 						STRING_MESSAGE_ARGUMENT, "name", identifier,
 						MESSAGE_ARGUMENT_END);
 	} else {
-		function_def = dkc_create_function_definition(type, identifier,
+		dkc_create_function_definition(type, identifier,
 						parameter_list, block);
-		if (block) {
-			block->type = FUNCTION_BLOCK;
-			block->parent.function.function = function_def;
-		}
-
-		compiler = dkc_get_current_compiler();
-		if (compiler->function_list) {
-			for (pos = compiler->function_list; pos->next; pos = pos->next);
-			pos->next = function_def;
-		} else {
-			compiler->function_list = function_def;
-		}
 	}
 }
 

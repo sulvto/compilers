@@ -155,7 +155,7 @@ static void make_search_path(int line_number, PackageName *package_name, char *b
 	int len = 0;
 	int prev_len = 0;
 	int suffix_len = strlen(DIKSAM_REQUIRE_SUFFIX);
-
+	buf[0] = '\0';
 	for (pos = package_name; pos; pos = pos->next) {
 		prev_len = len;
 		len += strlen(pos->name);
@@ -163,7 +163,7 @@ static void make_search_path(int line_number, PackageName *package_name, char *b
 			dkc_compile_error(line_number, PACKAGE_NAME_TOO_LONG_ERR, MESSAGE_ARGUMENT_END);
 		}
 		strcpy(&buf[prev_len], pos->name);
-		if (pos->name) {
+		if (pos->next) {
 			buf[strlen(buf)] = FILE_SEPARATOR;
 			len++;
 		}
@@ -182,8 +182,7 @@ static void get_require_input(RequireList *require, char *path, SourceInput *sou
 
     make_search_path(require->line_number, require->package_name, search_file);
 
-    FILE *fp;
-    SearchFileStatus status = dvm_search_file(search_path, search_file, path, fp);
+    SearchFileStatus status = dvm_search_file(search_path, search_file, path);
     if (status != SEARCH_FILE_SUCCESS) {
         if (status == SEARCH_FILE_NOT_FOUND) {
             dkc_compile_error(require->line_number, REQUIRE_FILE_NOT_FOUND_ERR,
@@ -197,7 +196,7 @@ static void get_require_input(RequireList *require, char *path, SourceInput *sou
     }
 
     source_input->input_mode = DKC_FILE_INPUT_MODE;
-    source_input->u.file.fp = fp;
+    source_input->u.file.fp = fopen(path, "r");
 }
 
 static DVM_Boolean add_executable_to_list(DVM_Executable *executable, DVM_ExecutableList *list) {
@@ -225,7 +224,7 @@ static DVM_Boolean add_executable_to_list(DVM_Executable *executable, DVM_Execut
 }
 
 static DVM_Executable *do_compile(DKC_Compiler *compiler, DVM_ExecutableList *executable_list, char *path, DVM_Boolean is_required) {
-	printf("do_compile\n");
+	printf("do_compile path %s\n", compiler->path);
 	extern FILE *yyin;
 	extern int yyparse(void);
 
@@ -242,13 +241,12 @@ static DVM_Executable *do_compile(DKC_Compiler *compiler, DVM_ExecutableList *ex
 		exit(1);
 	}
 
-	for (RequireList *req_pos = compiler->require_list; req_pos; req_pos = req_pos->next) {	printf("for search_compiler()\n");
+	for (RequireList *req_pos = compiler->require_list; req_pos; req_pos = req_pos->next) {
 		DKC_Compiler *req_compiler = search_compiler(st_compiler_list, req_pos->package_name);
 		if (req_compiler) {
 			compiler->required_list = add_compiler_to_list(compiler->required_list, req_compiler);
 			continue;
 		}
-
 
 		req_compiler = DKC_create_compiler();
 		req_compiler->package_name = req_pos->package_name;
@@ -270,6 +268,7 @@ static DVM_Executable *do_compile(DKC_Compiler *compiler, DVM_ExecutableList *ex
 		do_compile(req_compiler, executable_list, path, DVM_TRUE);
 	}
 
+	printf("dkc_fix_tree\n");
 	dkc_fix_tree(compiler);
 
 	executable = dkc_generate(compiler);
