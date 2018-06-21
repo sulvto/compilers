@@ -64,6 +64,7 @@ static void error_handler(MEM_Controller controller, char *filename, int line, c
 }
 
 MEM_Controller MEM_create_controller(void) {
+
 	MEM_Controller controller = MEM_malloc_func(&st_default_controller, __FILE__, __LINE__, sizeof(struct MEM_Controller_tag));
 	*controller = st_default_controller;
 
@@ -135,9 +136,9 @@ void check_mark(Header *header) {
 
 void *MEM_malloc_func(MEM_Controller controller, char *filename, int line, size_t size) {
 	void *ptr;
-	size_t	alloc_size;
+	size_t alloc_size;
 
-#ifdef	DEBUG
+#ifdef    DEBUG
 	alloc_size = size + sizeof(Header) + MARK_SIZE;
 #else	// DEBUG
 	alloc_size = size;
@@ -188,12 +189,27 @@ void *MEM_realloc_func(MEM_Controller controller, char *filename, int line, void
 			error_handler(controller, filename, line, "realloc(malloc)");
 		} else {
 			error_handler(controller, filename, line, "realloc");
+			free(real_ptr);
 		}
 	}
 
 
 #ifdef DEBUG
-	// TODO
+	if (ptr) {
+		*((Header*)new_ptr) = old_header;
+		((Header*)new_ptr)->s.size = size;
+		rechain_block(controller, (Header*)new_ptr);
+		set_tail(new_ptr, alloc_size);
+	} else {
+		set_header(new_ptr, size, filename, line);
+		set_tail(new_ptr, alloc_size);
+		chain_block(controller, (Header*)new_ptr);
+	}
+
+	new_ptr = (char*)new_ptr + sizeof(Header);
+	if (size > old_size) {
+		memset((char*)new_ptr + old_size, 0xCC, size - old_size);
+	}
 #endif	// DEBUG
 
 	return (new_ptr);
@@ -263,7 +279,7 @@ void MEM_dump_blocks_func(MEM_Controller controller, FILE *fp) {
 		fprintf(fp, "[");
 		for (int i = 0; i < pos->s.size; i++) {
 			if (isprint(*((char *)pos + sizeof(Header) + i))) {
-				fprintf(fp, "%c", *(((char *)pos + sizeof(Header) + i)));
+				fprintf(fp, "%c", *((char *)pos + sizeof(Header) + i));
 			} else {
 				fprintf(fp, ".");
 			}
@@ -277,7 +293,7 @@ void MEM_dump_blocks_func(MEM_Controller controller, FILE *fp) {
 
 void MEM_check_block_func(MEM_Controller controller, char *filename, int line, void *p) {
 #ifdef	DEBUG
-void *real_ptr = ((char *)p) + sizeof(Header);
+void *real_ptr = ((char *)p) - sizeof(Header);
 check_mark(real_ptr);
 #endif // DEBUG
 }

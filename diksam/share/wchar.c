@@ -25,6 +25,7 @@ int dvm_wcscmp(wchar_t *s1, wchar_t *s2) {
 }
 
 int dvm_mbstowcs_len(const char *src) {
+	printf("dvm_mbstowcs_len\t");
 	int src_index, dest_index;
 	int status;
 	mbstate_t ps;
@@ -38,17 +39,18 @@ int dvm_mbstowcs_len(const char *src) {
 		src_index += status;
 	}
 
+	printf("dvm_mbstowcs_len end\n");
 	return dest_index;
 }
 
 void dvm_mbstowcs(const char *src, wchar_t *dest) {
-	int src_index,dest_index;
+	int src_index, dest_index;
 	int status;
 	mbstate_t ps;
 
 	memset(&ps, 0, sizeof(mbstate_t));
 	for (src_index = dest_index = 0; src[src_index] != '\0';) {
-		status = mbtowc(&dest[dest_index], src[src_index], MB_LEN_MAX, &ps);
+		status = mbrtowc(&dest[dest_index], &src[src_index], MB_LEN_MAX, &ps);
 		dest_index++;
 		src_index += status;
 	}
@@ -121,8 +123,10 @@ int dvm_print_wcs(FILE *fp, wchar_t *string) {
 }
 
 int dvm_print_wcs_ln(FILE *fp, wchar_t *string) {
+	printf("dvm_print_wcs_ln \t");
 	int result = dvm_print_wcs(fp, string);
 	fprintf(fp, "\n");
 
+	printf("dvm_print_wcs_ln end\n");
 	return result;
 }

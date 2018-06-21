@@ -14,7 +14,7 @@ SearchFileStatus dvm_search_file(char *search_path, char *search_file, char *fou
 
 DVM_Boolean dvm_compare_string(char *str1, char *str2) {
 	if (str1 == NULL && str2 == NULL) return DVM_TRUE;
-	if (str1 == NULL || str2 == NULL) return DVM_TRUE;
+	if (str1 == NULL || str2 == NULL) return DVM_FALSE;
 	return strcmp(str1, str2) == 0;
 }
 

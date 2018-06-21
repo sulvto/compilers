@@ -20,7 +20,7 @@ typedef MemoryPage	*MemoryPageList;
 struct MemoryPage_tag {
 	int 	cell_num;
 	int 	use_cell_num;
-	MemoryPageList *next;
+	MemoryPageList next;
 	Cell	cell[1];
 };
 

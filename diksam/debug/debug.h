@@ -5,6 +5,7 @@
 #ifndef DIKSAM_DEBUG_H
 #define DIKSAM_DEBUG_H
 
+#include <stdio.h>
 #include "DBG.h"
 
 struct DBG_Controller_tag {

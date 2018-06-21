@@ -18,7 +18,7 @@ static struct DBG_Controller_tag st_default_controller = {
         INT_MAX
 };
 
-DBG_Controller dbg_default_controller = &st_current_controller;
+DBG_Controller dbg_default_controller = &st_default_controller;
 
 DBG_Controller DBG_create_controller_func(void) {
     DBG_Controller controller = MEM_malloc(sizeof(struct DBG_Controller_tag));
@@ -37,8 +37,8 @@ void DBG_set_debug_write_fp_func(DBG_Controller controller, FILE *fp) {
 }
 
 static void initialize_debug_write_fp() {
-    if (st_current_controller->debug_write_fp == NULL) {
-        st_current_controller->debug_write_fp = stderr;
+    if (st_default_controller.debug_write_fp == NULL) {
+        st_default_controller.debug_write_fp = stderr;
     }
 }
 
@@ -47,7 +47,7 @@ static void assert_func(FILE *fp, char *file, int line,
     fprintf(fp, "Assertion failure (%s) file..%s line..%d\n", expression, file, line);
 
     if (fmt) {
-        vfprintf(fp, file, ap);
+        vfprintf(fp, fmt, ap);
     }
 }
 
@@ -69,7 +69,7 @@ static void panic_func(FILE *fp, char *file, int line,
     fprintf(fp, "Panic! file..%s line..%d\n", file, line);
 
     if (fmt) {
-        vfprintf(fp, file, ap);
+        vfprintf(fp, fmt, ap);
     }
 }
 
