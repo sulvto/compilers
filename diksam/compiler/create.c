@@ -11,7 +11,7 @@ static void add_function_to_compiler(FunctionDefinition *function_definition) {
 	DKC_Compiler *compiler = dkc_get_current_compiler();
 	if (compiler->function_list) {
 		FunctionDefinition *pos;
-		for (pos = compiler->function_list; pos->next; pos = pos->next) ;
+		for (pos = compiler->function_list; pos->next; pos = pos->next);
 		pos->next = function_definition;
 	} else {
 		compiler->function_list = function_definition;
@@ -169,7 +169,7 @@ RenameList *dkc_chain_rename_list(RenameList *list, RenameList *add) {
 
 static RequireList *add_default_package(RequireList *require_list) {
 	RequireList *pos;
-	DVM_Boolean default_package_required  =DVM_FALSE;
+	DVM_Boolean default_package_required = DVM_FALSE;
 	for (pos = require_list; pos; pos = pos->next) {
 		char *temp_name = dkc_package_name_to_string(pos->package_name);
 		if (strcmp(temp_name, DVM_DIKSAM_DEFAULT_PACKAGE) == 0) {
@@ -238,19 +238,19 @@ StatementList *dkc_create_statement_list(Statement *statement) {
 	StatementList *list = dkc_malloc(sizeof(StatementList));
 	list->statement = statement;
 	list->next = NULL;
+	
 	return list;
 }
 
 StatementList *dkc_chain_statement_list(StatementList *list, Statement *statement)  {
-
 	if (list == NULL) {
-		return dkc_create_statement_list(statement);
+				return dkc_create_statement_list(statement);
 	}
 
 	StatementList *pos;
 	for (pos = list; pos->next; pos = pos->next) ;
 	pos->next = dkc_create_statement_list(statement);
-
+	
 	return list;
 }
 
@@ -258,6 +258,7 @@ ExpressionList *dkc_create_expression_list(Expression *expression) {
 	ExpressionList *list = dkc_malloc(sizeof(ExpressionList));
 	list->expression = expression;
 	list->next = NULL;
+	
 	return list;
 }
 
@@ -274,7 +275,7 @@ Expression *dkc_alloc_expression(ExpressionKind kind) {
 	expr->type = NULL;
 	expr->kind = kind;
 	expr->line_number = dkc_get_current_compiler()->current_line_number;
-
+	
 	return expr;
 }
 
@@ -283,7 +284,7 @@ Expression *dkc_create_comma_expression(Expression *left, Expression *right) {
 	expr->u.comma.left = left;
 	expr->u.comma.right = right;
 
-	return expr;	
+	return expr;
 }
 
 Expression *dkc_create_assign_expression(Expression *left,
@@ -301,21 +302,21 @@ Expression *dkc_create_binary_expression(ExpressionKind kind,
 	Expression *expr = dkc_alloc_expression(kind);
 	expr->u.binary_expression.left = left;
 	expr->u.binary_expression.right = right;
-
+	
 	return expr;
 }
 
 Expression *dkc_create_minus_expression(Expression *operand) {
 	Expression *expr = dkc_alloc_expression(MINUS_EXPRESSION);
 	expr->u.minus_expression = operand;
-
+	
 	return expr;
 }
 
 Expression *dkc_create_logical_not_expression(Expression *operand) {
 	Expression *expr = dkc_alloc_expression(LOGICAL_NOT_EXPRESSION);
 	expr->u.logical_not = operand;
-
+	
 	return expr;
 }
 
@@ -323,7 +324,7 @@ Expression *dkc_create_function_call_expression(Expression *function, ArgumentLi
 	Expression *expr = dkc_alloc_expression(FUNCTION_CALL_EXPRESSION);
 	expr->u.function_call_expression.function = function;
 	expr->u.function_call_expression.argument = argument_list;
-
+	
 	return expr;
 }
 
@@ -331,7 +332,7 @@ Expression *dkc_create_down_cast_expression(Expression *operand, TypeSpecifier *
 	Expression *expression = dkc_alloc_expression(DOWN_CAST_EXPRESSION);
 	expression->u.down_cast.operand = operand;
 	expression->u.down_cast.type = type;
-
+	
 	return expression;
 }
 
@@ -346,7 +347,7 @@ Expression *dkc_create_index_expression(Expression *array, Expression *index) {
 	Expression *expr = dkc_alloc_expression(INDEX_EXPRESSION);
 	expr->u.index_expression.array = array;
 	expr->u.index_expression.index = index;
-
+	
 	return expr;
 }
 
@@ -354,7 +355,7 @@ Expression *dkc_create_member_expression(Expression *expression, char *member_na
 	Expression *expr = dkc_alloc_expression(MEMBER_EXPRESSION);
 	expr->u.member_expression.expression = expression;
 	expr->u.member_expression.member_name = member_name;
-
+	
 	return expr;
 }
 
@@ -362,39 +363,39 @@ Expression *dkc_create_instanceof_expression(Expression *operand, TypeSpecifier 
 	Expression *expression = dkc_alloc_expression(INSTENCEOF_EXPRESSION);
 	expression->u.instanceof_expression.operand = operand;
 	expression->u.instanceof_expression.type = type;
-
+	
 	return expression;
 }
 
 Expression *dkc_create_identifier_expression(char *identifier) {
 	Expression *expr = dkc_alloc_expression(IDENTIFIER_EXPRESSION);
 	expr->u.identifier.name = identifier;
-
+	
 	return expr;
 }
 
 Expression *dkc_create_boolean_expression(DVM_Boolean boolean) {
 	Expression *expr = dkc_alloc_expression(BOOLEAN_EXPRESSION);
 	expr->u.boolean_value = boolean;
-
+	
 	return expr;
 }
 
 Expression *dkc_create_null_expression() {
 	Expression *expr = dkc_alloc_expression(NULL_EXPRESSION);
-
+	
 	return expr;
 }
 
 Expression *dkc_create_this_expression(void) {
 	Expression *expr = dkc_alloc_expression(THIS_EXPRESSION);
-
+	
 	return expr;
 }
 
 Expression *dkc_create_super_expression(void) {
 	Expression *expr = dkc_alloc_expression(SUPER_EXPRESSION);
-
+	
 	return expr;
 }
 
@@ -406,7 +407,7 @@ Expression *dkc_create_new_expression(char *class_name, char *method_name,
 	expression->u.new_expression.method_name = method_name;
 	expression->u.new_expression.method_declaration = NULL;
 	expression->u.new_expression.argument = argument;
-
+	
 	return expression;
 }
 
@@ -488,7 +489,7 @@ Expression *dkc_create_array_creation(DVM_BasicType basic_type,
 	Expression *expr = dkc_alloc_expression(ARRAY_CREATION_EXPRESSION);
 	expr->u.array_creation.type = dkc_create_type_specifier(basic_type);
 	expr->u.array_creation.dimension = dkc_chain_array_dimension(dim_expr_list, dim_list);
-
+	
 	return expr;
 }
 
@@ -496,7 +497,7 @@ Statement *alloc_statement(StatementType type) {
 	Statement *statement = dkc_malloc(sizeof(Statement));
 	statement->type = type;
 	statement->line_number = dkc_get_current_compiler()->current_line_number;
-
+	
 	return statement;
 }
 
@@ -617,7 +618,6 @@ Block *dkc_alloc_block(void) {
 	new_block->outer_block = NULL;
 	new_block->statement_list = NULL;
 	new_block->declaration_list = NULL;
-
 	return new_block;
 }
 

@@ -1,8 +1,11 @@
 //
 // Created by sulvto on 18-6-6.
 //
+#include <string.h>
+#include <stdlib.h>
 #include "DBG.h"
 #include "MEM.h"
+#include "DKC.h"
 #include "diksamc.h"
 
 static CompilerList *st_compiler_list = NULL;
@@ -78,12 +81,12 @@ static FunctionDefinition *create_built_in_method(BuiltInMethod *src, int method
 
 DKC_Compiler *DKC_create_compiler(void) {
     DKC_Compiler *compiler_backup = dkc_get_current_compiler();
-
-    MEM_Storage storage = MEM_open_storage(0);
-    DKC_Compiler *compiler = MEM_storage_malloc(storage,
+	MEM_Storage storage = MEM_open_storage(0);
+	DKC_Compiler *compiler = MEM_storage_malloc(storage,
                                                 sizeof(struct DKC_Compiler_tag));
-    dkc_set_current_compiler(compiler);
-    compiler->compile_storage = storage;
+	dkc_set_current_compiler(compiler);
+
+	compiler->compile_storage = storage;
     compiler->package_name = NULL;
     compiler->source_suffix = DKM_SOURCE;
     compiler->require_list = NULL;
@@ -138,13 +141,13 @@ static void set_path_to_compiler(DKC_Compiler *compiler, char *path) {
 }
 
 static DKC_Compiler *search_compiler(CompilerList *list, PackageName *package_name) {
-    for (CompilerList *pos = list; pos; pos = pos->next) {
-        if (dkc_compare_package_name(pos->compiler->package_name, package_name)) {
-            return pos->compiler;
-        }
-    }
+	for (CompilerList *pos = list; pos; pos = pos->next) {
+		if (dkc_compare_package_name(pos->compiler->package_name, package_name)) {
+			return pos->compiler;
+		}
+	}
 
-    return NULL;
+	return NULL;
 }
 
 static void make_search_path(int line_number, PackageName *package_name, char *buf) {
@@ -222,69 +225,72 @@ static DVM_Boolean add_executable_to_list(DVM_Executable *executable, DVM_Execut
 }
 
 static DVM_Executable *do_compile(DKC_Compiler *compiler, DVM_ExecutableList *executable_list, char *path, DVM_Boolean is_required) {
-    extern int yyparse(void);
-    extern FILE *yyin;
+	printf("do_compile\n");
+	extern FILE *yyin;
+	extern int yyparse(void);
 
-    DVM_Executable *executable;
-    char found_path[FILENAME_MAX];
-    SourceInput source_input;
+	DVM_Executable *executable;
+	char found_path[FILENAME_MAX];
+	SourceInput source_input;
 
-    DKC_Compiler *compiler_backup = dkc_get_current_compiler();
+	DKC_Compiler *compiler_backup = dkc_get_current_compiler();
 
-    dkc_set_current_compiler(compiler);
+	dkc_set_current_compiler(compiler);
 
-    if (yyparse()) {
-        fprintf(stderr, "Error!\n");
-        exit(1);
-    }
+	if (yyparse()) {
+		fprintf(stderr, "Error!\n");
+		exit(1);
+	}
 
-    for (RequireList *req_pos = compiler->require_list; req_pos; req_pos = req_pos->next) {
-        DKC_Compiler *req_compiler = search_compiler(st_compiler_list, req_pos->package_name);
-        if (req_compiler) {
-            compiler->required_list = add_compiler_to_list(compiler->required_list, req_compiler);
-            continue;
-        }
-        req_compiler = DKC_create_compiler();
-        req_compiler->package_name = req_pos->package_name;
-        req_compiler->source_suffix = DKH_SOURCE;
-        compiler->required_list = add_compiler_to_list(compiler->required_list, req_compiler);
-        st_compiler_list = add_compiler_to_list(st_compiler_list, req_compiler);
+	for (RequireList *req_pos = compiler->require_list; req_pos; req_pos = req_pos->next) {	printf("for search_compiler()\n");
+		DKC_Compiler *req_compiler = search_compiler(st_compiler_list, req_pos->package_name);
+		if (req_compiler) {
+			compiler->required_list = add_compiler_to_list(compiler->required_list, req_compiler);
+			continue;
+		}
 
-        get_require_input(req_pos, found_path, &source_input);
-        set_path_to_compiler(req_compiler, found_path);
 
-        req_compiler->input_mode = source_input.input_mode;
+		req_compiler = DKC_create_compiler();
+		req_compiler->package_name = req_pos->package_name;
+		req_compiler->source_suffix = DKH_SOURCE;
+		compiler->required_list = add_compiler_to_list(compiler->required_list, req_compiler);
+		st_compiler_list = add_compiler_to_list(st_compiler_list, req_compiler);
 
-        if (source_input.input_mode == DKC_FILE_INPUT_MODE) {
-            yyin = source_input.u.file.fp;
-        } else {
-            dkc_set_source_string(source_input.u.string.lines);
-        }
+		get_require_input(req_pos, found_path, &source_input);
+		set_path_to_compiler(req_compiler, found_path);
 
-        do_compile(req_compiler, executable_list, path, DVM_TRUE);
-    }
+		req_compiler->input_mode = source_input.input_mode;
 
-    dkc_fix_tree(compiler);
+		if (source_input.input_mode == DKC_FILE_INPUT_MODE) {
+			yyin = source_input.u.file.fp;
+		} else {
+			dkc_set_source_string(source_input.u.string.lines);
+		}
 
-    executable = dkc_generate(compiler);
+		do_compile(req_compiler, executable_list, path, DVM_TRUE);
+	}
 
-    if (path) {
-        executable->path = MEM_strdup(path);
-    } else {
-        executable->path = NULL;
-    }
+	dkc_fix_tree(compiler);
 
-    dvm_disassemble(executable);
+	executable = dkc_generate(compiler);
 
-    executable->is_required = is_required;
+	if (path) {
+		executable->path = MEM_strdup(path);
+	} else {
+		executable->path = NULL;
+	}
 
-    if (!add_executable_to_list(executable, executable_list)) {
-        dvm_dispose_executable(executable);
-    }
+	dvm_disassemble(executable);
 
-    dkc_set_current_compiler(compiler_backup);
+	executable->is_required = is_required;
 
-    return executable;
+	if (!add_executable_to_list(executable, executable_list)) {
+		dvm_dispose_executable(executable);
+	}
+
+	dkc_set_current_compiler(compiler_backup);
+
+	return executable;
 }
 
 static void dispose_compiler_list(void) {

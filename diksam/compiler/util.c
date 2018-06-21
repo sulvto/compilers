@@ -166,11 +166,11 @@ void dkc_vstr_append_string(VString *v, char *string) {
 void dkc_vstr_append_character(VString *v, int ch) {
 	int current_len = my_strlen(v->string);
 	v->string = MEM_realloc(v->string, current_len + 2);
-	v->string[current_len] = current_len;
+	v->string[current_len] = ch;
 	v->string[current_len + 1] = '\0';
 }
 
-void dkc_vwstr_clear(VString *v) {
+void dkc_vwstr_clear(VWString *v) {
 	v->string = NULL;
 }
 
@@ -182,16 +182,26 @@ static int my_wcslen(DVM_Char *string) {
 	return dvm_wcslen(string);
 }
 
-void dkc_vwstr_append_string(VWString *v, char *string) {
+void dkc_vwstr_append_string(VWString *v, DVM_Char *string) {
 	int old_len = my_wcslen(v->string);
 	int new_size = sizeof(DVM_Char) * (old_len + dvm_wcslen(string) + 1);
 	v->string = MEM_realloc(v->string, new_size);
 	dvm_wcscpy(&v->string[old_len], string);
 }
 
-void dkc_vwstr_append_character(VWString *v, int ch);
+void dkc_vwstr_append_character(VWString *v, int ch) {
+	int current_len = my_wcslen(v->string);
+	v->string = MEM_realloc(v->string, sizeof(DVM_Char)
+			*(current_len + 2));
 
-char *dkc_get_type_name(TypeSpecifier *type);
+	v->string[current_len] = ch;
+	v->string[current_len + 1] = '\0';
+}
+
+char *dkc_get_type_name(TypeSpecifier *type) {
+	printf("dkc_get_type_name\n");
+
+}
 
 char *dkc_get_basic_type_name(DVM_BasicType type) {
     switch (type) {
@@ -210,8 +220,31 @@ char *dkc_get_basic_type_name(DVM_BasicType type) {
     return NULL;
 }
 
-DVM_Char *dkc_expression_to_string(Expression *expression);
+DVM_Char *dkc_expression_to_string(Expression *expression) {
+printf("dkc_expression_to_string\n");
+}
 
 char *dkc_package_name_to_string(PackageName *package_name) {
+	if (package_name == NULL) {
+		return NULL;
+	}
 
+	PackageName *pos;
+
+	int len = 0;
+	for (pos = package_name; pos; pos = pos->next) {
+		len += strlen(pos->name) + 1;
+	}
+
+	char *dest = MEM_malloc(len);
+	dest[0] = '\0';
+
+	for (pos = package_name; pos; pos = pos->next) {
+		strcat(dest, pos->name);
+		if (pos->next) {
+			strcat(dest, ".");
+		}
+	}
+
+	return dest;
 }

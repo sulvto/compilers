@@ -56,6 +56,8 @@ typedef enum {
 	ABSTRACT_METHOD_HAS_BODY_ERR,
 	CONCRETE_METHOD_HAS_NO_BODY_ERR,
 	RENAME_HAS_NO_PACKAGED_NAME_ERR,
+	EOF_IN_C_COMMENT_ERR,
+	EOF_IN_STRING_LITERAL_ERR,
 	TOO_LONG_CHARACTER_LITERAL_ERR,
 	COMPILE_ERROR_COUNT_PLUS_1
 } CompileError;
@@ -837,9 +839,9 @@ void dkc_vstr_append_string(VString *v, char *string);
 
 void dkc_vstr_append_character(VString *v, int ch);
 
-void dkc_vwstr_clear(VString *v);
+void dkc_vwstr_clear(VWString *v);
 
-void dkc_vwstr_append_string(VWString *v, char *string);
+void dkc_vwstr_append_string(VWString *v, DVM_Char *string);
 
 void dkc_vwstr_append_character(VWString *v, int ch);
 

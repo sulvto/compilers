@@ -1,6 +1,7 @@
 //
 // Created by sulvto on 18-6-9.
 //
+#include <string.h>
 #include "MEM.h"
 #include "diksamc.h"
 
@@ -24,13 +25,13 @@ void dkc_open_string_literal(void) {
 DVM_Char *dkc_close_string_literal(void) {
 	DVM_Char *new_string;
 
-	dkc_add_string_literal('\n');
+	dkc_add_string_literal('\0');
 
 	int length = dvm_mbstowcs_len(st_string_literal_buffer);
 	if (length < 0) {
 		dkc_compile_error(dkc_get_current_compiler()->current_line_number,
-							BAD_MULTIBYTE_CHARACTER_ERR,
-							MESSAGE_ARGUMENT_END);
+		                  BAD_MULTIBYTE_CHARACTER_ERR,
+		                  MESSAGE_ARGUMENT_END);
 	}
 
 	new_string = MEM_malloc(sizeof(DVM_Char) * (length + 1));

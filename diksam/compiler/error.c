@@ -3,6 +3,7 @@
 //
 #include <assert.h>
 #include <stdarg.h>
+#include <string.h>
 #include "DBG.h"
 #include "diksamc.h"
 
@@ -22,6 +23,7 @@ typedef struct {
 } MessageArgument;
 
 static void create_message_argument(MessageArgument *argument, va_list ap) {
+	printf("create_message_argument\t");
 	int index;
 	MessageArgumentType type;
 
@@ -53,6 +55,7 @@ static void create_message_argument(MessageArgument *argument, va_list ap) {
 		index++;
 		assert(index < MESSAGE_ARGUMENT_MAX);
 	}
+	printf("create_message_argument end\n");
 }
 
 static void search_argument(MessageArgument *argument_list, char *argument_name, MessageArgument *argument) {
@@ -65,7 +68,7 @@ static void search_argument(MessageArgument *argument_list, char *argument_name,
 	assert(0);
 }
 
-static void format_message(int line_number, ErrorDefinition *format, VString *v, va_list ap) {
+static void format_message(int line_number, ErrorDefinition *format, VWString *v, va_list ap) {
 	int i;
 	char buf[LINE_BUF_SIZE];
 	DVM_Char wc_buf[LINE_BUF_SIZE];
@@ -79,12 +82,12 @@ static void format_message(int line_number, ErrorDefinition *format, VString *v,
 	DVM_Char *wc_format = dkc_mbstowcs_alloc(line_number, format->format);
 	DBG_assert(wc_format != NULL, ("wc_format is null.\n"));
 
-	for (int i = 0; wc_format[i]!= L'\0'; i++) {
+	for (int i = 0; wc_format[i] != L'\0'; i++) {
 		if (wc_format[i] != L'$') {
-			dkc_vstr_append_character(v, wc_format[i]);
+			dkc_vwstr_append_character(v, wc_format[i]);
 			continue;
 		}
-		assert(wc_format[i+1] == L'(');
+		assert(wc_format[i + 1] == L'(');
 		i += 2;
 		for (argument_name_index = 0; wc_format[i] != L')'; argument_name_index++, i++) {
 			argument_name[argument_name_index] = dvm_wctochar(wc_format[i]);
@@ -120,6 +123,8 @@ static void format_message(int line_number, ErrorDefinition *format, VString *v,
 			case MESSAGE_ARGUMENT_END:
 				assert(0);
 				break;
+			default:
+				assert(0);
 		}
 	}
 	MEM_free(wc_format);
@@ -135,17 +140,19 @@ static self_check() {
 }
 
 void dkc_compile_error(int line_number, CompileError id, ...) {
+	printf("dkc_compile_error\t");
 	va_list ap;
-	VString message;
+	VWString message;
 	self_check();
 	va_start(ap, id);
 
 	dkc_vwstr_clear(&message);
 	format_message(line_number, &dkc_error_message_format[id], &message, ap);
-	fprintf(stderr, "%3d:", line_number);
+	fprintf(stderr, "%s:%3d:", dkc_get_current_compiler()->path, line_number);
 	dvm_print_wcs_ln(stderr, message.string);
 	va_end(ap);
 
+	printf("dkc_compile_error exit\n");
 	exit(1);
 }
 

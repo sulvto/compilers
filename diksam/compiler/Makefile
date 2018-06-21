@@ -12,7 +12,7 @@ $(TARGET):$(OBJS)
 	ld -r -o $@ $(OBJS)
 
 clean:
-	rm -f *.o lex.yy.c y.tab.c t.tag.h *~
+	rm -f *.o lex.yy.c y.tab.c y.tab.h *~
 y.tab.h : diksam.y
 	yacc -dv diksam.y
 y.tab.c : diksam.y

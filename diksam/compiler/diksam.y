@@ -48,7 +48,7 @@
 %type	<parameter_list>	parameter_list
 %type 	<argument_list>		argument_list
 %type 	<expression>		expression expression_opt
-		assignment_expression logical_add_expression logical_or_expression
+		assignment_expression logical_and_expression logical_or_expression
 		equality_expression relational_expression
 		additive_expression multiplicative_expression
 		unary_expression postfix_expression primary_expression
@@ -275,15 +275,15 @@ assignment_operator
 		}
 		;
 logical_or_expression
-		: logical_add_expression
-		| logical_or_expression LOGICAL_OR logical_add_expression
+		: logical_and_expression
+		| logical_or_expression LOGICAL_OR logical_and_expression
 		{
 			$$ = dkc_create_binary_expression(LOGICAL_OR_EXPRESSION, $1, $3);
 		}
 		;
-logical_add_expression
+logical_and_expression
 		: equality_expression
-		| logical_add_expression LOGICAL_AND equality_expression
+		| logical_and_expression LOGICAL_AND equality_expression
 		{
 			$$ = dkc_create_binary_expression(LOGICAL_AND_EXPRESSION, $1, $3);
 		}
@@ -463,11 +463,11 @@ array_literal
 array_creation
 		: NEW basic_type_specifier dimension_expression_list
 		{
-		    $$ = dkc_create_array_creation($2, $3, NULL);
+		    $$ = dkc_create_basic_array_creation($2, $3, NULL);
 		}
 		| NEW basic_type_specifier dimension_expression_list dimension_list
 		{
-		    $$ = dkc_create_array_creation($2, $3, $4);
+		    $$ = dkc_create_basic_array_creation($2, $3, $4);
 		}
 		| NEW class_type_specifier dimension_expression_list
 		{
@@ -516,7 +516,7 @@ expression_list
         }
         ;
 statement_list
-		:statement
+		: statement
 		{
 			$$ = dkc_create_statement_list($1);
 		}
@@ -631,20 +631,6 @@ continue_statement
 			$$ = dkc_create_continue_statement($2);
 		}
 		;
-// try_statement
-// 		: TRY block CATCH LP IDENTIFIER RP block FINALLY block
-// 		{
-// 			$$ = dkc_create_try_statement($2, $5, $7, $9);
-// 		}
-// 		| TRY block FINALLY block
-// 		{
-// 			$$ = dkc_create_try_statement($2, NULL, NULL, $4);
-// 		}
-// 		| TRY block CATCH LP IDENTIFIER RP block
-// 		{
-// 			$$ = dkc_create_try_statement($2, $5, $7, NULL);
-// 		}
-// 		;
 throw_statement
 		: THROW expression SEMICOLON
 		{
@@ -837,7 +823,6 @@ access_modifier
 			$$ = dkc_create_class_or_member_modifier(PRIVATE_MODIFIER);
 		}
 		;
-
 field_member
 		: type_specifier IDENTIFIER SEMICOLON
 		{
@@ -848,6 +833,4 @@ field_member
 			$$ = dkc_create_field_member(&$1, $2, $3);
 		}
 		;
-
 %%
-
