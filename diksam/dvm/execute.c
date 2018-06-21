@@ -1,6 +1,8 @@
 //
 // Created by sulvto on 18-6-11.
 //
+#include <math.h>
+#include <string.h>
 #include "MEM.h"
 #include "DBG.h"
 #include "dvm_pri.h"

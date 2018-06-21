@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <wchar.h>
 #include <limits.h>
+#include <string.h>
 #include "DBG.h"
 #include "MEM.h"
 
