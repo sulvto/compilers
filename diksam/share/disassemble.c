@@ -1,10 +1,14 @@
 //
 // Created by sulvto on 18-6-15.
 //
+#include "DBG.h"
 #include "share.h"
 
+extern OpcodeInfo dvm_opcode_info[];
+
+
 int dvm_dump_instruction(FILE *fp, DVM_Byte *code, int index) {
-    Opcodeinfo *info = &dvm_opcode_info[code[index]];
+    OpcodeInfo *info = &dvm_opcode_info[code[index]];
     fprintf(fp, "%4d %s ", index, info->mnemonic);
 
     int value;
@@ -23,7 +27,7 @@ int dvm_dump_instruction(FILE *fp, DVM_Byte *code, int index) {
                 index += 2;
                 break;
             default:
-                DBG_assert(0, ("param..%s, i..%d", info->parmeter, i));
+                DBG_assert(0, ("param..%s, i..%d", info->parameter, i));
         }
     }
 

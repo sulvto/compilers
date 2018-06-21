@@ -7,12 +7,16 @@
 #include "DVM_code.h"
 #include "share.h"
 
+static void dispose_type_specifier(DVM_TypeSpecifier *type) {
+	// TODO
+}
+
 void dvm_dispose_executable(DVM_Executable *executable) {
     MEM_free(executable->package_name);
     MEM_free(executable->path);
     for (int i = 0; i < executable->constant_pool_count; i++) {
         if (executable->constant_pool[i].tag == DVM_CONSTANT_STRING) {
-            MEM_free(executable->constant_pool[i].u.c_string)
+	        MEM_free(executable->constant_pool[i].u.c_string);
         }
     }
 
