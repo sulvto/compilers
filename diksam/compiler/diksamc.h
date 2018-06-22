@@ -104,9 +104,17 @@ typedef enum {
 } ExpressionKind;
 
 
+#define dkc_is_object(type) (dkc_is_string(type) || dkc_is_array(type) || dkc_is_class_object(type))
+
 #define dkc_is_array(type)  ((type)->derive && ((type)->derive->tag == ARRAY_DERIVE))
 
-#define dkc_is_string(type)  ((type)->basic_type == DVM_STRING_TYPE && (type)->derive == NULL)
+#define dkc_is_string(type) ((type)->basic_type == DVM_STRING_TYPE && (type)->derive == NULL)
+
+#define dkc_is_int(type)    ((type)->basic_type == DVM_INT_TYPE && (type)->derive == NULL)
+
+#define dkc_is_double(type) ((type)->basic_type == DVM_DOUBLE_TYPE && (type)->derive == NULL)
+
+#define dkc_is_boolean(type) ((type)->basic_type == DVM_BOOLEAN_TYPE && (type)->derive == NULL)
 
 
 typedef struct PackageName_tag {
