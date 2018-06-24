@@ -103,6 +103,7 @@ typedef enum {
 	EXPRESSION_KIND_COUNT_PLUS_1
 } ExpressionKind;
 
+#define dkc_is_class_object(type) ((type)->basic_type == DVM_CLASS_TYPE && (type)->derive == NULL)
 
 #define dkc_is_object(type) (dkc_is_string(type) || dkc_is_array(type) || dkc_is_class_object(type))
 

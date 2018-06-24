@@ -347,21 +347,140 @@ static Expression *fix_function_call_expression(Block *current_block, Expression
 	return expression;
 }
 
+static Expression *fix_class_member_expression(Expression *expression, Expression *object, char *member_name) {
+	fix_type_specifier(object->type);
+	MemberDeclaration *member = dkc_search_member(object->type->class_ref.class_definition, member_name);
+
+	if (member == NULL) {
+		dkc_compile_error(expression->line_number, MEMBER_NOT_FOUND_ERR,
+		                  STRING_MESSAGE_ARGUMENT, "class_name", object->type->class_ref.class_definition->name,
+		                  STRING_MESSAGE_ARGUMENT, "member_name", member_name,
+		                  MESSAGE_ARGUMENT_END);
+	}
+
+	check_member_accessibility(object->line_number, object->type->class_ref.class_definition, member, member_name);
+
+	expression->u.member_expression.declaration = member;
+
+	ClassDefinition *target_interface;
+	int interface_index;
+
+	if (member->kind == METHOD_MEMBER) {
+		expression->type = create_function_derive_type(member->u.method.function_definition);
+		if (object->type->class_ref.class_definition->class_or_interface == DVM_CLASS_DEFINITION &&
+		    is_interface_method(object->type->class_ref.class_definition, member, &target_interface,
+		                        &interface_index)) {
+			expression->u.member_expression.expression = create_up_cast(object, target_interface, interface_index);
+		}
+	} else if (member->kind == FIELD_MEMBER) {
+		if (object->kind == SUPER_EXPRESSION) {
+			dkc_compile_error(expression->line_number, FIELD_OF_SUPER_REFERENCED_ERR, MESSAGE_ARGUMENT_END);
+		}
+		expression->type = member->u.field.type;
+	}
+
+	return expression;
+}
+
+static Expression *fix_array_method_expression(Expression *expression, Expression *object, char *member_name) {
+	DKC_Compiler *compiler = dkc_get_current_compiler();
+	FunctionDefinition *function_definition;
+	int i;
+	for (i = 0; i < compiler->array_method_count; i++) {
+		if (!strcmp(compiler->array_method[i].name, member_name)) {
+			break;
+		}
+	}
+	if (i == compiler->array_method_count) {
+		dkc_compile_error(expression->line_number, ARRAY_METHOD_NOT_FOUND_ERR,
+		                  STRING_MESSAGE_ARGUMENT, "name", member_name,
+		                  MESSAGE_ARGUMENT_END);
+	}
+
+	function_definition = &compiler->array_method[i];
+	expression->u.member_expression.method_index = i;
+	expression->type = create_function_derive_type(function_definition);
+
+	return expression;
+}
+
+static Expression *fix_string_method_expression(Expression *expression, Expression *object, char *member_name) {
+	DKC_Compiler *compiler = dkc_get_current_compiler();
+	FunctionDefinition *function_definition;
+	int i;
+	for (i = 0; i < compiler->string_method_count; i++) {
+		if (!strcmp(compiler->string_method[i].name, member_name)) {
+			break;
+		}
+	}
+	if (i == compiler->array_method_count) {
+		dkc_compile_error(expression->line_number, STRING_METHOD_NOT_FOUND_ERR,
+		                  STRING_MESSAGE_ARGUMENT, "name", member_name,
+		                  MESSAGE_ARGUMENT_END);
+	}
+
+	function_definition = &compiler->string_method[i];
+	expression->u.member_expression.method_index = i;
+	expression->type = create_function_derive_type(function_definition);
+
+	return expression;
+}
+
 static Expression *fix_member_expression(Block *current_block, Expression *expression) {
 	Expression *object = expression->u.member_expression.expression = fix_expression(current_block,
 	                                                                                 expression->u.member_expression.expression,
 	                                                                                 expression);
 	if (dkc_is_class_object(object->type)) {
-		return fix_class_member_expreession(expression, object, expression->u.member_expression.member_name);
+		return fix_class_member_expression(expression, object, expression->u.member_expression.member_name);
 	} else if (dkc_is_array(object->type)) {
-		return fix_array_method_expreession(expression, object, expression->u.member_expression.member_name);
+		return fix_array_method_expression(expression, object, expression->u.member_expression.member_name);
 	} else if (dkc_is_string(object->type)) {
-		return fix_string_method_expreession(expression, object, expression->u.member_expression.member_name);
+		return fix_string_method_expression(expression, object, expression->u.member_expression.member_name);
 	} else {
 		dkc_compile_error(expression->line_number, MEMBER_EXPRESSION_TYPE_ERR, MESSAGE_ARGUMENT_END);
 	}
 
 	return NULL;
+}
+
+static Expression *fix_this_expression(Expression *expression) {
+	TypeSpecifier *type;
+	ClassDefinition *class_definition = dkc_get_current_compiler()->current_class_definition;
+	if (class_definition == NULL) {
+		dkc_compile_error(expression->line_number, THIS_OUT_OF_CLASS_ERR, MESSAGE_ARGUMENT_END);
+	}
+
+	type = dkc_alloc_type_specifier(DVM_CLASS_TYPE);
+	type->class_ref.identifier = class_definition->name;
+	type->class_ref.class_definition = class_definition;
+	expression->type = type;
+
+	return expression;
+}
+
+static Expression *fix_super_expression(Expression *expression, Expression *parent) {
+	TypeSpecifier *type;
+	ClassDefinition *class_definition = dkc_get_current_compiler()->current_class_definition;
+
+	if (class_definition == NULL) {
+		dkc_compile_error(expression->line_number, SUPER_OUT_OF_CLASS_ERR, MESSAGE_ARGUMENT_END);
+	}
+
+	if (class_definition->super_class == NULL) {
+		dkc_compile_error(expression->line_number, HASNT_SUPER_CLASS_ERR, MESSAGE_ARGUMENT_END);
+	}
+
+	if (parent == NULL || parent->kind != MEMBER_EXPRESSION) {
+		dkc_compile_error(expression->line_number, SUPER_NOT_IN_MEMBER_EXPRESSION_ERR, MESSAGE_ARGUMENT_END);
+	}
+
+	type = dkc_alloc_type_specifier(DVM_CLASS_TYPE);
+	type->class_ref.identifier = class_definition->super_class->name;
+	type->class_ref.class_definition = class_definition->super_class;
+
+	expression->type = type;
+
+	return expression;
 }
 
 static Expression *fix_expression(Block *current_block, Expression *expression, Expression *parent) {
