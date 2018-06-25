@@ -293,6 +293,12 @@ typedef struct {
 	Expression 	*operand;
 } CastExpression;
 
+typedef struct  {
+	ClassDefinition *interface_definition;
+	Expression      *operand;
+	int             interface_index;
+} UpCastExpression;
+
 typedef struct {
 	char            *class_name;
 	ClassDefinition *class_definition;
@@ -335,6 +341,7 @@ struct Expression_tag {
 		InstanceofExpression    instanceof_expression;
 		DownCastExpression      down_cast;
 		CastExpression			cast;
+		UpCastExpression        up_cast;
 		NewExpression           new_expression;
 		ArrayCreation 			array_creation;
 	} u;
@@ -791,6 +798,8 @@ FunctionDefinition *dkc_constructor_function_define(char *identifier, ParameterL
 
 MemberDeclaration *dkc_create_field_member(ClassOrMemberModifierList *modifier, TypeSpecifier *type, char *name);
 
+MemberDeclaration *dkc_create_method_member(ClassOrMemberModifierList *modifier,
+                                            FunctionDefinition *function_definition, DVM_Boolean is_constructor);
 // string.c
 char *dkc_create_identifier(char *string);
 
