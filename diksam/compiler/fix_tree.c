@@ -1389,22 +1389,60 @@ static void fix_class_list(DKC_Compiler *compiler) {
 	}
 }
 
-static void check_function_compatibility(FunctionDefinition *fun_def1, FunctionDefinition *fun_def2) {
-	check_func_compati_sub(fun_def2->end_line_number, fun_def2->name, fun_def1->type, fun_def1->parameter,
-	                       fun_def2->type, fun_def2->parameter);
+static DVM_Boolean check_type_compatibility(TypeSpecifier *super_type, TypeSpecifier *sub_type) {
+	DVM_Boolean is_interface_dummy;
+	int interface_index_dummy;
+
+	if (!dkc_is_class_object(super_type)) {
+		return dkc_compare_type(super_type, sub_type);
+	}
+	if (!dkc_is_class_object(sub_type)) {
+		return DVM_FALSE;
+	}
+	if (super_type->class_ref.class_definition == sub_type->class_ref.class_definition
+	    || is_super_class(sub_type->class_ref.class_definition, super_type->class_ref.class_definition,
+	                   &is_interface_dummy, &interface_index_dummy)) {
+		return DVM_TRUE;
+	}
+
+	return DVM_FALSE;
 }
 
 static void check_func_compati_sub(int line_number, char *name, TypeSpecifier *type1, ParameterList *parameter1,
                                    TypeSpecifier *type2, ParameterList *parameter2) {
 	ParameterList *parameter1_pos;
 	ParameterList *parameter2_pos;
-	int parameter = 1;
+	int parameter_index = 1;
 	for (parameter1_pos = parameter1, parameter2_pos = parameter2;
 	     parameter1_pos != NULL && parameter2_pos != NULL;
 	     parameter1_pos = parameter1_pos->next, parameter2_pos = parameter2_pos->next) {
 
-		// TODO
+		if (!check_type_compatibility(parameter2_pos->type, parameter1_pos->type)) {
+			dkc_compile_error(line_number, BAD_PARAMETER_TYPE_ERR,
+			                  STRING_MESSAGE_ARGUMENT, "function_name", name,
+			                  INT_MESSAGE_ARGUMENT, "index", parameter_index,
+			                  STRING_MESSAGE_ARGUMENT, "parameter_name", parameter2_pos->name,
+			                  MESSAGE_ARGUMENT_END);
+		}
+		parameter_index++;
 	}
+
+	if (parameter1_pos != NULL || parameter2_pos != NULL) {
+		dkc_compile_error(line_number, BAD_PARAMETER_COUNT_ERR,
+		                  STRING_MESSAGE_ARGUMENT, "name", name,
+		                  MESSAGE_ARGUMENT_END);
+	}
+
+	if (!check_type_compatibility(type1, type2)) {
+		dkc_compile_error(line_number, BAD_RETURN_TYPE_ERR,
+		                  STRING_MESSAGE_ARGUMENT, "name", name,
+		                  MESSAGE_ARGUMENT_END);
+	}
+}
+
+static void check_function_compatibility(FunctionDefinition *fun_def1, FunctionDefinition *fun_def2) {
+	check_func_compati_sub(fun_def2->end_line_number, fun_def2->name, fun_def1->type, fun_def1->parameter,
+	                       fun_def2->type, fun_def2->parameter);
 }
 
 static void check_method_override(MemberDeclaration *super_method, MemberDeclaration *sub_method) {
