@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
 	executable_list = DKC_compile(compiler, fp, argv[1]);
     dvm = DVM_create_virtual_machine();
 	DVM_set_executable(dvm, executable_list);
-    DVM_dispose_compiler(compiler);
+    DKC_dispose_compiler(compiler);
 	DVM_execute(dvm);
 
 	DVM_dispose_virtual_machine(dvm);

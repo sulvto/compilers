@@ -24,6 +24,7 @@ typedef enum {
 #define FILE_PATH_SEPARATOR (':')
 
 #define DIKSAM_REQUIRE_SUFFIX   (".dkh")
+#define DIKSAM_IMPLEMENTATION_SUFFIX (".dkm")
 
 #define ARRAY_METHOD_SIZE   "size"
 #define ARRAY_METHOD_RESIZE "resize"
@@ -62,7 +63,7 @@ int dvm_mbstowcs_len(const char *src);
 
 void dvm_mbstowcs(const char *src, wchar_t *dest);
 
-wchar_t dvm_mbstowcs_alloc(DVM_VirtualMachine *dvm, const char *src);
+wchar_t *dvm_mbstowcs_alloc(DVM_VirtualMachine *dvm, const char *src);
 
 int dvm_wcstombs_len(const wchar_t *src);
 
@@ -87,4 +88,8 @@ char *dvm_create_method_function_name(char *class_name, char *method_name);
 
 void dvm_strncpy(char *dest, char *src, int buf_size);
 
+
+//
+SearchFileStatus dkc_dynamic_compile(DKC_Compiler *compiler, char *package_name, DVM_ExecutableList *list,
+                                     DVM_ExecutableItem **add_top, char *search_file);
 #endif //DIKSAM_SHARE_H

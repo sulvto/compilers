@@ -348,7 +348,7 @@ Expression *dkc_create_member_expression(Expression *expression, char *member_na
 }
 
 Expression *dkc_create_instanceof_expression(Expression *operand, TypeSpecifier *type) {
-	Expression *expression = dkc_alloc_expression(INSTENCEOF_EXPRESSION);
+	Expression *expression = dkc_alloc_expression(INSTANCEOF_EXPRESSION);
 	expression->u.instanceof_expression.operand = operand;
 	expression->u.instanceof_expression.type = type;
 	
@@ -492,6 +492,14 @@ Statement *alloc_statement(StatementType type) {
 Statement *dkc_create_expression_statement(Expression *expression) {
 	Statement *statement = alloc_statement(EXPRESSION_STATEMENT);
 	statement->u.expression_s = expression;
+
+	return statement;
+}
+
+Statement *dkc_alloc_statement(StatementType type) {
+	Statement *statement = dkc_malloc(sizeof(Statement));
+	statement->type = type;
+	statement->line_number = dkc_get_current_compiler()->current_line_number;
 
 	return statement;
 }
@@ -694,6 +702,25 @@ Declaration *dkc_alloc_declaration(TypeSpecifier *type, char *identifier) {
 	declaration->variable_index = -1;
 
 	return declaration;
+}
+
+DeclarationList *dkc_chain_declaration(DeclarationList *list,
+                                       Declaration *declaration) {
+	DeclarationList *new_item = dkc_malloc(sizeof(DeclarationList));
+	new_item->declaration = declaration;
+	new_item->next = NULL;
+
+	if (list == NULL) {
+		return new_item;
+	}
+
+	DeclarationList *pos;
+
+	for (pos = list; pos->next; pos = pos->next);
+
+	pos->next = new_item;
+
+	return list;
 }
 
 Statement *dkc_create_declaration_statement(TypeSpecifier *type, char *identifier, Expression *initializer) {

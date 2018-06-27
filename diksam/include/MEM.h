@@ -47,7 +47,7 @@ void MEM_check_all_blocks_func(MEM_Controller controller, char *filename, int li
 #define MEM_strdup(str) (MEM_strdup_func(MEM_CURRENT_CONTROLLER, __FILE__, __LINE__, str))
 #define MEM_open_storage(page_size)		(MEM_open_storage_func(MEM_CURRENT_CONTROLLER, __FILE__, __LINE__, page_size))
 #define MEM_storage_malloc(storage, size)	(MEM_storage_malloc_func(MEM_CURRENT_CONTROLLER, __FILE__, __LINE__, storage, size))
-#define MEM_free(ptr)	(MEM_free_func(MEM_CURRENT_CONTROLLER, ptr));
+#define MEM_free(ptr)	(MEM_free_func(MEM_CURRENT_CONTROLLER, ptr))
 #define MEM_dispose_storage(storage)	(MEM_dispose_storage_func(MEM_CURRENT_CONTROLLER, storage))
 
 #ifdef DEBUG

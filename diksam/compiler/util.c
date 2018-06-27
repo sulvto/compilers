@@ -133,6 +133,39 @@ TypeSpecifier *dkc_alloc_type_specifier2(TypeSpecifier *src) {
     return result;
 }
 
+DVM_Boolean dkc_compare_type(TypeSpecifier *type1, TypeSpecifier *type2) {
+	TypeDerive *d1;
+	TypeDerive *d2;
+
+	if (type1->basic_type != type2->basic_type) {
+		return DVM_FALSE;
+	}
+
+
+	if (type1->basic_type == DVM_CLASS_TYPE) {
+		if (type1->class_ref.class_definition != type2->class_ref.class_definition) {
+			return DVM_FALSE;
+		}
+	}
+
+	for (d1 = type1->derive, d2 = type2->derive; d1 && d2; d1 = d1->next, d2 = d2->next) {
+		if (d1->tag != d2->tag) {
+			return DVM_FALSE;
+		}
+		if (d1->tag == FUNCTION_DERIVE) {
+			if (!dkc_compare_parameter(d1->u.function_derive.parameter_list,d2->u.function_derive.parameter_list)) {
+				return DVM_FALSE;
+			}
+		}
+	}
+
+	if (d1 || d2) {
+		return DVM_FALSE;
+	}
+
+	return DVM_TRUE;
+}
+
 DVM_Boolean dkc_compare_parameter(ParameterList *parameter1, ParameterList *parameter2) {
     ParameterList *pos1;
     ParameterList *pos2;
@@ -156,17 +189,25 @@ DVM_Boolean dkc_compare_parameter(ParameterList *parameter1, ParameterList *para
     return DVM_TRUE;
 }
 
-DVM_Boolean dkc_compare_type(TypeSpecifier *type1, TypeSpecifier *type2) {
-    // TODO
-    return DVM_FALSE;
-}
-
 DVM_Boolean dkc_compare_package_name(PackageName *package1, PackageName *package2) {
+	PackageName *pos1;
+	PackageName *pos2;
 
+	for (pos1 = package1, pos2 = package2; pos1 && pos2; pos1 = pos1->next, pos2 = pos2->next) {
+		if (strcmp(pos1->name, pos2->name) != 0) {
+			return DVM_FALSE;
+		}
+	}
+
+	if (pos1 || pos2) {
+		return DVM_FALSE;
+	}
+
+	return DVM_TRUE;
 }
 
 ClassDefinition *dkc_search_class(char *identifier) {
-
+	printf("dkc_search_class\n");
 }
 
 MemberDeclaration *dkc_search_member(ClassDefinition *class_definition, char *member_name) {
@@ -252,7 +293,28 @@ char *dkc_get_basic_type_name(DVM_BasicType type) {
 }
 
 DVM_Char *dkc_expression_to_string(Expression *expression) {
-printf("dkc_expression_to_string\n");
+	char buf[LINE_BUF_SIZE];
+	DVM_Char wc_buf[LINE_BUF_SIZE];
+
+	if (expression->kind == BOOLEAN_EXPRESSION) {
+		dvm_mbstowcs(expression->u.boolean_value ? "true" : "false", wc_buf);
+	} else if (expression->kind == INT_EXPRESSION) {
+		sprintf(buf, "%d", expression->u.int_value);
+		dvm_mbstowcs(buf, wc_buf);
+	} else if (expression->kind == DOUBLE_EXPRESSION) {
+		sprintf(buf, "%f", expression->u.double_value);
+		dvm_mbstowcs(buf, wc_buf);
+	} else if (expression->kind == STRING_EXPRESSION) {
+		return expression->u.string_value;
+	} else {
+		return NULL;
+	}
+
+	int len = dvm_wcslen(wc_buf);
+	DVM_Char *result = MEM_malloc(sizeof(DVM_Char) * (len + 1));
+	dvm_wcscpy(result, wc_buf);
+
+	return result;
 }
 
 char *dkc_package_name_to_string(PackageName *package_name) {

@@ -58,6 +58,7 @@ static BuiltInMethod st_array_method[] = {
 };
 
 
+
 static FunctionDefinition *create_built_in_method(BuiltInMethod *src, int method_count) {
     FunctionDefinition *function_definition_array = dkc_malloc(sizeof(FunctionDefinition) * method_count);
 
@@ -203,7 +204,7 @@ static DVM_Boolean add_executable_to_list(DVM_Executable *executable, DVM_Execut
     DVM_ExecutableItem *tail;
 
     for (DVM_ExecutableItem *pos = list->list; pos; pos = pos->next) {
-        if (dkc_compare_package_name(pos->executable->package_name, executable->package_name)
+        if (dvm_compare_package_name(pos->executable->package_name, executable->package_name)
                 && pos->executable->is_required == executable->is_required) {
             return DVM_FALSE;
         }
@@ -279,6 +280,8 @@ static DVM_Executable *do_compile(DKC_Compiler *compiler, DVM_ExecutableList *ex
 		executable->path = NULL;
 	}
 
+	printf("dvm_disassemble\n");
+
 	dvm_disassemble(executable);
 
 	executable->is_required = is_required;
@@ -301,6 +304,128 @@ static void dispose_compiler_list(void) {
 }
 
 
+static void make_search_path_impl(char *package_name, char *buf) {
+	int suffix_len = strlen(DIKSAM_IMPLEMENTATION_SUFFIX);
+	int package_len = strlen(package_name);
+
+	DBG_assert(package_len <= FILENAME_MAX - (2 + suffix_len), ("package name is too long(%s)", package_name));
+
+	int i;
+	for (i = 0; package_name[i] != '\0'; i++) {
+		if (package_name[i] == '.') {
+			buf[i] = FILE_SEPARATOR;
+		} else {
+			buf[i] = package_name[i];
+		}
+	}
+
+	buf[i] = '\0';
+
+	strcat(buf, DIKSAM_IMPLEMENTATION_SUFFIX);
+}
+
+static SearchFileStatus get_dynamic_load_input(char *package_name, char *found_path, char *search_file, SourceInput *source_input) {
+	char *search_path = getenv("DKC_LOAD_SEARCH_PATH");
+	if (search_path == NULL) {
+		search_path = ".";
+	}
+
+	make_search_path_impl(package_name, search_file);
+	SearchFileStatus status = dvm_search_file(search_path, search_file, found_path);
+	if (status != SEARCH_FILE_SUCCESS) {
+		return status;
+	}
+
+	source_input->input_mode = DKC_FILE_INPUT_MODE;
+	source_input->u.file.fp = fopen(found_path, "r");
+
+	return SEARCH_FILE_SUCCESS;
+}
+
+static PackageName *create_ont_package_name(DKC_Compiler *compiler, char *string, int start_index, int to_index) {
+	MEM_Storage storage = compiler->compile_storage;
+	PackageName *package_name = MEM_storage_malloc(storage, sizeof(PackageName));
+	package_name->name = MEM_storage_malloc(storage, to_index - start_index + 1);
+
+	int i;
+	for (i = 0; i < to_index - start_index; i++) {
+		package_name->name[i] = string[start_index + i];
+	}
+
+	package_name->name[i] = '\0';
+	package_name->next = NULL;
+
+	return package_name;
+}
+
+static PackageName *string_to_package_name(DKC_Compiler *compiler, char *string) {
+	int start_index = 0;
+	PackageName *package_name;
+	PackageName *top;
+	PackageName *tail = NULL;
+
+	int i;
+	for (i = 0; string[i] != '\0'; i++) {
+		if (string[i] == '.') {
+			package_name = create_ont_package_name(compiler, string, start_index, i);
+			start_index = i + 1;
+			if (tail) {
+				tail->next = package_name;
+			} else {
+				top = package_name;
+			}
+			tail = package_name;
+		}
+	}
+
+	package_name = create_ont_package_name(compiler, string, start_index, i);
+
+	if (tail) {
+		tail->next = package_name;
+	} else {
+		top = package_name;
+	}
+
+	return top;
+}
+
+SearchFileStatus dkc_dynamic_compile(DKC_Compiler *compiler, char *package_name, DVM_ExecutableList *list,
+                                     DVM_ExecutableItem **add_top, char *search_file) {
+
+	extern FILE *yyin;
+	SourceInput source_input;
+	char found_path[FILENAME_MAX];
+
+	SearchFileStatus status = get_dynamic_load_input(package_name, found_path, search_file, &source_input);
+	if (status != SEARCH_FILE_SUCCESS) {
+		return status;
+	}
+
+	DBG_assert(st_compiler_list == NULL, ("st_compiler_list != NULL(%p)", st_compiler_list));
+
+
+	DVM_ExecutableItem *tail;
+	for (tail = list->list; tail->next; tail = tail->next);
+	compiler->package_name = string_to_package_name(compiler, package_name);
+	set_path_to_compiler(compiler, found_path);
+
+	compiler->input_mode = source_input.input_mode;
+	if (source_input.input_mode == DKC_FILE_INPUT_MODE) {
+		yyin = source_input.u.file.fp;
+	} else {
+		dkc_set_source_string(source_input.u.string.lines);
+	}
+	DVM_Executable *executable = do_compile(compiler, list, found_path, DVM_FALSE);
+
+	dispose_compiler_list();
+	dkc_reset_string_literal_buffer();
+
+	*add_top = tail->next;
+
+
+	return SEARCH_FILE_SUCCESS;
+}
+
 DVM_ExecutableList *DKC_compile(DKC_Compiler *compiler, FILE *fp, char *path) {
     extern FILE *yyin;
     DVM_ExecutableList *executable_list;
@@ -314,7 +439,10 @@ DVM_ExecutableList *DKC_compile(DKC_Compiler *compiler, FILE *fp, char *path) {
 
     executable_list = MEM_malloc(sizeof(DVM_ExecutableList));
     executable_list->list = NULL;
-    executable_list->top_level = do_compile(compiler, executable_list, NULL, DVM_FALSE);
+
+	DVM_Executable *executable = do_compile(compiler, executable_list, NULL, DVM_FALSE);
+	executable->path = MEM_strdup(path);
+	executable_list->top_level = executable;
 
     dispose_compiler_list();
 	dkc_reset_string_literal_buffer();
@@ -337,12 +465,14 @@ DVM_ExecutableList *DKC_compile_string(DKC_Compiler *compiler, char **lines) {
 //    return executable;
 }
 
-void DVM_dispose_compiler(DKC_Compiler *compiler) {
+void DKC_dispose_compiler(DKC_Compiler *compiler) {
     for (FunctionDefinition *fd_pos = compiler->function_list;
          fd_pos;
          fd_pos = fd_pos->next) {
         MEM_free(fd_pos->local_variable);
     }
+
+	// TODO
 
     MEM_dispose_storage(compiler->compile_storage);
 }

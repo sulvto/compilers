@@ -16,7 +16,7 @@ DVM_ExecutableList *DKC_compile(DKC_Compiler *compiler, FILE *fp, char *path);
 
 DVM_ExecutableList *DKC_compile_string(DKC_Compiler *compiler, char **lines);
 
-void DVM_dispose_compiler(DKC_Compiler *compiler);
+void DKC_dispose_compiler(DKC_Compiler *compiler);
 
 
 #endif //DIKSAM_DKC_H

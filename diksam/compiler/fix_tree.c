@@ -7,7 +7,6 @@
 #include "DBG.h"
 #include "MEM.h"
 #include "diksamc.h"
-#include "../dvm/dvm_pri.h"
 
 static Expression *fix_expression(Block *current_block, Expression *expression, Expression *parent);
 
@@ -22,6 +21,7 @@ static void fix_return_statement(Block *current_block, Statement *statement, Fun
 static TypeSpecifier *create_function_derive_type(FunctionDefinition *function_definition) ;
 
 
+static Expression *chain_string(Expression *pTag);
 
 static int reserve_function_index(DKC_Compiler *compiler, FunctionDefinition *src) {
 	if (src->class_definition && src->block == NULL) {
@@ -71,6 +71,58 @@ static void add_return_function(FunctionDefinition *function_definition) {
 	}
 	fix_return_statement(function_definition->block, ret, function_definition);
 	*last_p = dkc_create_statement_list(ret);
+}
+
+static void add_local_variable(FunctionDefinition *function_definition, Declaration *declaration, DVM_Boolean is_parameter) {
+	function_definition->local_variable = MEM_realloc(function_definition->local_variable, sizeof(Declaration *) *
+	                                                                                       (function_definition->local_variable_count +
+	                                                                                        1));
+	function_definition->local_variable[function_definition->local_variable_count] = declaration;
+	if (function_definition->class_definition && !is_parameter) {
+		declaration->variable_index = function_definition->local_variable_count + 1;
+	} else {
+		declaration->variable_index = function_definition->local_variable_count;
+	}
+
+	function_definition->local_variable_count++;
+}
+
+static void add_declaration(Block *current_block, Declaration *declaration, FunctionDefinition *function_definition, int line_number, DVM_Boolean is_parameter) {
+	if (dkc_search_declaration(declaration->name, current_block)) {
+		dkc_compile_error(line_number, VARIABLE_MULTIPLE_DEFINE_ERR,
+		                  STRING_MESSAGE_ARGUMENT, "name", declaration->name,
+		                  MESSAGE_ARGUMENT_END);
+	}
+
+	if (current_block) {
+		current_block->declaration_list = dkc_chain_declaration(current_block->declaration_list, declaration);
+	}
+
+	if (function_definition) {
+		declaration->is_local = DVM_TRUE;
+		add_local_variable(function_definition, declaration, is_parameter);
+	} else {
+		DKC_Compiler *compiler = dkc_get_current_compiler();
+		declaration->is_local = DVM_FALSE;
+		compiler->declaration_list = dkc_chain_declaration(compiler->declaration_list, declaration);
+	}
+}
+
+static void add_parameter_as_declaration(FunctionDefinition *function_definition) {
+	Declaration *declaration;
+	for (ParameterList *parameter = function_definition->parameter; parameter; parameter = parameter->next) {
+		if (dkc_search_declaration(parameter->name, function_definition->block)) {
+			dkc_compile_error(parameter->line_number, PARAMETER_MULTIPLE_DEFINE_ERR,
+			                  STRING_MESSAGE_ARGUMENT, "name", parameter->name,
+			                  MESSAGE_ARGUMENT_END);
+		}
+		fix_type_specifier(parameter->type);
+		declaration = dkc_alloc_declaration(parameter->type, parameter->name);
+		if (function_definition == NULL || function_definition->block) {
+			add_declaration(function_definition->block, declaration, function_definition, parameter->line_number,
+			                DVM_TRUE);
+		}
+	}
 }
 
 static void fix_function(FunctionDefinition *function_definition) {
@@ -136,9 +188,9 @@ static int add_class(ClassDefinition *src) {
 	DKC_Compiler *compiler = dkc_get_current_compiler();
 
 	for (int i = 0; i < compiler->dvm_class_count; i++) {
-		if (dkc_compare_package_name(src_package_name, compiler->dvm_class[i].package_name) &&
+		if (dvm_compare_package_name(src_package_name, compiler->dvm_class[i].package_name) &&
 		    !strcmp(src->name, compiler->dvm_class[i].name)) {
-			MEM_free(src_package_name)
+			MEM_free(src_package_name);
 			return i;
 		}
 	}
@@ -204,6 +256,144 @@ static void fix_type_specifier(TypeSpecifier *type) {
 	}
 }
 
+static Expression *create_up_cast(Expression *src, ClassDefinition *dest_interface, int interface_index) {
+
+
+	TypeSpecifier *type = dkc_alloc_type_specifier(DVM_CLASS_TYPE);
+	type->class_ref.identifier = dest_interface->name;
+	type->class_ref.class_definition = dest_interface;
+	type->class_ref.class_index = interface_index;
+
+	Expression *cast_expression = dkc_alloc_expression(UP_CAST_EXPRESSION);
+	cast_expression->type = type;
+	cast_expression->u.up_cast.interface_definition = dest_interface;
+	cast_expression->u.up_cast.operand = src;
+	cast_expression->u.up_cast.interface_index = interface_index;
+
+	return cast_expression;
+}
+
+static DVM_Boolean is_super_interface(ClassDefinition *child, ClassDefinition *parent, int *interface_index_out) {
+	int interface_index = 0;
+	for (ExtendsList *pos = child->interface_list; pos; pos = pos->next) {
+		if (pos->class_definition == parent) {
+			*interface_index_out = interface_index;
+			return DVM_TRUE;
+		}
+		interface_index++;
+	}
+	return DVM_FALSE;
+}
+
+static DVM_Boolean is_super_class(ClassDefinition *child, ClassDefinition *parent, DVM_Boolean *is_interface, int *interface_index) {
+	for (ClassDefinition *pos = child->super_class; pos; pos = pos->super_class) {
+		if (pos == parent) {
+			*is_interface = DVM_FALSE;
+			return DVM_TRUE;
+		}
+	}
+
+	*is_interface = DVM_TRUE;
+
+	return is_super_interface(child, parent, interface_index);
+}
+
+static Expression *alloc_cast_expression(CastType cast_type, Expression *operand) {
+	Expression *cast_expression = dkc_alloc_expression(CAST_EXPRESSION);
+	cast_expression->line_number = operand->line_number;
+	cast_expression->u.cast.type = cast_type;
+	cast_expression->u.cast.operand = operand;
+
+	if (cast_type == INT_TO_DOUBLE_CAST) {
+		cast_expression->type = dkc_alloc_type_specifier(DVM_DOUBLE_TYPE);
+	} else if (cast_type == DOUBLE_TO_INT_CAST) {
+		cast_expression->type = dkc_alloc_type_specifier(DVM_INT_TYPE);
+	} else if (cast_type == BOOLEAN_TO_STRING_CAST
+	           || cast_type == INT_TO_STRING_CAST
+	           || cast_type == DOUBLE_TO_STRING_CAST) {
+		cast_expression->type = dkc_alloc_type_specifier(DVM_STRING_TYPE);
+	} else {
+		DBG_panic(("cast_type..%d\n", cast_type));
+	}
+
+	return cast_expression;
+}
+
+static Expression *create_to_string_cast(Expression *src) {
+	Expression *cast = NULL;
+
+	if (dkc_is_boolean(src->type)) {
+		cast = alloc_cast_expression(BOOLEAN_TO_STRING_CAST, src);
+	} else if (dkc_is_int(src->type)) {
+		cast = alloc_cast_expression(INT_TO_STRING_CAST, src);
+	} else if (dkc_is_double(src->type)) {
+		cast = alloc_cast_expression(DOUBLE_TO_STRING_CAST, src);
+	}
+
+	return cast;
+}
+
+static void cast_mismatch_error(int line_number, TypeSpecifier *src, TypeSpecifier *dest) {
+	char *tmp = dkc_get_type_name(src);
+	char *src_name = dkc_strdup(tmp);
+	MEM_free(tmp);
+
+	tmp = dkc_get_type_name(dest);
+	char *dest_name = dkc_strdup(tmp);
+	MEM_free(tmp);
+
+
+	dkc_compile_error(line_number, CAST_MISMATCH_ERR,
+	                  STRING_MESSAGE_ARGUMENT, "src", src_name,
+	                  STRING_MESSAGE_ARGUMENT, "dest", dest_name,
+	                  MESSAGE_ARGUMENT_END);
+}
+
+static Expression *create_assign_cast(Expression *src, TypeSpecifier *dest) {
+	Expression *cast_expression;
+	if (dkc_compare_type(src->type, dest)) {
+		return src;
+	}
+
+	if (dkc_is_object(dest) && src->type->basic_type == DVM_NULL_TYPE) {
+		DBG_assert(src->type->derive == NULL, ("derive != NULL"));
+		return src;
+	}
+
+	if (dkc_is_class_object(src->type) && dkc_is_class_object(dest)) {
+		DVM_Boolean is_interface;
+		int interface_index;
+		if (is_super_class(src->type->class_ref.class_definition, dest->class_ref.class_definition, &is_interface,
+		                   &interface_index)) {
+			if (is_interface) {
+				cast_expression = create_up_cast(src, dest->class_ref.class_definition, interface_index);
+				return cast_expression;
+			}
+			return src;
+		} else {
+			cast_mismatch_error(src->line_number, src->type, dest);
+		}
+	}
+
+	if (dkc_is_int(src->type) && dkc_is_double(dest)) {
+		cast_expression = alloc_cast_expression(INT_TO_DOUBLE_CAST, src);
+		return cast_expression;
+	} else if (dkc_is_double(src->type) && dkc_is_int(dest)) {
+		cast_expression = alloc_cast_expression(DOUBLE_TO_INT_CAST, src);
+		return cast_expression;
+	} else if (dkc_is_string(dest)) {
+		cast_expression = create_to_string_cast(src);
+
+		if (cast_expression) {
+			return cast_expression;
+		}
+	}
+
+	cast_mismatch_error(src->line_number, src->type, dest);
+
+	return NULL;
+}
+
 static Expression *fix_assign_expression(Block *current_block, Expression *expression) {
 	if (expression->u.assign_expression.left->kind != IDENTIFIER_EXPRESSION
 	    && expression->u.assign_expression.left->kind != INDEX_EXPRESSION
@@ -221,8 +411,122 @@ static Expression *fix_assign_expression(Block *current_block, Expression *expre
 	return expression;
 }
 
-static Expression *eval_math_expression(Block *pTag, Expression *pExpression_tag) {
-	return NULL;
+static Expression *eval_math_expression_int(Expression *expression, int left, int right) {
+	if (expression->kind == ADD_EXPRESSION) {
+		expression->u.int_value = left + right;
+	} else if (expression->kind == SUB_EXPRESSION) {
+		expression->u.int_value = left - right;
+	} else if (expression->kind == MUL_EXPRESSION) {
+		expression->u.int_value = left * right;
+	} else if (expression->kind == DIV_EXPRESSION) {
+		if (right == 0) {
+			dkc_compile_error(expression->line_number, DIVISION_BY_ZERO_IN_COMPILE_ERR, MESSAGE_ARGUMENT_END);
+		}
+		expression->u.int_value = left / right;
+	} else if (expression->kind == MOD_EXPRESSION) {
+		expression->u.int_value = left % right;
+	} else {
+		DBG_assert(0, ("expression->kind..%d\n", expression->kind));
+	}
+
+	expression->kind = INT_EXPRESSION;
+	expression->type = dkc_alloc_type_specifier(DVM_INT_TYPE);
+
+	return expression;
+}
+
+static Expression *eval_math_expression_double(Expression *expression, double left, double right) {
+	if (expression->kind == ADD_EXPRESSION) {
+		expression->u.double_value = left + right;
+	} else if (expression->kind == SUB_EXPRESSION) {
+		expression->u.double_value = left - right;
+	} else if (expression->kind == MUL_EXPRESSION) {
+		expression->u.double_value = left * right;
+	} else if (expression->kind == DIV_EXPRESSION) {
+		expression->u.double_value = left / right;
+	} else if (expression->kind == MOD_EXPRESSION) {
+		expression->u.double_value = fmod(left , right);
+	} else {
+		DBG_assert(0, ("expression->kind..%d\n", expression->kind));
+	}
+
+	expression->kind = DOUBLE_EXPRESSION;
+	expression->type = dkc_alloc_type_specifier(DVM_DOUBLE_TYPE);
+
+	return expression;
+}
+
+static Expression *chain_string(Expression *expression) {
+	DVM_Char *left_str = expression->u.binary_expression.left->u.string_value;
+	DVM_Char *right_str = dkc_expression_to_string(expression->u.binary_expression.right);
+	if (!right_str) {
+		return expression;
+	}
+	int len = dvm_wcslen(left_str) + dvm_wcslen(right_str);
+	DVM_Char *new_str = MEM_malloc(sizeof(DVM_Char) * len + 1);
+	dvm_wcscpy(new_str, left_str);
+	dvm_wcscpy(new_str, right_str);
+	MEM_free(left_str);
+	MEM_free(right_str);
+
+	expression->kind = STRING_EXPRESSION;
+	expression->type = dkc_alloc_type_specifier(DVM_STRING_TYPE);
+	expression->u.string_value = new_str;
+
+	return expression;
+}
+
+static Expression *eval_math_expression(Block *current_block, Expression *expression) {
+	if (expression->u.binary_expression.left->kind == INT_EXPRESSION &&
+	    expression->u.binary_expression.right->kind == INT_EXPRESSION) {
+		expression = eval_math_expression_int(expression, expression->u.binary_expression.left->u.int_value,
+		                                      expression->u.binary_expression.right->u.int_value);
+	} else if (expression->u.binary_expression.left->kind == DOUBLE_EXPRESSION &&
+	           expression->u.binary_expression.right->kind == DOUBLE_EXPRESSION) {
+		expression = eval_math_expression_double(expression, expression->u.binary_expression.left->u.double_value,
+		                                         expression->u.binary_expression.right->u.double_value);
+	} else if (expression->u.binary_expression.left->kind == DOUBLE_EXPRESSION &&
+	           expression->u.binary_expression.right->kind == INT_EXPRESSION) {
+		expression = eval_math_expression_double(expression, expression->u.binary_expression.left->u.double_value,
+		                                         expression->u.binary_expression.right->u.int_value);
+	} else if (expression->u.binary_expression.left->kind == INT_EXPRESSION &&
+	           expression->u.binary_expression.right->kind == DOUBLE_EXPRESSION) {
+		expression = eval_math_expression_double(expression, expression->u.binary_expression.left->u.int_value,
+		                                         expression->u.binary_expression.right->u.double_value);
+	} else if (expression->u.binary_expression.left->kind == STRING_EXPRESSION
+	           && expression->kind == ADD_EXPRESSION) {
+		expression = chain_string(expression);
+	}
+
+	return expression;
+}
+
+static Expression *cast_binary_expression(Expression *expression) {
+	Expression *cast_expression = NULL;
+	if (dkc_is_int(expression->u.binary_expression.left->type)
+			&& dkc_is_double(expression->u.binary_expression.right->type)) {
+		cast_expression = alloc_cast_expression(INT_TO_DOUBLE_CAST,
+		                                        expression->u.binary_expression.left);
+		expression->u.binary_expression.left = cast_expression;
+	} else if(dkc_is_double(expression->u.binary_expression.left->type)
+	          && dkc_is_int(expression->u.binary_expression.right->type)) {
+		cast_expression = alloc_cast_expression(DOUBLE_TO_INT_CAST,
+		                                        expression->u.binary_expression.left);
+		expression->u.binary_expression.left = cast_expression;
+	}
+	if (cast_expression) {
+		return expression;
+	}
+
+	if (dkc_is_string(expression->u.binary_expression.left->type)&& expression->kind == ADD_EXPRESSION) {
+		cast_expression = create_to_string_cast(expression->u.binary_expression.right);
+
+		if (cast_expression) {
+			expression->u.binary_expression.right = cast_expression;
+		}
+	}
+
+	return expression;
 }
 
 static Expression *fix_math_binary_expression(Block *current_block, Expression *expression) {
@@ -256,19 +560,138 @@ static Expression *fix_math_binary_expression(Block *current_block, Expression *
 	return expression;
 }
 
+static Expression *eval_compare_expression_boolean(Expression *expression, DVM_Boolean left, DVM_Boolean right) {
+	if (expression->kind == EQ_EXPRESSION) {
+		expression->u.boolean_value = (left == right);
+	} else if (expression->kind == NE_EXPRESSION) {
+		expression->u.boolean_value = (left != right);
+	} else {
+		DBG_assert(0, ("expression->kind..%d\n", expression->kind));
+	}
+	expression->kind = BOOLEAN_EXPRESSION;
+	expression->type = dkc_alloc_type_specifier(DVM_BOOLEAN_TYPE);
+
+	return expression;
+}
+
+static Expression *eval_compare_expression_int(Expression *expression, int left, int right) {
+	if (expression->kind == EQ_EXPRESSION) {
+		expression->u.boolean_value = (left == right);
+	} else if (expression->kind == NE_EXPRESSION) {
+		expression->u.boolean_value = (left != right);
+	} else if (expression->kind == GT_EXPRESSION) {
+		expression->u.boolean_value = (left > right);
+	} else if (expression->kind == GE_EXPRESSION) {
+		expression->u.boolean_value = (left >= right);
+	} else if (expression->kind == LT_EXPRESSION) {
+		expression->u.boolean_value = (left < right);
+	} else if (expression->kind == LE_EXPRESSION) {
+		expression->u.boolean_value = (left <= right);
+	} else {
+		DBG_assert(0, ("expression->kind..%d\n", expression->kind));
+	}
+
+	expression->type = dkc_alloc_type_specifier(DVM_BOOLEAN_TYPE);
+	expression->kind = BOOLEAN_EXPRESSION;
+	return expression;
+}
+
+static Expression *eval_compare_expression_double(Expression *expression, int left, int right) {
+	if (expression->kind == EQ_EXPRESSION) {
+		expression->u.boolean_value = (left == right);
+	} else if (expression->kind == NE_EXPRESSION) {
+		expression->u.boolean_value = (left != right);
+	} else if (expression->kind == GT_EXPRESSION) {
+		expression->u.boolean_value = (left > right);
+	} else if (expression->kind == GE_EXPRESSION) {
+		expression->u.boolean_value = (left >= right);
+	} else if (expression->kind == LT_EXPRESSION) {
+		expression->u.boolean_value = (left < right);
+	} else if (expression->kind == LE_EXPRESSION) {
+		expression->u.boolean_value = (left <= right);
+	} else {
+		DBG_assert(0, ("expression->kind..%d\n", expression->kind));
+	}
+
+	expression->type = dkc_alloc_type_specifier(DVM_BOOLEAN_TYPE);
+	expression->kind = BOOLEAN_EXPRESSION;
+	return expression;
+}
+
+static Expression *eval_compare_expression_string(Expression *expression, DVM_Char *left, DVM_Char *right) {
+	int cmp = dvm_wcscmp(left, right);
+	if (expression->kind == EQ_EXPRESSION) {
+		expression->u.boolean_value = (cmp == 0);
+	} else if (expression->kind == NE_EXPRESSION) {
+		expression->u.boolean_value = (cmp != 0);
+	} else if (expression->kind == GT_EXPRESSION) {
+		expression->u.boolean_value = (cmp > 0);
+	} else if (expression->kind == GE_EXPRESSION) {
+		expression->u.boolean_value = (cmp >= 0);
+	} else if (expression->kind == LT_EXPRESSION) {
+		expression->u.boolean_value = (cmp < 0);
+	} else if (expression->kind == LE_EXPRESSION) {
+		expression->u.boolean_value = (cmp <= 0);
+	} else {
+		DBG_assert(0, ("expression->kind..%d\n", expression->kind));
+	}
+
+	MEM_free(left);
+	MEM_free(right);
+
+	expression->kind = BOOLEAN_EXPRESSION;
+	expression->type = dkc_alloc_type_specifier(DVM_BOOLEAN_TYPE);
+
+	return expression;
+}
+
+static Expression *eval_compare_expression(Expression *expression) {
+	if (expression->u.binary_expression.left->kind == BOOLEAN_EXPRESSION &&
+	    expression->u.binary_expression.right->kind == BOOLEAN_EXPRESSION) {
+		expression = eval_compare_expression_boolean(expression, expression->u.binary_expression.left->u.boolean_value,
+		                                             expression->u.binary_expression.right->u.boolean_value);
+	} else if (expression->u.binary_expression.left->kind == INT_EXPRESSION &&
+	           expression->u.binary_expression.right->kind == INT_EXPRESSION) {
+		expression = eval_compare_expression_int(expression, expression->u.binary_expression.left->u.int_value,
+		                                         expression->u.binary_expression.right->u.int_value);
+	} else if (expression->u.binary_expression.left->kind == DOUBLE_EXPRESSION &&
+	           expression->u.binary_expression.right->kind == DOUBLE_EXPRESSION) {
+		expression = eval_compare_expression_double(expression, expression->u.binary_expression.left->u.double_value,
+		                                            expression->u.binary_expression.right->u.double_value);
+	} else if (expression->u.binary_expression.left->kind == DOUBLE_EXPRESSION &&
+	           expression->u.binary_expression.right->kind == INT_EXPRESSION) {
+		expression = eval_compare_expression_double(expression, expression->u.binary_expression.left->u.double_value,
+		                                            expression->u.binary_expression.right->u.int_value);
+	} else if (expression->u.binary_expression.left->kind == INT_EXPRESSION &&
+	           expression->u.binary_expression.right->kind == DOUBLE_EXPRESSION) {
+		expression = eval_compare_expression_double(expression, expression->u.binary_expression.left->u.int_value,
+		                                            expression->u.binary_expression.right->u.double_value);
+	} else if (expression->u.binary_expression.left->kind == STRING_EXPRESSION &&
+	           expression->u.binary_expression.right->kind == STRING_EXPRESSION) {
+		expression = eval_compare_expression_string(expression, expression->u.binary_expression.left->u.string_value,
+		                                            expression->u.binary_expression.right->u.string_value);
+	} else if (expression->u.binary_expression.left->kind == NULL_EXPRESSION &&
+	           expression->u.binary_expression.right->kind == NULL_EXPRESSION) {
+		expression->kind = BOOLEAN_EXPRESSION;
+		expression->type = dkc_alloc_type_specifier(DVM_BOOLEAN_TYPE);
+		expression->u.boolean_value = DVM_TRUE;
+	}
+	return expression;
+}
+
 static Expression *fix_compare_expression(Block *current_block, Expression *expression) {
 	expression->u.binary_expression.left = fix_expression(current_block, expression->u.binary_expression.left,
 	                                                      expression);
 	expression->u.binary_expression.right = fix_expression(current_block, expression->u.binary_expression.right,
 	                                                       expression);
-	expression = eval_compare_expreession(expression);
+	expression = eval_compare_expression(expression);
 	if (expression->kind == BOOLEAN_EXPRESSION) {
 		return expression;
 	}
 
 	expression = cast_binary_expression(expression);
 
-	if (!(dkc_compre_type(expression->u.binary_expression.left->type, expression->u.binary_expression.right->type)) ||
+	if (!(dkc_compare_type(expression->u.binary_expression.left->type, expression->u.binary_expression.right->type)) ||
 	    (dkc_is_object(expression->u.binary_expression.left->type) &&
 	     expression->u.binary_expression.right->kind == NULL_EXPRESSION) ||
 	    (dkc_is_object(expression->u.binary_expression.right->type) &&
@@ -294,6 +717,26 @@ static Expression *fix_logical_and_or_expression(Block *current_block, Expressio
 	}
 
 	return expression;
+}
+
+static void check_argument(Block *current_block, int line_number, ParameterList *parameter_list, ArgumentList *argument, TypeSpecifier *array_base) {
+	ParameterList*parameter;
+	TypeSpecifier *temp_type;
+
+	for (parameter = parameter_list; parameter && argument; parameter = parameter->next, argument = argument->next) {
+		argument->expression = fix_expression(current_block, argument->expression, NULL);
+		if (parameter->type->basic_type == DVM_BASE_TYPE) {
+			DBG_assert(array_base != NULL, ("array_base == NULL\n"));
+			temp_type = array_base;
+		} else {
+			temp_type = parameter->type;
+		}
+		argument->expression = create_assign_cast(argument->expression, temp_type);
+	}
+
+	if (parameter || argument) {
+		dkc_compile_error(line_number, ARGUMENT_COUNT_MISMATCH_ERR, MESSAGE_ARGUMENT_END);
+	}
 }
 
 static Expression *fix_function_call_expression(Block *current_block, Expression *expression) {
@@ -588,31 +1031,6 @@ static Expression *fix_inc_dec_expression(Block *current_block, Expression *expr
 	return expression;
 }
 
-static DVM_Boolean is_super_interface(ClassDefinition *child, ClassDefinition *parent, int *interface_index_out) {
-	int interface_index = 0;
-	for (ExtendsList *pos = child->interface_list; pos; pos = pos->next) {
-		if (pos->class_definition == parent) {
-			*interface_index_out = interface_index;
-			return DVM_TRUE;
-		}
-		interface_index++;
-	}
-	return DVM_FALSE;
-}
-
-static DVM_Boolean is_super_class(ClassDefinition *child, ClassDefinition *parent, DVM_Boolean *is_interface, int *interface_index) {
-	for (ClassDefinition *pos = child->super_class; pos; pos = pos->super_class) {
-		if (pos == parent) {
-			*is_interface = DVM_FALSE;
-			return DVM_TRUE;
-		}
-	}
-
-	*is_interface = DVM_TRUE;
-
-	return is_super_interface(child, parent, interface_index);
-}
-
 static Expression *fix_instanceof_expression(Block *current_block, Expression *expression) {
 	DVM_Boolean is_interface_dummy;
 	int interface_index_dummy;
@@ -652,123 +1070,6 @@ static Expression *fix_instanceof_expression(Block *current_block, Expression *e
 	expression->type = dkc_alloc_type_specifier(DVM_BOOLEAN_TYPE);
 
 	return expression;
-}
-
-static Expression *alloc_cast_expression(CastType cast_type, Expression *operand) {
-	Expression *cast_expression = dkc_alloc_expression(CAST_EXPRESSION);
-	cast_expression->line_number = operand->line_number;
-	cast_expression->u.cast.type = cast_type;
-	cast_expression->u.cast.operand = operand;
-
-	if (cast_type == INT_TO_DOUBLE_CAST) {
-		cast_expression->type = dkc_alloc_type_specifier(DVM_DOUBLE_TYPE);
-	} else if (cast_type == DOUBLE_TO_INT_CAST) {
-		cast_expression->type = dkc_alloc_type_specifier(DVM_INT_TYPE);
-	} else if (cast_type == BOOLEAN_TO_STRING_CAST
-	           || cast_type == INT_TO_STRING_CAST
-	           || cast_type == DOUBLE_TO_STRING_CAST) {
-		cast_expression->type = dkc_alloc_type_specifier(DVM_STRING_TYPE);
-	} else {
-		DBG_panic(("cast_type..%d\n", cast_type));
-	}
-
-	return cast_expression;
-}
-
-static Expression *create_to_string_cast(Expression *src) {
-	Expression *cast = NULL;
-
-	if (dkc_is_boolean(src->type)) {
-		cast = alloc_cast_expression(BOOLEAN_TO_STRING_CAST, src);
-	} else if (dkc_is_int(src->type)) {
-		cast = alloc_cast_expression(INT_TO_STRING_CAST, src);
-	} else if (dkc_is_double(src->type)) {
-		cast = alloc_cast_expression(DOUBLE_TO_STRING_CAST, src);
-	}
-
-	return cast;
-}
-
-static Expression *create_assign_cast(Expression *src, TypeSpecifier *dest) {
-	Expression *cast_expression;
-	if (dkc_compare_type(src->type, dest)) {
-		return src;
-	}
-
-	if (dkc_is_object(dest) && src->type->basic_type == DVM_NULL_TYPE) {
-		DBG_assert(src->type->derive == NULL, ("derive != NULL"));
-		return src;
-	}
-
-	if (dkc_is_class_object(src->type) && dkc_is_class_object(dest)) {
-		DVM_Boolean is_interface;
-		int interface_index;
-		if (is_super_class(src->type->class_ref.class_definition, dest->class_ref.class_definition, &is_interface,
-		                   &interface_index)) {
-			if (is_interface) {
-				cast_expression = create_up_cast(src, dest->class_ref.class_definition, interface_index);
-				return cast_expression;
-			}
-			return src;
-		} else {
-			cast_mismatch_error(src->line_number, src->type, dest);
-		}
-	}
-
-	if (dkc_is_int(src->type) && dkc_is_double(dest)) {
-		cast_expression = alloc_cast_expression(INT_TO_DOUBLE_CAST, src);
-		return cast_expression;
-	} else if (dkc_is_double(src->type) && dkc_is_int(dest)) {
-		cast_expression = alloc_cast_expression(DOUBLE_TO_INT_CAST, src);
-		return cast_expression;
-	} else if (dkc_is_string(dest)) {
-		cast_expression = create_to_string_cast(src);
-
-		if (cast_expression) {
-			return cast_expression;
-		}
-	}
-
-	cast_mismatch_error(src->line_number, src->type, dest);
-
-	return NULL;
-}
-
-static Expression *create_up_cast(Expression *src, ClassDefinition *dest_interface, int interface_index) {
-
-
-	TypeSpecifier *type = dkc_alloc_type_specifier(DVM_CLASS_TYPE);
-	type->class_ref.identifier = dest_interface->name;
-	type->class_ref.class_definition = dest_interface;
-	type->class_ref.class_index = interface_index;
-
-	Expression *cast_expression = dkc_alloc_expression(UP_CAST_EXPRESSION);
-	cast_expression->type = type;
-	cast_expression->u.up_cast.interface_definition = dest_interface;
-	cast_expression->u.up_cast.operand = src;
-	cast_expression->u.up_cast.interface_index = interface_index;
-
-	return cast_expression;
-}
-
-static void check_argument(Block *current_block, int line_number, ParameterList *parameter_list, ArgumentList *argument, TypeSpecifier *array_base) {
-	ParameterList*parameter;
-	TypeSpecifier *temp_type;
-
-	for (parameter = parameter_list; parameter && argument; parameter = parameter->next, argument = argument->next) {
-		argument->expression = fix_expression(current_block, argument->expression, NULL);
-		if (parameter->type->basic_type == DVM_BASE_TYPE) {
-			DBG_assert(array_base != NULL, ("array_base == NULL\n"));
-			temp_type = array_base;
-		} else {
-			temp_type = parameter->type;
-		}
-		argument->expression = create_assign_cast(argument->expression, temp_type);
-	}
-
-	if (parameter || argument) {
-		dkc_compile_error(line_number, ARGUMENT_COUNT_MISMATCH_ERR, MESSAGE_ARGUMENT_END);
-	}
 }
 
 static Expression *fix_new_expression(Block *current_block, Expression *expression) {
@@ -861,7 +1162,7 @@ static Expression *fix_array_creation_expression(Block *current_block, Expressio
 		if (pos->expression) {
 			pos->expression = fix_expression(current_block, pos->expression, expression);
 			if (!dkc_is_int(pos->expression->type)) {
-				dkc_compile_error(expression->line_number, ARRAY_SIZE_INT_ERR, MESSAGE_ARGUMENT_END);
+				dkc_compile_error(expression->line_number, ARRAY_SIZE_NOT_INT_ERR, MESSAGE_ARGUMENT_END);
 			}
 		}
 		tmp_derive = dkc_alloc_type_derive(ARRAY_DERIVE);
@@ -945,7 +1246,7 @@ static Expression *fix_expression(Block *current_block, Expression *expression, 
 		case DECREMENT_EXPRESSION:
 			expression = fix_inc_dec_expression(current_block, expression);
 			break;
-		case INSTENCEOF_EXPRESSION:
+		case INSTANCEOF_EXPRESSION:
 			expression = fix_instanceof_expression(current_block, expression);
 			break;
 		case DOWN_CAST_EXPRESSION:
@@ -1010,41 +1311,6 @@ static void fix_for_statement(Block *current_block, ForStatement *for_s, Functio
 	fix_statement_list(for_s->block, for_s->block->statement_list, function_definition);
 }
 
-static void add_local_variable(FunctionDefinition *function_definition, Declaration *declaration, DVM_Boolean is_parameter) {
-	function_definition->local_variable = MEM_realloc(function_definition->local_variable, sizeof(Declaration *) *
-	                                                                                       (function_definition->local_variable_count +
-	                                                                                        1));
-	function_definition->local_variable[function_definition->local_variable_count] = declaration;
-	if (function_definition->class_definition && !is_parameter) {
-		declaration->variable_index = function_definition->local_variable_count + 1;
-	} else {
-		declaration->variable_index = function_definition->local_variable_count;
-	}
-
-	function_definition->local_variable_count++;
-}
-
-static void add_declaration(Block *current_block, Declaration *declaration, FunctionDefinition *function_definition, int line_number, DVM_Boolean is_parameter) {
-	if (dkc_search_declaration(declaration->name, current_block)) {
-		dkc_compile_error(line_number, VARIABLE_MULTIPLE_DEFINE_ERR,
-		                  STRING_MESSAGE_ARGUMENT, "name", declaration->name,
-		                  MESSAGE_ARGUMENT_END);
-	}
-
-	if (current_block) {
-		current_block->declaration_list = dkc_chain_declaration(current_block->declaration_list, declaration);
-	}
-
-	if (function_definition) {
-		declaration->is_local = DVM_TRUE;
-		add_local_variable(function_definition, declaration, is_parameter);
-	} else {
-		DKC_Compiler *compiler = dkc_get_current_compiler();
-		declaration->is_local = DVM_FALSE;
-		compiler->declaration_list = dkc_chain_declaration(compiler->declaration_list, declaration);
-	}
-}
-
 static void fix_statement(Block *current_block, Statement *statement, FunctionDefinition *function_definition) {
 	switch (statement->type) {
 		case EXPRESSION_STATEMENT:
@@ -1060,13 +1326,15 @@ static void fix_statement(Block *current_block, Statement *statement, FunctionDe
 			fix_for_statement(current_block, &statement->u.for_s, function_definition);
 			break;
 		case DO_WHILE_STATEMENT:
+			// TODO
 //			fix_do_while_statement(current_block, statement->u.)
 			break;
 		case FOREACH_STATEMENT:
-			statement->u.foreach_s.collection = fix_do_while_statement(current_block, statement->u.foreach_s.collection,
-			                                                           NULL);
-			fix_statement_list(statement->u.foreach_s.block, statement->u.foreach_s.block->statement_list,
-			                   function_definition);
+			// TODO
+//			statement->u.foreach_s.collection = fix_do_while_statement(current_block, statement->u.foreach_s.collection,
+//			                                                           NULL);
+//			fix_statement_list(statement->u.foreach_s.block, statement->u.foreach_s.block->statement_list,
+//			                   function_definition);
 			break;
 		case RETURN_STATEMENT:
 			fix_return_statement(current_block, statement, function_definition);
@@ -1304,6 +1572,75 @@ static void add_default_constructor(ClassDefinition *class_definition) {
 	}
 }
 
+static DVM_Boolean check_type_compatibility(TypeSpecifier *super_type, TypeSpecifier *sub_type) {
+	DVM_Boolean is_interface_dummy;
+	int interface_index_dummy;
+
+	if (!dkc_is_class_object(super_type)) {
+		return dkc_compare_type(super_type, sub_type);
+	}
+	if (!dkc_is_class_object(sub_type)) {
+		return DVM_FALSE;
+	}
+	if (super_type->class_ref.class_definition == sub_type->class_ref.class_definition
+	    || is_super_class(sub_type->class_ref.class_definition, super_type->class_ref.class_definition,
+	                   &is_interface_dummy, &interface_index_dummy)) {
+		return DVM_TRUE;
+	}
+
+	return DVM_FALSE;
+}
+
+static void check_func_compati_sub(int line_number, char *name, TypeSpecifier *type1, ParameterList *parameter1,
+                                   TypeSpecifier *type2, ParameterList *parameter2) {
+	ParameterList *parameter1_pos;
+	ParameterList *parameter2_pos;
+	int parameter_index = 1;
+	for (parameter1_pos = parameter1, parameter2_pos = parameter2;
+	     parameter1_pos != NULL && parameter2_pos != NULL;
+	     parameter1_pos = parameter1_pos->next, parameter2_pos = parameter2_pos->next) {
+
+		if (!check_type_compatibility(parameter2_pos->type, parameter1_pos->type)) {
+			dkc_compile_error(line_number, BAD_PARAMETER_TYPE_ERR,
+			                  STRING_MESSAGE_ARGUMENT, "function_name", name,
+			                  INT_MESSAGE_ARGUMENT, "index", parameter_index,
+			                  STRING_MESSAGE_ARGUMENT, "parameter_name", parameter2_pos->name,
+			                  MESSAGE_ARGUMENT_END);
+		}
+		parameter_index++;
+	}
+
+	if (parameter1_pos != NULL || parameter2_pos != NULL) {
+		dkc_compile_error(line_number, BAD_PARAMETER_COUNT_ERR,
+		                  STRING_MESSAGE_ARGUMENT, "name", name,
+		                  MESSAGE_ARGUMENT_END);
+	}
+
+	if (!check_type_compatibility(type1, type2)) {
+		dkc_compile_error(line_number, BAD_RETURN_TYPE_ERR,
+		                  STRING_MESSAGE_ARGUMENT, "name", name,
+		                  MESSAGE_ARGUMENT_END);
+	}
+}
+
+static void check_function_compatibility(FunctionDefinition *fun_def1, FunctionDefinition *fun_def2) {
+	check_func_compati_sub(fun_def2->end_line_number, fun_def2->name, fun_def1->type, fun_def1->parameter,
+	                       fun_def2->type, fun_def2->parameter);
+}
+
+static void check_method_override(MemberDeclaration *super_method, MemberDeclaration *sub_method) {
+	if ((super_method->access_modifier == DVM_PUBLIC_ACCESS && sub_method->access_modifier != DVM_PUBLIC_ACCESS) ||
+	    (super_method->access_modifier == DVM_FILE_ACCESS && sub_method->access_modifier == DVM_PRIVATE_ACCESS)) {
+		dkc_compile_error(sub_method->line_number, OVERRIDE_METHOD_ACCESSIBILITY_ERR, STRING_MESSAGE_ARGUMENT, "name",
+		                  sub_method->u.method.function_definition->name, MESSAGE_ARGUMENT_END);
+	}
+
+	if (!sub_method->u.method.is_constructor) {
+		check_function_compatibility(super_method->u.method.function_definition,
+		                             sub_method->u.method.function_definition);
+	}
+}
+
 static void fix_class_list(DKC_Compiler *compiler) {
 	ClassDefinition *class_pos;
 	for (class_pos = compiler->class_definition_list; class_pos; class_pos = class_pos->next) {
@@ -1386,74 +1723,6 @@ static void fix_class_list(DKC_Compiler *compiler) {
 			                  MESSAGE_ARGUMENT_END);
 		}
 		compiler->current_class_definition = NULL;
-	}
-}
-
-static DVM_Boolean check_type_compatibility(TypeSpecifier *super_type, TypeSpecifier *sub_type) {
-	DVM_Boolean is_interface_dummy;
-	int interface_index_dummy;
-
-	if (!dkc_is_class_object(super_type)) {
-		return dkc_compare_type(super_type, sub_type);
-	}
-	if (!dkc_is_class_object(sub_type)) {
-		return DVM_FALSE;
-	}
-	if (super_type->class_ref.class_definition == sub_type->class_ref.class_definition
-	    || is_super_class(sub_type->class_ref.class_definition, super_type->class_ref.class_definition,
-	                   &is_interface_dummy, &interface_index_dummy)) {
-		return DVM_TRUE;
-	}
-
-	return DVM_FALSE;
-}
-
-static void check_func_compati_sub(int line_number, char *name, TypeSpecifier *type1, ParameterList *parameter1,
-                                   TypeSpecifier *type2, ParameterList *parameter2) {
-	ParameterList *parameter1_pos;
-	ParameterList *parameter2_pos;
-	int parameter_index = 1;
-	for (parameter1_pos = parameter1, parameter2_pos = parameter2;
-	     parameter1_pos != NULL && parameter2_pos != NULL;
-	     parameter1_pos = parameter1_pos->next, parameter2_pos = parameter2_pos->next) {
-
-		if (!check_type_compatibility(parameter2_pos->type, parameter1_pos->type)) {
-			dkc_compile_error(line_number, BAD_PARAMETER_TYPE_ERR,
-			                  STRING_MESSAGE_ARGUMENT, "function_name", name,
-			                  INT_MESSAGE_ARGUMENT, "index", parameter_index,
-			                  STRING_MESSAGE_ARGUMENT, "parameter_name", parameter2_pos->name,
-			                  MESSAGE_ARGUMENT_END);
-		}
-		parameter_index++;
-	}
-
-	if (parameter1_pos != NULL || parameter2_pos != NULL) {
-		dkc_compile_error(line_number, BAD_PARAMETER_COUNT_ERR,
-		                  STRING_MESSAGE_ARGUMENT, "name", name,
-		                  MESSAGE_ARGUMENT_END);
-	}
-
-	if (!check_type_compatibility(type1, type2)) {
-		dkc_compile_error(line_number, BAD_RETURN_TYPE_ERR,
-		                  STRING_MESSAGE_ARGUMENT, "name", name,
-		                  MESSAGE_ARGUMENT_END);
-	}
-}
-
-static void check_function_compatibility(FunctionDefinition *fun_def1, FunctionDefinition *fun_def2) {
-	check_func_compati_sub(fun_def2->end_line_number, fun_def2->name, fun_def1->type, fun_def1->parameter,
-	                       fun_def2->type, fun_def2->parameter);
-}
-
-static void check_method_override(MemberDeclaration *super_method, MemberDeclaration *sub_method) {
-	if ((super_method->access_modifier == DVM_PUBLIC_ACCESS && sub_method->access_modifier != DVM_PUBLIC_ACCESS) ||
-	    (super_method->access_modifier == DVM_FILE_ACCESS && sub_method->access_modifier == DVM_PRIVATE_ACCESS)) {
-		dkc_compile_error(sub_method->line_number, OVERRIDE_METHOD_ACCESSIBILITY_ERR, STRING_MESSAGE_ARGUMENT, "name",
-		                  sub_method->u.method.function_definition->name, MESSAGE_ARGUMENT_END);
-	}
-
-	if (!sub_method->u.method.is_constructor) {
-		check_function_compatibility(super_method->u.method.function_definition, sub_method->u.method.function_definition)
 	}
 }
 
