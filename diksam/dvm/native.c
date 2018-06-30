@@ -134,10 +134,12 @@ static DVM_Value nv_array_add_proc(DVM_VirtualMachine *dvm, int arg_count, DVM_V
 
 static DVM_Value nv_string_length_proc(DVM_VirtualMachine *dvm, int arg_count, DVM_Value *args) {
 	// TODO
+	printf("TODO\n");
 }
 
 static DVM_Value nv_string_substr_proc(DVM_VirtualMachine *dvm, int arg_count, DVM_Value *args) {
 	// TODO
+	printf("TODO\n");
 }
 
 void dvm_add_native_functions(DVM_VirtualMachine *dvm) {

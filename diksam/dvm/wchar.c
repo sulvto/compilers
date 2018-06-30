@@ -6,7 +6,7 @@
 #include "MEM.h"
 #include "dvm_pri.h"
 
-wchar_t dvm_mbstowcs_alloc(DVM_VirtualMachine *dvm, const char *src) {
+wchar_t *dvm_mbstowcs_alloc(DVM_VirtualMachine *dvm, const char *src) {
 	int len = dvm_mbstowcs_len(src);
 	wchar_t *ret;
 	if (len < 0) {

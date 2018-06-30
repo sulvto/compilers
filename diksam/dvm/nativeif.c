@@ -131,16 +131,19 @@ void DVM_array_insert(DVM_VirtualMachine *dvm, DVM_Object *array, int pos, DVM_V
 
 void DVM_array_remove(DVM_VirtualMachine *dvm, DVM_Object *array, int pos) {
 	// TODO
+	printf("TODO\n");
 }
 
 int DVM_string_length(DVM_VirtualMachine *dvm, DVM_Object *string) {
 	// TODO
+	printf("TODO\n");
 	return 0;
 }
 
 DVM_Value DVM_string_substr(DVM_VirtualMachine *dvm, DVM_Object *string, int pos, int length) {
 	DVM_Value value;
 	// TODO
+	printf("TODO\n");
 	return value;
 }
 

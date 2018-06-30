@@ -2,6 +2,7 @@
 // Created by sulvto on 18-6-15.
 //
 #include <stdio.h>
+#include <string.h>
 #include "DKC.h"
 #include "MEM.h"
 #include "DBG.h"
@@ -20,11 +21,48 @@ static VTableItem st_string_method_v_table[] = {
 		{STRING_PREFIX STRING_METHOD_SUBSTR, FUNCTION_NOT_FOUND}
 };
 
+static ExecutableEntry *add_executable_to_dvm(DVM_VirtualMachine *dvm, DVM_Executable *executable, DVM_Boolean is_top_level) ;
+
+SearchFileStatus dkc_dynamic_compile(DKC_Compiler *pTag, char *name, DVM_ExecutableList *pList_tag,
+                                     DVM_ExecutableItem **pItem_tag, char file[4096]);
+
+void dvm_dynamic_load(DVM_VirtualMachine *dvm, DVM_Executable *callee_executable , Function *caller, int pc,
+                      Function *function) {
+	DKC_Compiler *compiler = DKC_create_compiler();
+	if (function->package_name == NULL) {
+		dvm_error_i(callee_executable, caller, pc, DYNAMIC_LOAD_WITHOUT_PACKAGE_ERR,
+		            DVM_STRING_MESSAGE_ARGUMENT, "name", function->name,
+		            DVM_MESSAGE_ARGUMENT_END);
+	}
+
+	DVM_ExecutableItem *add_top;
+	char search_file[FILENAME_MAX];
+
+	SearchFileStatus status = dkc_dynamic_compile(compiler, function->package_name, dvm->executable_list, &add_top, search_file);
+	if (status != SEARCH_FILE_SUCCESS) {
+		if (status == SEARCH_FILE_NOT_FOUND) {
+			dvm_error_i(callee_executable, caller, pc,
+			            LOAD_FILE_NOT_FOUND_ERR,
+			            DVM_STRING_MESSAGE_ARGUMENT, "file", search_file,
+			            DVM_MESSAGE_ARGUMENT_END);
+		} else {
+			dvm_error_i(callee_executable, caller, pc, LOAD_FILE_ERR,
+			            DVM_INT_MESSAGE_ARGUMENT, "status", (int) status,
+			            DVM_MESSAGE_ARGUMENT_END);
+		}
+	}
+
+	for (DVM_ExecutableItem *pos = add_top; pos; pos = pos->next) {
+		ExecutableEntry *executable_entry = add_executable_to_dvm(dvm, pos->executable, DVM_FALSE);
+	}
+
+	DKC_dispose_compiler(compiler);
+}
 
 static int search_function(DVM_VirtualMachine *dvm, char *package_name, char *name) {
 	for (int i = 0; i < dvm->function_count; i++) {
-		// TODO package_name
-		if (strcmp(dvm->function[i]->name, name) == 0) {
+		if (dvm_compare_package_name(dvm->function[i]->package_name, package_name) &&
+		    strcmp(dvm->function[i]->name, name) == 0) {
 			return i;
 		}
 	}
@@ -202,7 +240,7 @@ static void add_functions(DVM_VirtualMachine *dvm, ExecutableEntry *executable_e
     }
 
 
-    dvm->function = MEM_realloc(dvm->function, sizeof(Function) * (dvm->function_count + add_func_count));
+	dvm->function = MEM_realloc(dvm->function, sizeof(Function *) * (dvm->function_count + add_func_count));
 
     for (src_index = 0, dest_index = dvm->function_count;
          src_index < executable_entry->executable->function_count;
@@ -220,9 +258,9 @@ static void add_functions(DVM_VirtualMachine *dvm, ExecutableEntry *executable_e
         dvm->function[dest_index]->name = MEM_strdup(executable_entry->executable->function[src_index].name);
         dvm->function[dest_index]->kind = DIKSAM_FUNCTION;
         dvm->function[dest_index]->is_implemented = executable_entry->executable->function[src_index].is_implemented;
-        if (dvm->function[dest_index]->is_implemented ) {
-            implement_diksam_function(dvm, dest_index, executable_entry, src_index);
-        }
+	    if (dvm->function[dest_index]->is_implemented) {
+		    implement_diksam_function(dvm, dest_index, executable_entry, src_index);
+	    }
 
         dest_index++;
     }

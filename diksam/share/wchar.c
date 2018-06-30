@@ -122,10 +122,8 @@ int dvm_print_wcs(FILE *fp, wchar_t *string) {
 }
 
 int dvm_print_wcs_ln(FILE *fp, wchar_t *string) {
-	printf("dvm_print_wcs_ln \t");
 	int result = dvm_print_wcs(fp, string);
 	fprintf(fp, "\n");
 
-	printf("dvm_print_wcs_ln end\n");
 	return result;
 }

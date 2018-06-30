@@ -32,7 +32,7 @@ typedef union {
 
 DVM_VirtualMachine *DVM_create_virtual_machine(void);
 
-void DVM_add_executable(DVM_VirtualMachine *dvm, DVM_ExecutableList *executable_list);
+void DVM_set_executable(DVM_VirtualMachine *dvm, DVM_ExecutableList *executable_list);
 
 DVM_Value DVM_execute(DVM_VirtualMachine *dvm);
 

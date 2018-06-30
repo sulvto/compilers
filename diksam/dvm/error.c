@@ -5,6 +5,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
+#include <stdlib.h>
 #include "DBG.h"
 #include "MEM.h"
 #include "DVM_dev.h"

@@ -37,13 +37,16 @@
 typedef struct ExecutableEntry_tag ExecutableEntry;
 
 typedef enum {
-	BAD_MULTIBYTE_CHARACTER_ERR,
+	BAD_MULTIBYTE_CHARACTER_ERR = 1,
 	FUNCTION_NOT_FOUND_ERR,
 	FUNCTION_MULTIPLE_DEFINE_ERR,
 	INDEX_OUT_OF_BOUNDS_ERR,
 	NULL_POINTER_ERR,
+	LOAD_FILE_NOT_FOUND_ERR,
+	LOAD_FILE_ERR,
 	CLASS_MULTIPLE_DEFINE_ERR,
 	CLASS_NOT_FOUND_ERR,
+	DYNAMIC_LOAD_WITHOUT_PACKAGE_ERR,
 	RUNTIME_ERROR_COUNT_PLUS_1
 } RuntimeError;
 
@@ -64,7 +67,7 @@ typedef struct {
 } NativeFunction;
 
 typedef struct {
-	DVM_Executable 	*executable;
+	ExecutableEntry 	*executable;
 	int 			index;
 } DiksamFunction;
 
@@ -207,6 +210,10 @@ struct DVM_VirtualMachine_tag {
 	DVM_VTable			*array_v_table;
 	DVM_VTable			*string_v_table;
 };
+
+// load.c
+void dvm_dynamic_load(DVM_VirtualMachine *dvm, DVM_Executable *callee_executable , Function *caller, int pc,
+                      Function *function);
 
 // heap.c
 DVM_ObjectRef dvm_literal_to_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string);

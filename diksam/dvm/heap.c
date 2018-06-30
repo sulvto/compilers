@@ -1,17 +1,10 @@
 //
 // Created by sulvto on 18-6-12.
 //
+#include <DVM.h>
 #include "MEM.h"
 #include "DBG.h"
 #include "dvm_pri.h"
-
-DVM_ObjectRef dvm_literal_to_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string) {
-	// TODO
-}
-
-DVM_ObjectRef dvm_create_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string) {
-	// TODO
-}
 
 static void check_gc(DVM_VirtualMachine *dvm) {
 	if (dvm->heap.current_heap_size > dvm->heap.current_threshold) {
@@ -40,6 +33,21 @@ static DVM_ObjectRef alloc_object(DVM_VirtualMachine *dvm, ObjectType type) {
 	}
 
 	return object_ref;
+}
+
+DVM_ObjectRef dvm_literal_to_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string) {
+	DVM_ObjectRef result = alloc_object(dvm, STRING_OBJECT);
+	result.v_table = dvm->string_v_table;
+	result.data->u.string.string = string;
+	result.data->u.string.length = dvm_wcslen(string);
+	result.data->u.string.is_literal = DVM_TRUE;
+
+	return result;
+}
+
+DVM_ObjectRef dvm_create_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string) {
+	// TODO
+	printf("TODO\n");
 }
 
 DVM_ObjectRef alloc_array(DVM_VirtualMachine *dvm, ArrayType type, int size) {

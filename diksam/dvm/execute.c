@@ -3,11 +3,13 @@
 //
 #include <math.h>
 #include <string.h>
+#include <DVM_code.h>
 #include "MEM.h"
 #include "DBG.h"
 #include "dvm_pri.h"
 
 extern OpcodeInfo dvm_opcode_info[];
+
 
 
 static void expand_stack(DVM_VirtualMachine *dvm, int need_stack_size) {
@@ -22,17 +24,39 @@ static void expand_stack(DVM_VirtualMachine *dvm, int need_stack_size) {
     }
 }
 
-static void invoke_native_function(DVM_VirtualMachine *dvm, Function *function, int *sp_p) {
-    DVM_Value *stack = dvm->stack.stack;
-    int sp = *sp_p;
-    DBG_assert(function->kind == NATIVE_FUNCTION, ("function->kind..%d", function->kind));
+static void invoke_native_function(DVM_VirtualMachine *dvm, Function *caller, Function *callee, int pc, int *sp_p,
+                                   int base) {
 
-    DVM_Value ret = function->u.native_function.proc(dvm, function->u.native_function.argument_count,
-                                                     &stack[sp - function->u.native_function.argument_count - 1]);
+	(*sp_p)--;
+	DVM_Value *stack = dvm->stack.stack;
+	DBG_assert(callee->kind == NATIVE_FUNCTION, ("callee->kind..%d", callee->kind));
 
-    stack[sp - function->u.native_function.argument_count - 1] = ret;
+	int argument_count;
+	if (callee->u.native_function.is_method) {
+		argument_count = callee->u.native_function.argument_count + 1;
+	} else {
+		argument_count = callee->u.native_function.argument_count;
+	}
+	CallInfo *call_info = (CallInfo *) &dvm->stack.stack[*sp_p];
+	call_info->caller = caller;
+	call_info->caller_address = pc;
+	call_info->base = base;
+	for (int i = 0; i < CALL_INFO_ALIGN_SIZE; i++) {
+		dvm->stack.pointer_flags[*sp_p + i] = DVM_FALSE;
+	}
+	*sp_p += CALL_INFO_ALIGN_SIZE;
+	dvm->current_function = callee;
 
-    *sp_p = sp - (function->u.native_function.argument_count);
+	DVM_Value ret = callee->u.native_function.proc(dvm, callee->u.native_function.argument_count,
+	                                               &stack[*sp_p - argument_count - CALL_INFO_ALIGN_SIZE]);
+	dvm->current_function = caller;
+
+
+	*sp_p -= argument_count + CALL_INFO_ALIGN_SIZE;
+	stack[*sp_p] = ret;
+	dvm->stack.pointer_flags[*sp_p] = callee->u.native_function.return_pointer;
+
+	(*sp_p)++;
 }
 
 static void initialize_local_variables(DVM_VirtualMachine *dvm,
@@ -55,33 +79,41 @@ static void initialize_local_variables(DVM_VirtualMachine *dvm,
     }
 }
 
-// TODO
-static void invoke_diksam_function(DVM_VirtualMachine *dvm, Function **caller_p,
-                                   Function *callee, DVM_Byte **code_p, int *code_size_p, int *pc_p,
-                                   int *sp_p, int *base_p, DVM_Executable **executable_p) {
-    *executable_p = callee->u.diksam_function.executable;
-    DVM_Function *callee_p = &(*executable_p)->function[callee->u.diksam_function.index];
-    expand_stack(dvm, CALL_INFO_ALIGN_SIZE
-                      + callee_p->local_variable_count
-                      + (*executable_p)->function[callee->u.diksam_function.index].need_stack_size);
-    CallInfo *callinfo = (CallInfo * ) & dvm->stack.stack[*sp_p - 1];
-    callinfo->caller = *caller_p;
-    callinfo->caller_address = *pc_p;
-    callinfo->base = *base_p;
-    for (int i = 0; i < CALL_INFO_ALIGN_SIZE; i++) {
-        dvm->stack.pointer_flags[*sp_p - 1 + i] = DVM_FALSE;
-    }
+static void invoke_diksam_function(DVM_VirtualMachine *dvm, Function **caller_p, Function *callee, DVM_Byte **code_p,
+                                   int *code_size_p, int *pc_p, int *sp_p, int *base_p,
+                                   ExecutableEntry **executable_entry_p, DVM_Executable **executable_p) {
 
-    *base_p = *sp_p - callee_p->parameter_count - 1;
-    *caller_p = callee;
+	if (!callee->is_implemented) {
+		dvm_dynamic_load(dvm, *executable_p, *caller_p, *pc_p, callee);
+	}
 
-    initialize_local_variables(dvm, callee_p, *sp_p + CALL_INFO_ALIGN_SIZE - 1);
+	*executable_entry_p = callee->u.diksam_function.executable;
+	*executable_p = (*executable_entry_p)->executable;
+	DVM_Function *callee_p = &(*executable_p)->function[callee->u.diksam_function.index];
+	expand_stack(dvm, CALL_INFO_ALIGN_SIZE
+	                  + callee_p->local_variable_count
+	                  + (*executable_p)->function[callee->u.diksam_function.index].need_stack_size);
+	CallInfo *callinfo = (CallInfo *) &dvm->stack.stack[*sp_p - 1];
+	callinfo->caller = *caller_p;
+	callinfo->caller_address = *pc_p;
+	callinfo->base = *base_p;
+	for (int i = 0; i < CALL_INFO_ALIGN_SIZE; i++) {
+		dvm->stack.pointer_flags[*sp_p - 1 + i] = DVM_FALSE;
+	}
 
-    *sp_p += CALL_INFO_ALIGN_SIZE + callee_p->local_variable_count - 1;
-    *pc_p = 0;
+	*base_p = *sp_p - callee_p->parameter_count - 1;
+	if (callee_p->is_method) {
+		(*base_p)--;
+	}
+	*caller_p = callee;
 
-    *code_p = (*executable_p)->function[callee->u.diksam_function.index].code;
-    *code_size_p = (*executable_p)->function[callee->u.diksam_function.index].code_size;
+	initialize_local_variables(dvm, callee_p, *sp_p + CALL_INFO_ALIGN_SIZE - 1);
+
+	*sp_p += CALL_INFO_ALIGN_SIZE + callee_p->local_variable_count - 1;
+	*pc_p = 0;
+
+	*code_p = (*executable_p)->function[callee->u.diksam_function.index].code;
+	*code_size_p = (*executable_p)->function[callee->u.diksam_function.index].code_size;
 }
 
 static DVM_Boolean do_return(DVM_VirtualMachine *dvm, Function **function_p,
@@ -307,8 +339,7 @@ static DVM_Boolean check_instanceof(DVM_VirtualMachine *dvm, DVM_ObjectRef *obje
 }
 
 static DVM_Value execute(DVM_VirtualMachine *dvm, Function *function,
-                         DVM_Byte *code, int code_size) {
-    int base;
+                         DVM_Byte *code, int code_size, int base) {
     DVM_Value ret;
 
     ExecutableEntry *executable_entry = dvm->current_executable;
@@ -641,7 +672,7 @@ static DVM_Value execute(DVM_VirtualMachine *dvm, Function *function,
             case DVM_CAST_DOUBLE_TO_STRING: {
                 char buf[LINE_BUF_SIZE];
                 DVM_Char *wc_str;
-                sprintf(buf, "%d", STD(dvm, -1));
+                sprintf(buf, "%f", STD(dvm, -1));
                 wc_str = dvm_mbstowcs_alloc(dvm, buf);
                 STO_WRITE(dvm, -1, dvm_create_dvm_string_i(dvm, wc_str));
                 pc++;
@@ -811,13 +842,13 @@ static DVM_Value execute(DVM_VirtualMachine *dvm, Function *function,
                 int function_index = STI(dvm, -1);
                 if (dvm->function[function_index]->kind == NATIVE_FUNCTION) {
                     restore_pc(dvm, executable_entry, function, pc);
-                    invoke_native_function(dvm, &dvm->function[function_index],
-                                           &dvm->stack.stack_pointer);
+	                invoke_native_function(dvm, function, dvm->function[function_index], pc, &dvm->stack.stack_pointer,
+	                                       base);
                     pc++;
                 } else {
-                    invoke_diksam_function(dvm, &function, &dvm->function[function_index],
+                    invoke_diksam_function(dvm, &function, dvm->function[function_index],
                                            &code, &code_size, &pc, &dvm->stack.stack_pointer,
-                                           &base, &executable);
+                                           &base, &executable_entry, &executable);
                 }
                 break;
             }
@@ -917,7 +948,7 @@ DVM_Value DVM_execute(DVM_VirtualMachine *dvm) {
     dvm->current_function = NULL;
     dvm->pc = 0;
     expand_stack(dvm, dvm->top_level->executable->need_stack_size);
-    execute(dvm, NULL, dvm->top_level->executable->code, dvm->top_level->executable->code_size);
+    execute(dvm, NULL, dvm->top_level->executable->code, dvm->top_level->executable->code_size, 0);
 
     // ret
     return ret;
