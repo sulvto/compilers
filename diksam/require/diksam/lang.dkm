@@ -1,0 +1,5 @@
+require diksam.lang;
+
+void fprintf(string file) {
+
+}

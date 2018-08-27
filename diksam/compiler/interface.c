@@ -58,6 +58,7 @@ static BuiltInMethod st_array_method[] = {
 };
 
 
+static CompilerList * traversal_compiler(CompilerList *list, DKC_Compiler *compiler);
 
 static FunctionDefinition *create_built_in_method(BuiltInMethod *src, int method_count) {
     FunctionDefinition *function_definition_array = dkc_malloc(sizeof(FunctionDefinition) * method_count);
@@ -295,6 +296,7 @@ static DVM_Executable *do_compile(DKC_Compiler *compiler, DVM_ExecutableList *ex
 	return executable;
 }
 
+
 static void dispose_compiler_list(void) {
     while (st_compiler_list) {
         CompilerList *temp = st_compiler_list;
@@ -302,7 +304,6 @@ static void dispose_compiler_list(void) {
         MEM_free(temp);
     }
 }
-
 
 static void make_search_path_impl(char *package_name, char *buf) {
 	int suffix_len = strlen(DIKSAM_IMPLEMENTATION_SUFFIX);
@@ -406,7 +407,9 @@ SearchFileStatus dkc_dynamic_compile(DKC_Compiler *compiler, char *package_name,
 
 	DVM_ExecutableItem *tail;
 	for (tail = list->list; tail->next; tail = tail->next);
+
 	compiler->package_name = string_to_package_name(compiler, package_name);
+
 	set_path_to_compiler(compiler, found_path);
 
 	compiler->input_mode = source_input.input_mode;
@@ -415,7 +418,8 @@ SearchFileStatus dkc_dynamic_compile(DKC_Compiler *compiler, char *package_name,
 	} else {
 		dkc_set_source_string(source_input.u.string.lines);
 	}
-	DVM_Executable *executable = do_compile(compiler, list, found_path, DVM_FALSE);
+
+	do_compile(compiler, list, found_path, DVM_FALSE);
 
 	dispose_compiler_list();
 	dkc_reset_string_literal_buffer();
@@ -465,14 +469,48 @@ DVM_ExecutableList *DKC_compile_string(DKC_Compiler *compiler, char **lines) {
 //    return executable;
 }
 
+CompilerList static *traversal_compiler(CompilerList *list, DKC_Compiler *compiler) {
+	CompilerList *list_pos;
+	CompilerList *req_pos;
+
+	for (list_pos = list; list_pos; list_pos = list_pos->next) {
+		if (list_pos->compiler == compiler) {
+			break;
+		}
+	}
+
+	if (list_pos == NULL) {
+		list = add_compiler_to_list(list, compiler);
+	}
+
+	for (req_pos = compiler->required_list; req_pos;
+	     req_pos = req_pos->next) {
+		list = traversal_compiler(list, req_pos->compiler);
+	}
+
+	return list;
+}
+
 void DKC_dispose_compiler(DKC_Compiler *compiler) {
-    for (FunctionDefinition *fd_pos = compiler->function_list;
-         fd_pos;
-         fd_pos = fd_pos->next) {
-        MEM_free(fd_pos->local_variable);
-    }
+	CompilerList *list = NULL;
+	CompilerList *temp;
 
-	// TODO
+	list = traversal_compiler(list, compiler);
+	for (CompilerList *pos = list; pos;) {
+		for (FunctionDefinition *fun_def_pos = pos->compiler->function_list; fun_def_pos; fun_def_pos = fun_def_pos->next) {
+			MEM_free(fun_def_pos->local_variable);
+		}
+		while (pos->compiler->required_list) {
+			temp = pos->compiler->required_list;
+			pos->compiler->required_list = temp->next;
+			MEM_free(temp);
+		}
 
-    MEM_dispose_storage(compiler->compile_storage);
+		MEM_dispose_storage(pos->compiler->compile_storage);
+		temp = pos->next;
+
+		MEM_free(pos);
+
+		pos = temp;
+	}
 }
