@@ -6,7 +6,7 @@
 #include "DBG.h"
 #include "dvm_pri.h"
 
-static void check_gc(DVM_VirtualMachine *dvm) {
+void check_gc(DVM_VirtualMachine *dvm) {
 	if (dvm->heap.current_heap_size > dvm->heap.current_threshold) {
 		fprintf(stderr, "garbage collext...");
 		dvm_garbage_collect(dvm);
@@ -31,7 +31,6 @@ static DVM_ObjectRef alloc_object(DVM_VirtualMachine *dvm, ObjectType type) {
 	if (object_ref.data->next) {
 		object_ref.data->next->prev = object_ref.data;
 	}
-
 	return object_ref;
 }
 
@@ -43,11 +42,6 @@ DVM_ObjectRef dvm_literal_to_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *str
 	result.data->u.string.is_literal = DVM_TRUE;
 
 	return result;
-}
-
-DVM_ObjectRef dvm_create_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string) {
-	// TODO
-	printf("TODO\n");
 }
 
 DVM_ObjectRef alloc_array(DVM_VirtualMachine *dvm, ArrayType type, int size) {

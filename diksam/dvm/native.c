@@ -143,7 +143,7 @@ static DVM_Value nv_string_substr_proc(DVM_VirtualMachine *dvm, int arg_count, D
 }
 
 void dvm_add_native_functions(DVM_VirtualMachine *dvm) {
-	DVM_add_native_function(dvm, "diksam.length", "print", nv_print_proc, 1, DVM_FALSE, DVM_FALSE);
+	DVM_add_native_function(dvm, "diksam.lang", "print", nv_print_proc, 1, DVM_FALSE, DVM_FALSE);
 
 	DVM_add_native_function(dvm, BUILT_IN_METHOD_PACKAGE_NAME, ARRAY_PREFIX ARRAY_METHOD_INSERT, nv_array_insert_proc, 2, DVM_TRUE, DVM_FALSE);
 	DVM_add_native_function(dvm, BUILT_IN_METHOD_PACKAGE_NAME, ARRAY_PREFIX ARRAY_METHOD_REMOVE, nv_array_remove_proc, 1, DVM_TRUE, DVM_FALSE);

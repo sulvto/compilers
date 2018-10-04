@@ -244,10 +244,13 @@ alloc_size = size;
 
 void MEM_free_func(MEM_Controller controller, void *ptr) {
 	void *real_ptr;
-	if (ptr == NULL) return;
 
 #ifdef	DEBUG
 	int size;
+#endif
+	if (ptr == NULL) return;
+
+#ifdef	DEBUG
 	real_ptr = (char*)ptr - sizeof(Header);
 	check_mark((Header*)real_ptr);
 	size = ((Header*)real_ptr)->s.size;
@@ -293,8 +296,8 @@ void MEM_dump_blocks_func(MEM_Controller controller, FILE *fp) {
 
 void MEM_check_block_func(MEM_Controller controller, char *filename, int line, void *p) {
 #ifdef	DEBUG
-void *real_ptr = ((char *)p) - sizeof(Header);
-check_mark(real_ptr);
+    void *real_ptr = ((char *)p) - sizeof(Header);
+    check_mark(real_ptr);
 #endif // DEBUG
 }
 
