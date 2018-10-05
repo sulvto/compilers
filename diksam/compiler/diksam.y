@@ -53,6 +53,7 @@
 		additive_expression multiplicative_expression
 		unary_expression postfix_expression primary_expression
 		primary_no_new_array array_literal array_creation
+        initializer_opt
 %type 	<expression_list>	expression_list
 %type	<statement>			statement
 		if_statement while_statement for_statement foreach_statement
@@ -63,7 +64,7 @@
 %type	<elseif>			elseif	elseif_list
 %type	<assignment_operator>	assignment_operator
 %type	<identifier>		identifier_opt	label_opt
-%type 	<type_specifier>	type_specifier	class_type_specifier
+%type 	<type_specifier>	type_specifier	identifier_type_specifier
 		array_type_specifier
 %type 	<basic_type_specifier> basic_type_specifier
 %type 	<array_dimension>	dimension_expression dimension_expression_list
@@ -166,10 +167,10 @@ basic_type_specifier
 			$$ = DVM_STRING_TYPE;
 		}
 		;
-class_type_specifier
+identifier_type_specifier
 		: IDENTIFIER
 		{
-			$$ = dkc_create_class_type_specifier($1);
+			$$ = dkc_create_identifier_type_specifier($1);
 		}
 		;
 array_type_specifier
@@ -180,7 +181,7 @@ array_type_specifier
 		}
 		| IDENTIFIER LB RB
 		{
-			TypeSpecifier *class_type = dkc_create_class_type_specifier($1);
+			TypeSpecifier *class_type = dkc_create_identifier_type_specifier($1);
 			$$ = dkc_create_array_type_specifier(class_type);
 		}
 		| array_type_specifier LB RB
@@ -194,7 +195,7 @@ type_specifier
             $$ = dkc_create_type_specifier($1);
         }
         | array_type_specifier
-        | class_type_specifier
+        | identifier_type_specifier
         ;
 function_definition
 		: type_specifier IDENTIFIER LP parameter_list RP block
@@ -469,11 +470,11 @@ array_creation
 		{
 		    $$ = dkc_create_basic_array_creation($2, $3, $4);
 		}
-		| NEW class_type_specifier dimension_expression_list
+		| NEW identifier_type_specifier dimension_expression_list
 		{
 		    $$ = dkc_create_class_array_creation($2, $3, NULL);
 		}
-		| NEW class_type_specifier dimension_expression_list dimension_list
+		| NEW identifier_type_specifier dimension_expression_list dimension_list
 		{
 		    $$ = dkc_create_class_array_creation($2, $3, $4);
 		}
@@ -814,23 +815,33 @@ constructor_definition
 		}
 		;
 access_modifier
-		: PUBLIC_T
-		{
-			$$ = dkc_create_class_or_member_modifier(PUBLIC_MODIFIER);
+        : PUBLIC_T
+        {
+            $$ = dkc_create_class_or_member_modifier(PUBLIC_MODIFIER);
 		}
 		| PRIVATE_T
 		{
 			$$ = dkc_create_class_or_member_modifier(PRIVATE_MODIFIER);
 		}
 		;
+initializer_opt
+        : /* empty */
+        {
+            $$ = NULL;
+        }
+        | ASSIGN_T expression
+        {
+            $$ = $2;
+        }
+        ;
 field_member
-		: type_specifier IDENTIFIER SEMICOLON
+		: type_specifier IDENTIFIER initializer_opt SEMICOLON
 		{
-			$$ = dkc_create_field_member(NULL, $1, $2);
+			$$ = dkc_create_field_member(NULL, DVM_FALSE, $1, $2, $3);
 		}
-		| class_or_member_modifier_list type_specifier IDENTIFIER SEMICOLON
+		| class_or_member_modifier_list type_specifier IDENTIFIER initializer_opt SEMICOLON
 		{
-			$$ = dkc_create_field_member(&$1, $2, $3);
+			$$ = dkc_create_field_member(&$1, DVM_FALSE, $2, $3, $4);
 		}
 		;
 %%

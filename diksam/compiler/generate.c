@@ -51,7 +51,7 @@ static DVM_LocalVariable *copy_parameter_list(ParameterList *src,
 static void copy_type_specifier_no_alloc(TypeSpecifier *src, DVM_TypeSpecifier *dest) {
 	dest->basic_type = src->basic_type;
 	if (src->basic_type == DVM_CLASS_TYPE) {
-		dest->class_index = src->class_ref.class_index;
+		dest->class_index = src->u.class_ref.class_index;
 	} else {
 		dest->class_index = -1;
 	}
@@ -119,7 +119,7 @@ static DVM_LocalVariable *copy_local_variables(FunctionDefinition *function_def,
 		dest[i].name =
 				MEM_strdup(function_def->local_variable[i + parameter_count]->name);
 		dest[i].type =
-				copy_type_specifier(function_def->local_variable[i+parameter_count]->type);
+				dkc_copy_type_specifier(function_def->local_variable[i + parameter_count]->type);
 	}
 
 	return dest;
@@ -170,6 +170,10 @@ static DVM_TypeSpecifier *copy_type_specifier(TypeSpecifier *src) {
 				dest->derive[i].u.function_derive.parameter = copy_parameter_list(derive->u.function_derive.parameter_list, &parameter_count);
 				dest->derive[i].u.function_derive.parameter_count = parameter_count;
 				break;
+            case ARRAY_DERIVE:
+                dest->derive[i].tag  =DVM_ARRAY_DERIVE;
+                // TODO
+                break;
 			default:
 				DBG_assert(0, ("derive->tag..%d\n", derive->tag));
 		}
@@ -191,7 +195,7 @@ static void add_global_variable(DKC_Compiler *compiler,
 	int i;
 	for (declaration = compiler->declaration_list, i = 0; declaration; declaration = declaration->next, i++) {
 		executable->global_variable[i].name = MEM_strdup(declaration->declaration->name);
-		executable->global_variable[i].type = copy_type_specifier(declaration->declaration->type);
+		executable->global_variable[i].type = dkc_copy_type_specifier(declaration->declaration->type);
 	}
 }
 
@@ -405,6 +409,37 @@ static void generate_pop_to_identifier(Declaration *declaration, int line_number
 	}
 }
 
+static void generate_pop_to_member(DVM_Executable *executable, Block *block, 
+            Expression *expression, OpcodeBuf *opcode_buf) {
+    MemberDeclaration *member = expression->u.member_expression.declaration;
+    if (member->kind == METHOD_MEMBER) {
+        dkc_compile_error(expression->line_number, ASSIGN_TO_METHOD_ERR, 
+        STRING_MESSAGE_ARGUMENT, "member_name", member->u.method.function_definition->name, 
+        MESSAGE_ARGUMENT_END);
+    }
+    generate_expression(executable, block, expression->u.member_expression.expression, opcode_buf);
+    generate_code(opcode_buf,
+                expression->line_number,
+                DVM_POP_FIELD_INT + get_opcode_type_offset(member->u.field.type), member->u.field.field_index);
+}
+
+static void generate_pop_to_lvalue(DVM_Executable *executable, Block *block, 
+            Expression *expression, OpcodeBuf *opcode_buf) {
+	if (expression->kind == IDENTIFIER_EXPRESSION) {
+        generate_pop_to_identifier(expression->u.identifier.u.declaration, 
+                expression->line_number, opcode_buf);
+	} else if (expression->kind == INDEX_EXPRESSION) {
+        generate_expression(executable, block, expression->u.index_expression.array, opcode_buf);
+        generate_expression(executable, block, expression->u.index_expression.index, opcode_buf);
+		generate_code(opcode_buf,
+					expression->line_number,
+					DVM_POP_ARRAY_INT + get_opcode_type_offset(expression->type));
+	} else {
+        DBG_assert(expression->kind == MEMBER_EXPRESSION, ("expression->kind..%d", expression->kind));
+        generate_pop_to_member(executable, block, expression, opcode_buf);
+    }
+}
+
 static void generate_assign_expression(DVM_Executable *executable,
 				Block *current_block, Expression *expression,
 				OpcodeBuf *opcode_buf, DVM_Boolean is_toplevel) {
@@ -450,8 +485,7 @@ static void generate_assign_expression(DVM_Executable *executable,
 	if (!is_toplevel) {
 		generate_code(opcode_buf, expression->line_number, DVM_DUPLICATE);
 	}
-
-	generate_pop_to_identifier(expression->u.assign_expression.left->u.identifier.u.declaration, expression->line_number, opcode_buf);
+	generate_pop_to_lvalue(executable, current_block, expression->u.assign_expression.left, opcode_buf);
 }
 
 static int get_binary_expression_offset(Expression *left, Expression *right, DVM_Opcode code) {
@@ -546,7 +580,7 @@ static void generate_inc_dec_expression(DVM_Executable *executable,
 		generate_code(opcode_buf, expression->line_number, DVM_DUPLICATE);
 	}
 
-	generate_pop_to_identifier(expression->u.inc_dec.operand->u.identifier.u.declaration, expression->line_number, opcode_buf);
+	generate_pop_to_lvalue(executable, current_block, expression->u.inc_dec.operand, opcode_buf);
 }
 
 static void generate_cast_expression(DVM_Executable *executable,
@@ -624,9 +658,12 @@ static void generate_function_call_expression(DVM_Executable *executable, Block 
 	} else {
 		generate_push_argument(executable, current_block, function_call_expression->argument, opcode_buf);
 		generate_expression(executable, current_block, function_call_expression->function, opcode_buf);
+        if (dkc_is_delegate(function_call_expression->function->type)) {
+		    generate_code(opcode_buf, expression->line_number, DVM_INVOKE_DELEGATE);
+        } else {
 		generate_code(opcode_buf, expression->line_number, DVM_INVOKE);
 	}
-
+}
 }
 
 static void generate_member_expression(DVM_Executable *executable, Block *current_block,
@@ -724,14 +761,14 @@ static void generate_instanceof_expression(DVM_Executable *executable, Block *cu
                                            Expression *expression, OpcodeBuf *opcode_buf) {
 	generate_expression(executable, current_block, expression->u.instanceof_expression.operand, opcode_buf);
 	generate_code(opcode_buf, expression->line_number, DVM_INSTANCEOF,
-	              expression->u.instanceof_expression.type->class_ref.class_index);
+	              expression->u.instanceof_expression.type->u.class_ref.class_index);
 }
 
 static void generate_down_cast_expression(DVM_Executable *executable, Block *current_block,
                                           Expression *expression, OpcodeBuf *opcode_buf) {
 	generate_expression(executable, current_block, expression->u.down_cast.operand, opcode_buf);
 	generate_code(opcode_buf, expression->line_number, DVM_DOWN_CAST,
-	              expression->u.down_cast.type->class_ref.class_index);
+	              expression->u.down_cast.type->u.class_ref.class_index);
 }
 
 static void generate_up_cast_expression(DVM_Executable *executable, Block *current_block,
@@ -920,13 +957,16 @@ static void generate_expression_statement(DVM_Executable *executable,
 				Block *current_block, Expression *expression, 
 				OpcodeBuf *opcode_buf) {
 	if (expression->kind == ASSIGN_EXPRESSION) {
+        printf("expression->kind == ASSIGN_EXPRESSION\n");
 		generate_assign_expression(executable, current_block, 
 						expression, opcode_buf, DVM_TRUE);
 	} else if (expression->kind == INCREMENT_EXPRESSION 
 					||expression->kind == DECREMENT_EXPRESSION) {
+        printf("expression->kind == INCREMENT_EXPRESSION ||expression->kind == DECREMENT_EXPRESSION\n");
 		generate_inc_dec_expression(executable, current_block, 
 						expression, expression->kind, opcode_buf, DVM_TRUE);
 	} else {
+        printf("else\n");
 		generate_expression(executable, current_block, expression, opcode_buf);
 		generate_code(opcode_buf, expression->line_number, DVM_POP);
 	}
@@ -1150,7 +1190,6 @@ static void generate_statement_list(DVM_Executable *executable,
                                     Block *current_block,
                                     StatementList *statement_list,
                                     OpcodeBuf *opcode_buf) {
-
     for (StatementList *pos = statement_list; pos; pos = pos->next) {
         switch (pos->statement->type) {
             case EXPRESSION_STATEMENT:
@@ -1197,8 +1236,6 @@ static void generate_statement_list(DVM_Executable *executable,
                 DBG_assert(0, ("pos->statement->type..", pos->statement->type));
         }
     }
-
-
 }
 
 static void init_opcode_buf(OpcodeBuf *opcode_buf) {
@@ -1281,7 +1318,7 @@ static DVM_Class *search_class(DKC_Compiler *compiler, ClassDefinition *src) {
 	char *src_package_name = dkc_package_name_to_string(src->package_name);
 	for (int i = 0; i < compiler->dvm_class_count; i++) {
 		if (dvm_compare_package_name(src_package_name, compiler->dvm_class[i].package_name)
-		    && !strcmp(src->name, compiler->dvm_class[i].name)) {
+		    && strcmp(src->name, compiler->dvm_class[i].name) == 0) {
 			MEM_free(src_package_name);
 			return &compiler->dvm_class[i];
 		}
@@ -1369,11 +1406,43 @@ static void add_class(DVM_Executable *executable, ClassDefinition *class_definit
 	}
 }
 
+static void copy_opcode_buf(DVM_CodeBlock *code_block, OpcodeBuf *opcode_buf) {
+    code_block->code_size = opcode_buf->size;
+    code_block->code = fix_opcode_buf(opcode_buf);
+    code_block->line_number_size = opcode_buf->line_number_size;
+    code_block->line_number = opcode_buf->line_number;
+    code_block->need_stack_size = calc_need_stack_size(code_block->code, code_block->code_size);
+}
+
+static void generate_field_initializer(DVM_Executable *executable, ClassDefinition *class_definition, DVM_Class *dvm_class) {
+	OpcodeBuf opcode_buf;
+    
+    init_opcode_buf(&opcode_buf);
+
+    for (ClassDefinition *class_definition_pos = class_definition; 
+        class_definition_pos; 
+        class_definition_pos = class_definition_pos->super_class) {
+        for (MemberDeclaration *member_pos = class_definition_pos->member; 
+            member_pos; 
+            member_pos = member_pos->next) {
+            if (member_pos->kind != FIELD_MEMBER) continue;
+            if (member_pos->u.field.initializer) {
+                generate_expression(executable, NULL, member_pos->u.field.initializer, &opcode_buf);
+                generate_code(&opcode_buf, member_pos->u.field.initializer->line_number, DVM_DUPLICATE_OFFSET, 1);
+                generate_code(&opcode_buf, member_pos->u.field.initializer->line_number, DVM_POP_FIELD_INT + get_opcode_type_offset(member_pos->u.field.type), member_pos->u.field.field_index);
+            }
+        }
+    }
+    
+    copy_opcode_buf(&dvm_class->field_initializer, &opcode_buf);
+}
+
 static void add_classes(DKC_Compiler *compiler, DVM_Executable *executable) {
 	DVM_Class *dvm_class;
 	for (ClassDefinition *pos = compiler->class_definition_list; pos; pos = pos->next) {
 		dvm_class = search_class(compiler, pos);
 		dvm_class->is_implemented = DVM_TRUE;
+        generate_field_initializer(executable, pos, dvm_class);
 	}
 
 	for (int i = 0; i < compiler->dvm_class_count; i++) {
@@ -1384,6 +1453,7 @@ static void add_classes(DKC_Compiler *compiler, DVM_Executable *executable) {
 
 static void add_function(DVM_Executable *executable, FunctionDefinition *src, DVM_Function *dest,
                          DVM_Boolean in_this_executable) {
+    printf("add_function\n");
 	OpcodeBuf opcode_buf;
 
 	dest->type = dkc_copy_type_specifier(src->type);
@@ -1393,11 +1463,7 @@ static void add_function(DVM_Executable *executable, FunctionDefinition *src, DV
 		init_opcode_buf(&opcode_buf);
 		generate_statement_list(executable, src->block, src->block->statement_list, &opcode_buf);
 		dest->is_implemented = DVM_TRUE;
-		dest->code_size = opcode_buf.size;
-		dest->code = fix_opcode_buf(&opcode_buf);
-		dest->line_number_size = opcode_buf.line_number_size;
-		dest->line_number = opcode_buf.line_number;
-		dest->need_stack_size = calc_need_stack_size(dest->code, dest->code_size);
+        copy_opcode_buf(&dest->code_block, &opcode_buf);
 		dest->local_variable = copy_local_variables(src, dest->parameter_count);
 		dest->local_variable_count = src->local_variable_count - dest->parameter_count;
 	} else {
@@ -1427,11 +1493,12 @@ static int search_function(DKC_Compiler *compiler, FunctionDefinition *src) {
 			return i;
 		}
 	}
-	DBG_assert(0, ("function %s#%s not found.", src_package_name, src->name));
+	DBG_assert(0, ("search_function. function %s#%s not found.", src_package_name, src->name));
 	return 0;
 }
 
 static void add_functions(DKC_Compiler *compiler, DVM_Executable *executable) {
+    printf("add_functions\n");
     FunctionDefinition *function_def;
 	int dest_index = 0;
 	DVM_Boolean *in_this_executable = MEM_malloc(sizeof(DVM_Boolean) * compiler->dvm_function_count);
@@ -1443,13 +1510,14 @@ static void add_functions(DKC_Compiler *compiler, DVM_Executable *executable) {
     for (function_def = compiler->function_list;
          function_def;
          function_def = function_def->next) {
-        if (function_def->class_definition && function_def->block==NULL) {
+        if (function_def->class_definition && function_def->block == NULL) {
 	        continue;
         }
 	    dest_index = search_function(compiler, function_def);
 	    in_this_executable[dest_index] = DVM_TRUE;
 	    add_function(executable, function_def, &compiler->dvm_function[dest_index], DVM_TRUE);
     }
+    printf("add_function\n");
 
 	for (int i = 0; i < compiler->dvm_function_count; i++) {
 		if (in_this_executable[i]) continue;

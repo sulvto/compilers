@@ -418,6 +418,7 @@ Expression *dkc_create_basic_array_creation(DVM_BasicType basic_type,
 Expression *dkc_create_class_array_creation(TypeSpecifier *type,
                                             ArrayDimension *dim_expr_list,
                                             ArrayDimension *dim_list) {
+    printf("dkc_create_class_array_creation\n");
 	Expression *expression = dkc_alloc_expression(ARRAY_CREATION_EXPRESSION);
 	expression->u.array_creation.type = type;
 	expression->u.array_creation.dimension = dkc_chain_array_dimension(dim_expr_list, dim_list);
@@ -433,10 +434,9 @@ TypeSpecifier *dkc_create_type_specifier(DVM_BasicType basic_type) {
 	return type_specifier;
 }
 
-TypeSpecifier *dkc_create_class_type_specifier(char *identifier) {
-	TypeSpecifier *type = dkc_alloc_type_specifier(DVM_CLASS_TYPE);
-	type->class_ref.identifier = identifier;
-	type->class_ref.class_definition = NULL;
+TypeSpecifier *dkc_create_identifier_type_specifier(char *identifier) {
+	TypeSpecifier *type = dkc_alloc_type_specifier(DVM_UNSPECIFIED_IDENTIFIER_TYPE);
+	type->identifier = identifier;
 	type->line_number = dkc_get_current_compiler()->current_line_number;
 
 	return type;
@@ -652,6 +652,7 @@ static DVM_AccessModifier conv_access_modifier(ClassOrMemberModifierKind kind) {
 void dkc_start_class_definition(ClassOrMemberModifierList *modifier, DVM_ClassOrInterface class_or_interface,
                                 char *identifier,
                                 ExtendsList *extends) {
+    printf("dkc_start_class_definition %s\n", identifier);
 	DKC_Compiler *compiler = dkc_get_current_compiler();
 	ClassDefinition *class_definition = dkc_malloc(sizeof(ClassDefinition));
 	class_definition->is_abstract = (class_or_interface == DVM_INTERFACE_DEFINITION);
@@ -747,10 +748,12 @@ static MemberDeclaration *alloc_member_declaration(MemberKind kind, ClassOrMembe
 	return member_declaration;
 }
 
-MemberDeclaration *dkc_create_field_member(ClassOrMemberModifierList *modifier, TypeSpecifier *type, char *name) {
+MemberDeclaration *dkc_create_field_member(ClassOrMemberModifierList *modifier, DVM_Boolean is_final, TypeSpecifier *type, char *name, Expression *initializer) {
 	MemberDeclaration *member_declaration = alloc_member_declaration(FIELD_MEMBER, modifier);
 	member_declaration->u.field.name = name;
 	member_declaration->u.field.type = type;
+    member_declaration->u.field.initializer = initializer;
+    member_declaration->u.field.is_final = is_final;
 
 	return member_declaration;
 }

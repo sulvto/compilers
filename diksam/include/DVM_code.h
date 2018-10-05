@@ -17,8 +17,10 @@ typedef enum {
     DVM_DOUBLE_TYPE,
     DVM_STRING_TYPE,
 	DVM_CLASS_TYPE,
+    DVM_DELEGATE_TYPE,
 	DVM_NULL_TYPE,
-	DVM_BASE_TYPE
+	DVM_BASE_TYPE,
+    DVM_UNSPECIFIED_IDENTIFIER_TYPE
 } DVM_BasicType;
 
 typedef enum {
@@ -140,6 +142,7 @@ typedef enum {
 	DVM_PUSH_FUNCTION,
 	DVM_PUSH_METHOD,
 	DVM_INVOKE,
+	DVM_INVOKE_DELEGATE,
 	DVM_RETURN,
 	DVM_NEW,
 	DVM_NEW_ARRAY,
@@ -178,6 +181,14 @@ typedef struct {
 } DVM_LineNumber;
 
 typedef struct {
+    int                 code_size;
+    DVM_Byte            *code;
+	int      			line_number_size;
+	DVM_LineNumber      *line_number;
+    int                 need_stack_size;
+} DVM_CodeBlock;
+
+typedef struct {
     DVM_TypeSpecifier   *type;
 	char 				*package_name;
     char 				*name;
@@ -187,11 +198,7 @@ typedef struct {
 	DVM_Boolean         is_method;
     int                 local_variable_count;
     DVM_LocalVariable   *local_variable;
-    int                 code_size;
-    DVM_Byte            *code;
-	int      			line_number_size;
-	DVM_LineNumber      *line_number;
-    int                 need_stack_size;
+    DVM_CodeBlock       code_block;
 } DVM_Function;
 
 typedef enum {
@@ -238,6 +245,7 @@ typedef struct {
 	DVM_Field				*field;
 	int 					method_count;
 	DVM_Method				*method;
+    DVM_CodeBlock           *field_initializer;
 } DVM_Class;
 
 struct DVM_Executable_tag {

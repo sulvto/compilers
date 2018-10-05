@@ -195,7 +195,7 @@ static int add_class(ClassDefinition *src) {
 		}
 	}
 
-	compiler->dvm_class = MEM_realloc(compiler->dvm_class, sizeof(DVM_Class) * (compiler->dvm_class_count));
+	compiler->dvm_class = MEM_realloc(compiler->dvm_class, sizeof(DVM_Class) * (compiler->dvm_class_count + 1));
 
 	DVM_Class *dest = &compiler->dvm_class[compiler->dvm_class_count];
 	int result = compiler->dvm_class_count;
@@ -232,37 +232,41 @@ static void fix_type_specifier(TypeSpecifier *type) {
 	for (TypeDerive *pos = type->derive; pos; pos = pos->next) {
 		if (pos->tag == FUNCTION_DERIVE) {
 			fix_parameter_list(pos->u.function_derive.parameter_list);
+            // TODO: throws
 		}
 	}
 
-	if (type->basic_type ==DVM_CLASS_TYPE && type->class_ref.class_definition == NULL) {
-		ClassDefinition *class_definition = dkc_search_class(type->class_ref.identifier);
-		if (class_definition) {
-			if (!dkc_compare_package_name(class_definition->package_name, compiler->package_name) &&
-			    class_definition->access_modifier != DVM_PUBLIC_ACCESS) {
-				dkc_compile_error(type->line_number, PACKAGE_CLASS_ACCESS_ERR,
-				                  STRING_MESSAGE_ARGUMENT, "class_name",
-				                  class_definition->name,
-				                  MESSAGE_ARGUMENT_END);
-			}
-			type->class_ref.class_definition = class_definition;
-			type->class_ref.class_index = add_class(class_definition);
-			return;
-		}
-		dkc_compile_error(type->line_number, TYPE_NAME_NOT_FOUND_ERR,
-		                  STRING_MESSAGE_ARGUMENT, "name",
-		                  type->class_ref.identifier,
-		                  MESSAGE_ARGUMENT_END);
-	}
+    if (type->basic_type == DVM_UNSPECIFIED_IDENTIFIER_TYPE) {
+        ClassDefinition *class_definition = dkc_search_class(type->identifier);
+        if (class_definition) {
+            if (!dkc_compare_package_name(class_definition->package_name, compiler->package_name) &&
+                class_definition->access_modifier != DVM_PUBLIC_ACCESS) {
+                dkc_compile_error(type->line_number, PACKAGE_CLASS_ACCESS_ERR,
+                                STRING_MESSAGE_ARGUMENT, "class_name",
+                                class_definition->name,
+                                MESSAGE_ARGUMENT_END);
+            }
+            type->basic_type = DVM_CLASS_TYPE;
+            type->u.class_ref.class_definition = class_definition;
+            type->u.class_ref.class_index = add_class(class_definition);
+            return;
+        }
+        
+        // TODO: enum
+        dkc_compile_error(type->line_number, TYPE_NAME_NOT_FOUND_ERR,
+                        STRING_MESSAGE_ARGUMENT, "name",
+                        type->identifier,
+                        MESSAGE_ARGUMENT_END);
+    }
 }
 
 static Expression *create_up_cast(Expression *src, ClassDefinition *dest_interface, int interface_index) {
 
 
 	TypeSpecifier *type = dkc_alloc_type_specifier(DVM_CLASS_TYPE);
-	type->class_ref.identifier = dest_interface->name;
-	type->class_ref.class_definition = dest_interface;
-	type->class_ref.class_index = interface_index;
+	type->identifier = dest_interface->name;
+	type->u.class_ref.class_definition = dest_interface;
+	type->u.class_ref.class_index = interface_index;
 
 	Expression *cast_expression = dkc_alloc_expression(UP_CAST_EXPRESSION);
 	cast_expression->type = type;
@@ -333,7 +337,8 @@ static Expression *create_to_string_cast(Expression *src) {
 	return cast;
 }
 
-static void cast_mismatch_error(int line_number, TypeSpecifier *src, TypeSpecifier *dest) {
+static void cast_mismatch_error(int line_number, TypeSpecifier *src, TypeSpecifier *dest) {            
+            printf("cast_mismatch_error\n");
 	char *tmp = dkc_get_type_name(src);
 	char *src_name = dkc_strdup(tmp);
 	MEM_free(tmp);
@@ -359,14 +364,15 @@ static Expression *create_assign_cast(Expression *src, TypeSpecifier *dest) {
 		DBG_assert(src->type->derive == NULL, ("derive != NULL"));
 		return src;
 	}
-
+printf("create_assign_cast\n");
 	if (dkc_is_class_object(src->type) && dkc_is_class_object(dest)) {
 		DVM_Boolean is_interface;
 		int interface_index;
-		if (is_super_class(src->type->class_ref.class_definition, dest->class_ref.class_definition, &is_interface,
-		                   &interface_index)) {
+		if (is_super_class(src->type->u.class_ref.class_definition, 
+            dest->u.class_ref.class_definition, 
+            &is_interface, &interface_index)) {
 			if (is_interface) {
-				cast_expression = create_up_cast(src, dest->class_ref.class_definition, interface_index);
+				cast_expression = create_up_cast(src, dest->u.class_ref.class_definition, interface_index);
 				return cast_expression;
 			}
 			return src;
@@ -795,7 +801,7 @@ static Expression *fix_function_call_expression(Block *current_block, Expression
 	*expression->type = *function_type;
 	expression->type->derive = function_type->derive;
 	if (function_type->basic_type == DVM_CLASS_TYPE) {
-		expression->type->class_ref.identifier = function_type->class_ref.identifier;
+		expression->type->identifier = function_type->identifier;
 		fix_type_specifier(expression->type);
 	}
 
@@ -843,16 +849,16 @@ static DVM_Boolean is_interface_method(ClassDefinition *class_definition, Member
 
 static Expression *fix_class_member_expression(Expression *expression, Expression *object, char *member_name) {
 	fix_type_specifier(object->type);
-	MemberDeclaration *member = dkc_search_member(object->type->class_ref.class_definition, member_name);
+	MemberDeclaration *member = dkc_search_member(object->type->u.class_ref.class_definition, member_name);
 
 	if (member == NULL) {
 		dkc_compile_error(expression->line_number, MEMBER_NOT_FOUND_ERR,
-		                  STRING_MESSAGE_ARGUMENT, "class_name", object->type->class_ref.class_definition->name,
+		                  STRING_MESSAGE_ARGUMENT, "class_name", object->type->u.class_ref.class_definition->name,
 		                  STRING_MESSAGE_ARGUMENT, "member_name", member_name,
 		                  MESSAGE_ARGUMENT_END);
 	}
 
-	check_member_accessibility(object->line_number, object->type->class_ref.class_definition, member, member_name);
+	check_member_accessibility(object->line_number, object->type->u.class_ref.class_definition, member, member_name);
 
 	expression->u.member_expression.declaration = member;
 
@@ -861,8 +867,8 @@ static Expression *fix_class_member_expression(Expression *expression, Expressio
 
 	if (member->kind == METHOD_MEMBER) {
 		expression->type = create_function_derive_type(member->u.method.function_definition);
-		if (object->type->class_ref.class_definition->class_or_interface == DVM_CLASS_DEFINITION &&
-		    is_interface_method(object->type->class_ref.class_definition, member, &target_interface,
+		if (object->type->u.class_ref.class_definition->class_or_interface == DVM_CLASS_DEFINITION &&
+		    is_interface_method(object->type->u.class_ref.class_definition, member, &target_interface,
 		                        &interface_index)) {
 			expression->u.member_expression.expression = create_up_cast(object, target_interface, interface_index);
 		}
@@ -945,8 +951,8 @@ static Expression *fix_this_expression(Expression *expression) {
 	}
 
 	type = dkc_alloc_type_specifier(DVM_CLASS_TYPE);
-	type->class_ref.identifier = class_definition->name;
-	type->class_ref.class_definition = class_definition;
+	type->identifier = class_definition->name;
+	type->u.class_ref.class_definition = class_definition;
 	expression->type = type;
 
 	return expression;
@@ -969,8 +975,8 @@ static Expression *fix_super_expression(Expression *expression, Expression *pare
 	}
 
 	type = dkc_alloc_type_specifier(DVM_CLASS_TYPE);
-	type->class_ref.identifier = class_definition->super_class->name;
-	type->class_ref.class_definition = class_definition->super_class;
+	type->identifier = class_definition->super_class->name;
+	type->u.class_ref.class_definition = class_definition->super_class;
 
 	expression->type = type;
 
@@ -1056,12 +1062,12 @@ static Expression *fix_instanceof_expression(Block *current_block, Expression *e
 		dkc_compile_error(expression->line_number, INSTANCEOF_MUST_RETURN_TRUE_ERR, MESSAGE_ARGUMENT_END);
 	}
 
-	if (is_super_class(operand->type->class_ref.class_definition, target->class_ref.class_definition,&is_interface_dummy, &interface_index_dummy)) {
+	if (is_super_class(operand->type->u.class_ref.class_definition, target->u.class_ref.class_definition,&is_interface_dummy, &interface_index_dummy)) {
 		dkc_compile_error(expression->line_number, INSTANCEOF_MUST_RETURN_TRUE_ERR, MESSAGE_ARGUMENT_END);
 	}
 
-	if (target->class_ref.class_definition->class_or_interface == DVM_CLASS_DEFINITION &&
-	    !is_super_class(target->class_ref.class_definition, operand->type->class_ref.class_definition,
+	if (target->u.class_ref.class_definition->class_or_interface == DVM_CLASS_DEFINITION &&
+	    !is_super_class(target->u.class_ref.class_definition, operand->type->u.class_ref.class_definition,
 	                    &is_interface_dummy, &interface_index_dummy)) {
 
 		dkc_compile_error(expression->line_number, INSTANCEOF_MUST_RETURN_FALSE_ERR, MESSAGE_ARGUMENT_END);
@@ -1114,8 +1120,8 @@ static Expression *fix_new_expression(Block *current_block, Expression *expressi
 
 	expression->u.new_expression.method_declaration = member;
 	type = dkc_alloc_type_specifier(DVM_CLASS_TYPE);
-	type->class_ref.identifier = expression->u.new_expression.class_definition->name;
-	type->class_ref.class_definition = expression->u.new_expression.class_definition;
+	type->identifier = expression->u.new_expression.class_definition->name;
+	type->u.class_ref.class_definition = expression->u.new_expression.class_definition;
 	expression->type = type;
 
 	return expression;
@@ -1142,8 +1148,8 @@ static Expression *fix_down_cast_expression(Block *current_block, Expression *ex
 		dkc_compile_error(expression->line_number, DOWN_CAST_DO_NOTHING_ERR, MESSAGE_ARGUMENT_END);
 	}
 
-	if (target_type->class_ref.class_definition->class_or_interface == DVM_CLASS_DEFINITION &&
-	    !is_super_class(target_type->class_ref.class_definition, org_type->class_ref.class_definition,
+	if (target_type->u.class_ref.class_definition->class_or_interface == DVM_CLASS_DEFINITION &&
+	    !is_super_class(target_type->u.class_ref.class_definition, org_type->u.class_ref.class_definition,
 	                    &is_interface_dummy, &interface_index_dummy)) {
 		dkc_compile_error(expression->line_number, DOWN_CAST_TO_BAD_CLASS_ERR, MESSAGE_ARGUMENT_END);
 	}
@@ -1582,8 +1588,8 @@ static DVM_Boolean check_type_compatibility(TypeSpecifier *super_type, TypeSpeci
 	if (!dkc_is_class_object(sub_type)) {
 		return DVM_FALSE;
 	}
-	if (super_type->class_ref.class_definition == sub_type->class_ref.class_definition
-	    || is_super_class(sub_type->class_ref.class_definition, super_type->class_ref.class_definition,
+	if (super_type->u.class_ref.class_definition == sub_type->u.class_ref.class_definition
+	    || is_super_class(sub_type->u.class_ref.class_definition, super_type->u.class_ref.class_definition,
 	                   &is_interface_dummy, &interface_index_dummy)) {
 		return DVM_TRUE;
 	}

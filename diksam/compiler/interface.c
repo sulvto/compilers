@@ -177,7 +177,7 @@ static void make_search_path(int line_number, PackageName *package_name, char *b
 static void get_require_input(RequireList *require, char *path, SourceInput *source_input) {
     char *search_path = getenv("DKM_REQUIRE_SEARCH_PATH");
     if (search_path == NULL) {
-        search_path = ".";
+        search_path = "/home/sulvto/development/workspace/compilers/diksam/require/";
     }
 
     char search_file[FILENAME_MAX];

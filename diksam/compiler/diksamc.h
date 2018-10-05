@@ -120,6 +120,7 @@ typedef enum {
 	EOF_IN_C_COMMENT_ERR,
 	EOF_IN_STRING_LITERAL_ERR,
 	TOO_LONG_CHARACTER_LITERAL_ERR,
+    ASSIGN_TO_METHOD_ERR,
 	COMPILE_ERROR_COUNT_PLUS_1
 } CompileError;
 
@@ -167,6 +168,8 @@ typedef enum {
 #define dkc_is_class_object(type) ((type)->basic_type == DVM_CLASS_TYPE && (type)->derive == NULL)
 
 #define dkc_is_object(type) (dkc_is_string(type) || dkc_is_array(type) || dkc_is_class_object(type))
+
+#define dkc_is_delegate(type) ((type)->basic_type == DVM_DELEGATE_TYPE && (type)->derive == NULL)
 
 #define dkc_is_array(type)  ((type)->derive && ((type)->derive->tag == ARRAY_DERIVE))
 
@@ -239,11 +242,18 @@ typedef struct TypeDerive_tag {
 
 struct TypeSpecifier_tag {
 	DVM_BasicType	basic_type;
-	struct {
-		char *identifier;
-		ClassDefinition *class_definition;
-		int class_index;
-	} class_ref;
+    char            *identifier;
+	union {
+        struct {
+            ClassDefinition *class_definition;
+            int class_index;
+        } class_ref;
+        struct {
+            // TODO:enum
+            // ClassDefinition *class_definition;
+            int enum_index;
+        } enum_ref;
+    } u;
 	int             line_number;
 	TypeDerive		*derive;
 };
@@ -580,9 +590,11 @@ typedef struct {
 } MethodMember;
 
 typedef struct {
-	char *name;
-	TypeSpecifier *type;
-	int field_index;
+	char            *name;
+	TypeSpecifier   *type;
+    DVM_Boolean     is_final;
+    Expression      *initializer;
+	int             field_index;
 } FieldMember;
 
 struct MemberDeclaration_tag {
@@ -740,7 +752,7 @@ StatementList *dkc_chain_statement_list(StatementList *list, Statement *statemen
 
 TypeSpecifier *dkc_create_type_specifier(DVM_BasicType basic_type);
 
-TypeSpecifier *dkc_create_class_type_specifier(char *identifier);
+TypeSpecifier *dkc_create_identifier_type_specifier(char *identifier);
 
 TypeSpecifier *dkc_create_array_type_specifier(TypeSpecifier *base);
 
@@ -857,7 +869,7 @@ FunctionDefinition *dkc_method_function_define(TypeSpecifier *type, char *identi
 
 FunctionDefinition *dkc_constructor_function_define(char *identifier, ParameterList *parameter_list, Block *block);
 
-MemberDeclaration *dkc_create_field_member(ClassOrMemberModifierList *modifier, TypeSpecifier *type, char *name);
+MemberDeclaration *dkc_create_field_member(ClassOrMemberModifierList *modifier, DVM_Boolean is_final, TypeSpecifier *type, char *name, Expression *initializer);
 
 MemberDeclaration *dkc_create_method_member(ClassOrMemberModifierList *modifier,
                                             FunctionDefinition *function_definition, DVM_Boolean is_constructor);
