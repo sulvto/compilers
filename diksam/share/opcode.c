@@ -97,6 +97,7 @@ OpcodeInfo dvm_opcode_info[] = {
 		{"push_function", "s", 1},
 		{"push_method", "s", 1},
 		{"invoke", "", -1},
+		{"invoke_delegate", "", -1},
 		{"return", "", -1},
 		{"new", "s", 1},
 		{"new_array", "bs", 1},

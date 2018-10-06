@@ -57,6 +57,7 @@ static void invoke_native_function(DVM_VirtualMachine *dvm, Function *caller, Fu
 	dvm->stack.pointer_flags[*sp_p] = callee->u.native_function.return_pointer;
 
 	(*sp_p)++;
+
 }
 
 static void initialize_local_variables(DVM_VirtualMachine *dvm,
@@ -92,7 +93,7 @@ static void invoke_diksam_function(DVM_VirtualMachine *dvm, Function **caller_p,
 	DVM_Function *callee_p = &(*executable_p)->function[callee->u.diksam_function.index];
 	expand_stack(dvm, CALL_INFO_ALIGN_SIZE
 	                  + callee_p->local_variable_count
-	                  + (*executable_p)->function[callee->u.diksam_function.index].need_stack_size);
+	                  + (*executable_p)->function[callee->u.diksam_function.index].code_block.need_stack_size);
 	CallInfo *callinfo = (CallInfo *) &dvm->stack.stack[*sp_p - 1];
 	callinfo->caller = *caller_p;
 	callinfo->caller_address = *pc_p;
@@ -112,8 +113,8 @@ static void invoke_diksam_function(DVM_VirtualMachine *dvm, Function **caller_p,
 	*sp_p += CALL_INFO_ALIGN_SIZE + callee_p->local_variable_count - 1;
 	*pc_p = 0;
 
-	*code_p = (*executable_p)->function[callee->u.diksam_function.index].code;
-	*code_size_p = (*executable_p)->function[callee->u.diksam_function.index].code_size;
+	*code_p = (*executable_p)->function[callee->u.diksam_function.index].code_block.code;
+	*code_size_p = (*executable_p)->function[callee->u.diksam_function.index].code_block.code_size;
 }
 
 static DVM_Boolean do_return(DVM_VirtualMachine *dvm, Function **function_p,
@@ -134,8 +135,8 @@ static DVM_Boolean do_return(DVM_VirtualMachine *dvm, Function **function_p,
         *executable_p = (*executable_entry_p)->executable;
         if (call_info->caller->kind == DIKSAM_FUNCTION) {
             caller_p = &(*executable_p)->function[call_info->caller->u.diksam_function.index];
-            *code_p = caller_p->code;
-            *code_size_p = caller_p->code_size;
+            *code_p = caller_p->code_block.code;
+            *code_size_p = caller_p->code_block.code_size;
         }
     } else {
         *executable_entry_p = dvm->top_level;
@@ -192,6 +193,8 @@ static DVM_Boolean return_function(DVM_VirtualMachine *dvm, Function **function_
         ((dvm)->stack.stack[(sp)].double_value = r, (dvm)->stack.pointer_flags[(sp)] = DVM_FALSE)
 #define STO_WRITE_I(dvm, sp, r)    \
         ((dvm)->stack.stack[(sp)].object = r, (dvm)->stack.pointer_flags[(sp)] = DVM_TRUE)
+
+#define is_null_pointer(object) ((object)->data == NULL)
 
 static DVM_ObjectRef create_array_sub(DVM_VirtualMachine *dvm, int dim, int dim_index, DVM_TypeSpecifier *type) {
 	DVM_ObjectRef ret;
@@ -535,7 +538,7 @@ static DVM_Value execute(DVM_VirtualMachine *dvm, Function *function,
                 DVM_ObjectRef object = STO(dvm, -1);
                 int index = GET_2BYTE_INT(&code[pc + 1]);
                 check_null_pointer(executable, function, pc, &object);
-                STI_WRITE(dvm, -1, object.data->u.class_object.field[index].double_value);
+                STD_WRITE(dvm, -1, object.data->u.class_object.field[index].double_value);
                 pc += 3;
                 break;
             }
@@ -559,6 +562,12 @@ static DVM_Value execute(DVM_VirtualMachine *dvm, Function *function,
             case DVM_POP_FIELD_DOUBLE: {
                 DVM_ObjectRef object = STO(dvm, -1);
                 int index = GET_2BYTE_INT(&code[pc + 1]);
+                if (is_null_pointer(&object)) {
+                    // TODO
+                    printf("is_null_pointer\n");
+                } else {
+
+                }
                 check_null_pointer(executable, function, pc, &object);
                 object.data->u.class_object.field[index].double_value = STD(dvm, -2);
                 dvm->stack.stack_pointer -= 2;
@@ -808,6 +817,14 @@ static DVM_Value execute(DVM_VirtualMachine *dvm, Function *function,
                 dvm->stack.stack_pointer++;
                 pc++;
                 break;
+            case DVM_DUPLICATE_OFFSET: {
+                int offset = GET_2BYTE_INT(&code[pc + 1]);
+                dvm->stack.stack[dvm->stack.stack_pointer] = dvm->stack.stack[dvm->stack.stack_pointer - 1 - offset];
+                dvm->stack.pointer_flags[dvm->stack.stack_pointer] = dvm->stack.pointer_flags[dvm->stack.stack_pointer - 1 - offset];
+                dvm->stack.stack_pointer++;
+                pc += 3;
+                break;
+            }
             case DVM_JUMP:
                 pc = GET_2BYTE_INT(&code[pc + 1]);
                 break;

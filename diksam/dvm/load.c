@@ -159,9 +159,18 @@ static void convert_code(DVM_VirtualMachine *dvm,
             ||code[i] == DVM_POP_STACK_DOUBLE
             ||code[i] == DVM_POP_STACK_OBJECT) {
             DBG_assert(function != NULL, ("function == NULL!\n"));
+
+            int parameter_count;
+
+            if (function->is_method) {
+                parameter_count = function->parameter_count + 1; /* for this */
+            } else {
+                parameter_count = function->parameter_count;
+            }
+
             int src_index = GET_2BYTE_INT(&code[i + 1]);
             unsigned int dest_index;
-            if (src_index >= function->parameter_count) {
+            if (src_index >= parameter_count) {
                 dest_index = src_index + CALL_INFO_ALIGN_SIZE;
             } else {
                 dest_index = src_index;
@@ -542,8 +551,8 @@ static ExecutableEntry *add_executable_to_dvm(DVM_VirtualMachine *dvm, DVM_Execu
 
     for (int i = 0; i < executable->function_count; i++) {
         if (executable->function[i].is_implemented) {
-            convert_code(dvm, executable, executable->function[i].code,
-                         executable->function[i].code_size,
+            convert_code(dvm, executable, executable->function[i].code_block.code,
+                         executable->function[i].code_block.code_size,
                          &executable->function[i]);
         }
     }

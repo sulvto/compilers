@@ -178,8 +178,8 @@ int dvm_conv_pc_to_line_number(DVM_Executable *executable, Function *function, i
 	int ret;
 
 	if (function) {
-		line_number = executable->function[function->u.diksam_function.index].line_number;
-		line_number_size = executable->function[function->u.diksam_function.index].line_number_size;
+		line_number = executable->function[function->u.diksam_function.index].code_block.line_number;
+		line_number_size = executable->function[function->u.diksam_function.index].code_block.line_number_size;
 	} else {
 		line_number = executable->line_number;
 		line_number_size = executable->line_number_size;

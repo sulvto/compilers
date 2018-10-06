@@ -153,7 +153,6 @@ static void dump_line_number(int size, DVM_LineNumber *line_number) {
 		       line_number[i].start_pc,
 		       line_number[i].pc_count);
 	}
-	printf("\n");
 }
 
 static void dump_function(DVM_Executable *executable, int count, DVM_Function *function) {
@@ -166,12 +165,12 @@ static void dump_function(DVM_Executable *executable, int count, DVM_Function *f
 		dump_parameter_list(executable, function[i].parameter_count, function[i].parameter);
 		printf("\n");
 		if (function[i].is_implemented) {
-			if (function[i].code_size > 0) {
-				dump_opcode(function[i].code_size, function[i].code);
-				dump_line_number(function[i].line_number_size, function[i].line_number);
+			if (function[i].code_block.code_size > 0) {
+				dump_opcode(function[i].code_block.code_size, function[i].code_block.code);
+				dump_line_number(function[i].code_block.line_number_size, function[i].code_block.line_number);
 			}
 		}
-		printf("***** end of %s *****\n", function[i].name);
+		printf("***** end of %s *****\n\n", function[i].name);
 	}
 	printf("\n");
 }

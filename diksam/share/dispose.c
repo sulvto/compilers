@@ -96,8 +96,8 @@ void dvm_dispose_executable(DVM_Executable *executable) {
         if (executable->function[i].is_implemented) {
             dispose_local_variable(executable->function[i].local_variable_count,
                                    executable->function[i].local_variable);
-            MEM_free(executable->function[i].code);
-            MEM_free(executable->function[i].line_number);
+            MEM_free(executable->function[i].code_block.code);
+            MEM_free(executable->function[i].code_block.line_number);
         }
     }
     MEM_free(executable->function);
