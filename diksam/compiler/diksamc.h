@@ -704,6 +704,12 @@ typedef struct {
 	DVM_Char *string;
 } VWString;
 
+typedef struct {
+    char *package_name;
+    SourceSuffix suffix;
+    char **source_string;    
+} BuiltinScript;
+
 // diksam.l
 void dkc_set_source_string(char **source);
 
@@ -954,20 +960,6 @@ wchar_t *dkc_mbstowcs_alloc(int line_number, const char *src);
 
 // error.c
 void dkc_compile_error(int line_number, CompileError id, ...);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 #endif //DIKSAM_DIKSAMC_H

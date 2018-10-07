@@ -9,6 +9,7 @@
 #include "diksamc.h"
 
 static CompilerList *st_compiler_list = NULL;
+extern BuiltinScript dkc_builtin_script[];
 
 typedef struct {
     char            *name;
@@ -174,13 +175,36 @@ static void make_search_path(int line_number, PackageName *package_name, char *b
 	strcpy(&buf[len], DIKSAM_REQUIRE_SUFFIX);
 }
 
+static DVM_Boolean search_buitin_source(char *package_name, SourceSuffix suffix, 
+                                        SourceInput *input) {
+    for (int i = 0; dkc_builtin_script[i].source_string != NULL; i++) {
+        if (dvm_compare_string(package_name, dkc_builtin_script[i].package_name)
+            && dkc_builtin_script[i].suffix == suffix) {
+            input->input_mode = DKC_STRING_INPUT_MODE;
+            input->u.string.lines = dkc_builtin_script[i].source_string;
+
+            return DVM_TRUE;
+        }
+    }
+    return DVM_FALSE;
+}
+
 static void get_require_input(RequireList *require, char *path, SourceInput *source_input) {
+   
+    char search_file[FILENAME_MAX];
+
+    char *package_name = dkc_package_name_to_string(require->package_name);
+    if (search_buitin_source(package_name, DKH_SOURCE, source_input)) {
+        MEM_free(package_name);
+        path[0] = '\0';
+        return;
+    }
+    MEM_free(package_name);
+
     char *search_path = getenv("DKM_REQUIRE_SEARCH_PATH");
     if (search_path == NULL) {
-        search_path = "/home/sulvto/development/workspace/compilers/diksam/require/";
+        search_path = ".";
     }
-
-    char search_file[FILENAME_MAX];
 
     make_search_path(require->line_number, require->package_name, search_file);
 
@@ -226,7 +250,8 @@ static DVM_Boolean add_executable_to_list(DVM_Executable *executable, DVM_Execut
 }
 
 static DVM_Executable *do_compile(DKC_Compiler *compiler, DVM_ExecutableList *executable_list, char *path, DVM_Boolean is_required) {
-	printf("do_compile path %s\n", compiler->path);
+	// printf("do_compile path %s\n", compiler->path);
+    
 	extern FILE *yyin;
 	extern int yyparse(void);
 
@@ -270,7 +295,6 @@ static DVM_Executable *do_compile(DKC_Compiler *compiler, DVM_ExecutableList *ex
 		do_compile(req_compiler, executable_list, path, DVM_TRUE);
 	}
 
-	printf("dkc_fix_tree\n");
 	dkc_fix_tree(compiler);
 
 	executable = dkc_generate(compiler);
@@ -280,8 +304,6 @@ static DVM_Executable *do_compile(DKC_Compiler *compiler, DVM_ExecutableList *ex
 	} else {
 		executable->path = NULL;
 	}
-
-	printf("dvm_disassemble\n");
 
 	dvm_disassemble(executable);
 

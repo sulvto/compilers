@@ -1,7 +1,9 @@
 TARGET = diksam
 cc = gcc
 CFLAGS = -c -g -DDEBUG -Wall -ansi -Wswitch-enum -std=c99
-OBJS = ../compiler/compiler.o ../dvm/dvm.o \
+OBJS = ../compiler/compiler.o   \
+        ../compiler/builtin/builtin.o  \
+        ../dvm/dvm.o \
         ../memory/mem.o ../share/share.o \
         ../debug/dbg.o ./main.o
 
@@ -10,15 +12,17 @@ CFLAGS = -c -g -DDEBUG -Wall -ansi -Wswitch-enum -std=c99
 INCLUDES = -I/usr/local/include -I../include
 
 $(TARGET):$(OBJS)
-	cd ../compiler; $(MAKE)
+	cd ../compiler; $(MAKE);
 	cd ../dvm; $(MAKE);
 	cd ../share; $(MAKE);
 	cd ../memory; $(MAKE);
 	cd ../debug; $(MAKE);
+	cd ../compiler/builtin; $(MAKE);
 	$(CC) $(OBJS) -o $@ -lm
 
 clean:
 	cd ../compiler; make clean;
+	cd ../compiler/builtin; make clean;
 	cd ../dvm; make clean;
 	cd ../share; make clean;
 	cd ../memory; make clean;
