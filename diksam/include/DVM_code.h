@@ -245,7 +245,7 @@ typedef struct {
 	DVM_Field				*field;
 	int 					method_count;
 	DVM_Method				*method;
-    DVM_CodeBlock           *field_initializer;
+    DVM_CodeBlock           field_initializer;
 } DVM_Class;
 
 struct DVM_Executable_tag {

@@ -72,15 +72,15 @@ MEM_Controller MEM_create_controller(void) {
 }
 
 #ifdef DEBUG
-	static void chain_block(MEM_Controller controller, Header *new_header) {
-		if (controller->block_header) {
-			controller->block_header->s.prev = new_header;
-		}
+static void chain_block(MEM_Controller controller, Header *new_header) {
+    if (controller->block_header) {
+        controller->block_header->s.prev = new_header;
+    }
 
-		new_header->s.prev = NULL;
-		new_header->s.next = controller->block_header;
-		controller->block_header = new_header;
-	}
+    new_header->s.prev = NULL;
+    new_header->s.next = controller->block_header;
+    controller->block_header = new_header;
+}
 
 static void unchain_block(MEM_Controller controller, Header *header) {
 	if (header->s.prev) {
@@ -116,20 +116,28 @@ void set_tail(void *ptr, int alloc_size) {
 	memset(tail, MARK, MARK_SIZE);
 }
 
-static void check_mark_sub(unsigned char *mark, int size) {
+static MEM_Boolean check_mark_sub(unsigned char *mark, int size) {
 	for (int i = 0; i< size; i++) {
 		if (mark[i] != MARK) {
-			fprintf(stderr, "bad mark\n");
-			abort();
+            return MEM_FALSE;
 		}
 	}
+
+    return MEM_TRUE;
 }
 
 void check_mark(Header *header) {
-	unsigned char *tail;
-	check_mark_sub(header->s.mark, (char*)&header[1] - (char*)header->s.mark);
-	tail = ((unsigned char*)header) + header->s.size + sizeof(Header);
-	check_mark_sub(tail, MARK_SIZE);
+    
+	if (!check_mark_sub(header->s.mark, (char*)&header[1] - (char*)header->s.mark)) {
+        fprintf(stderr, "bad mark. %s:%d\n", header->s.filename, header->s.line);
+        abort();
+    }
+
+	unsigned char *tail = ((unsigned char*)header) + header->s.size + sizeof(Header);
+	if (!check_mark_sub(tail, MARK_SIZE)) {
+        fprintf(stderr, "bad tail mark. %s:%d\n", header->s.filename, header->s.line);
+        abort();
+    }
 }
 
 #endif	// DEBUG
@@ -143,6 +151,7 @@ void *MEM_malloc_func(MEM_Controller controller, char *filename, int line, size_
 #else	// DEBUG
 	alloc_size = size;
 #endif	// DEBUG
+
 	ptr = malloc(alloc_size);
 	if (ptr == NULL) {
 		error_handler(controller, filename, line, "malloc");
@@ -220,11 +229,13 @@ char *MEM_strdup_func(MEM_Controller controller, char *filename, int line, char 
 	int 	size;
 	size_t	alloc_size;
 	size = strlen(str) + 1;
+
 #ifdef	DEBUG
-alloc_size = size + sizeof(Header) + MARK_SIZE;
+    alloc_size = size + sizeof(Header) + MARK_SIZE;
 #else	// DEBUG
-alloc_size = size;
+    alloc_size = size;
 #endif	// DEBUG
+
 	ptr = malloc(alloc_size);
 	if (ptr == NULL) {
 		error_handler(controller, filename, line, "strdup");
@@ -248,6 +259,7 @@ void MEM_free_func(MEM_Controller controller, void *ptr) {
 #ifdef	DEBUG
 	int size;
 #endif
+
 	if (ptr == NULL) return;
 
 #ifdef	DEBUG

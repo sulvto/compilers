@@ -497,7 +497,9 @@ void DKC_dispose_compiler(DKC_Compiler *compiler) {
 
 	list = traversal_compiler(list, compiler);
 	for (CompilerList *pos = list; pos;) {
-		for (FunctionDefinition *fun_def_pos = pos->compiler->function_list; fun_def_pos; fun_def_pos = fun_def_pos->next) {
+		for (FunctionDefinition *fun_def_pos = pos->compiler->function_list; 
+            fun_def_pos; 
+            fun_def_pos = fun_def_pos->next) {
 			MEM_free(fun_def_pos->local_variable);
 		}
 		while (pos->compiler->required_list) {

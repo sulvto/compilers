@@ -8,6 +8,11 @@
 #include <stdio.h>
 
 typedef enum {
+	MEM_FALSE = 0,
+	MEM_TRUE = 1
+} MEM_Boolean;
+
+typedef enum {
 	MEM_FAIL_AND_EXIT,
 	MEM_FAIL_AND_RETURN
 } MEM_FailMode;
