@@ -39,7 +39,10 @@ int main(int argc, char **argv) {
     DVM_dispose_executable_list(executable_list);
 
     MEM_check_all_blocks();
-    MEM_dump_blocks(stdout);
+
+    FILE *dump_blocks_fp = fopen("./dump_blocks.txt", "w");
+    MEM_dump_blocks(dump_blocks_fp);
+    fclose(dump_blocks_fp);
 
     return 0;
 }
