@@ -1,0 +1,3 @@
+int[] x = {199, 1, 44};
+int result = x[0] + 256;
+println("result: " + result);

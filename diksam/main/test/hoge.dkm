@@ -1,0 +1,6 @@
+require piyo;
+int hoge_func() {
+    piyo_func();
+}
+
+hoge_func();

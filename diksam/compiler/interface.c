@@ -250,7 +250,7 @@ static DVM_Boolean add_executable_to_list(DVM_Executable *executable, DVM_Execut
 }
 
 static DVM_Executable *do_compile(DKC_Compiler *compiler, DVM_ExecutableList *executable_list, char *path, DVM_Boolean is_required) {
-	// printf("do_compile path %s\n", compiler->path);
+	DBG_debug_write((1, "compile path: %s\n", compiler->path));
     
 	extern FILE *yyin;
 	extern int yyparse(void);

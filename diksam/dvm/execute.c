@@ -343,7 +343,6 @@ static DVM_Boolean check_instanceof(DVM_VirtualMachine *dvm, DVM_ObjectRef *obje
 
 static DVM_Value execute(DVM_VirtualMachine *dvm, Function *function,
                          DVM_Byte *code, int code_size, int base) {
-    printf("execute\n");
     DVM_Value ret;
 
     ExecutableEntry *executable_entry = dvm->current_executable;
@@ -352,7 +351,7 @@ static DVM_Value execute(DVM_VirtualMachine *dvm, Function *function,
     int pc = dvm->pc;
 
     while (pc < code_size) {
-        printf("execute pc: %d opcode: %s \n", pc, dvm_opcode_info[code[pc]].mnemonic);
+        DBG_debug_write((1, "execute pc: %d opcode: %s \n", pc, dvm_opcode_info[code[pc]].mnemonic));
 
         switch ((DVM_Opcode) code[pc]) {
             case DVM_PUSH_INT_1BYTE:
@@ -863,12 +862,10 @@ static DVM_Value execute(DVM_VirtualMachine *dvm, Function *function,
                 
                 if (dvm->function[function_index]->kind == NATIVE_FUNCTION) {
                     restore_pc(dvm, executable_entry, function, pc);
-                    printf("invoke_native_function %s\n", dvm->function[function_index]->name);
 	                invoke_native_function(dvm, function, dvm->function[function_index], pc, &dvm->stack.stack_pointer,
 	                                       base);
                     pc++;
                 } else {
-                    printf("invoke_diksam_function %s\n", dvm->function[function_index]->name);
                     invoke_diksam_function(dvm, &function, dvm->function[function_index],
                                            &code, &code_size, &pc, &dvm->stack.stack_pointer,
                                            &base, &executable_entry, &executable);

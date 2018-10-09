@@ -40,8 +40,8 @@ error.o: error.c ../include/MEM.h ../include/DBG.h diksamc.h\
                 ../include/DKC.h ../include/DVM_code.h ../include/DVM.h\
                 ../include/share.h
 error_message.o: error_message.c ../include/MEM.h ../include/DBG.h diksamc.h\
-                        ../include/DKC.h ../include/DVM_code.h ../include/DVM.h\
-                        ../include/share.h
+                ../include/DKC.h ../include/DVM_code.h ../include/DVM.h\
+                ../include/share.h
 fix_tree.o: fix_tree.c ../include/MEM.h ../include/DBG.h diksamc.h\
                     ../include/DKC.h ../include/DVM_code.h ../include/DVM.h\
                     ../include/share.h

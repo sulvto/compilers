@@ -957,16 +957,13 @@ static void generate_expression_statement(DVM_Executable *executable,
 				Block *current_block, Expression *expression, 
 				OpcodeBuf *opcode_buf) {
 	if (expression->kind == ASSIGN_EXPRESSION) {
-        printf("expression->kind == ASSIGN_EXPRESSION\n");
 		generate_assign_expression(executable, current_block, 
 						expression, opcode_buf, DVM_TRUE);
 	} else if (expression->kind == INCREMENT_EXPRESSION 
 					||expression->kind == DECREMENT_EXPRESSION) {
-        printf("expression->kind == INCREMENT_EXPRESSION ||expression->kind == DECREMENT_EXPRESSION\n");
 		generate_inc_dec_expression(executable, current_block, 
 						expression, expression->kind, opcode_buf, DVM_TRUE);
 	} else {
-        printf("else\n");
 		generate_expression(executable, current_block, expression, opcode_buf);
 		generate_code(opcode_buf, expression->line_number, DVM_POP);
 	}
@@ -1375,8 +1372,7 @@ static void add_class(DVM_Executable *executable, ClassDefinition *class_definit
 		interface_count++;
 	}
 
-	int method_count = 0;
-	int field_count = 0;
+	int method_count, field_count = 0;
 	for (MemberDeclaration *pos = class_definition->member; pos; pos = pos->next) {
 		if (pos->kind == METHOD_MEMBER) {
 			method_count++;
@@ -1453,7 +1449,6 @@ static void add_classes(DKC_Compiler *compiler, DVM_Executable *executable) {
 
 static void add_function(DVM_Executable *executable, FunctionDefinition *src, DVM_Function *dest,
                          DVM_Boolean in_this_executable) {
-    printf("add_function\n");
 	OpcodeBuf opcode_buf;
 
 	dest->type = dkc_copy_type_specifier(src->type);
@@ -1498,7 +1493,6 @@ static int search_function(DKC_Compiler *compiler, FunctionDefinition *src) {
 }
 
 static void add_functions(DKC_Compiler *compiler, DVM_Executable *executable) {
-    printf("add_functions\n");
     FunctionDefinition *function_def;
 	int dest_index = 0;
 	DVM_Boolean *in_this_executable = MEM_malloc(sizeof(DVM_Boolean) * compiler->dvm_function_count);
@@ -1517,7 +1511,6 @@ static void add_functions(DKC_Compiler *compiler, DVM_Executable *executable) {
 	    in_this_executable[dest_index] = DVM_TRUE;
 	    add_function(executable, function_def, &compiler->dvm_function[dest_index], DVM_TRUE);
     }
-    printf("add_function\n");
 
 	for (int i = 0; i < compiler->dvm_function_count; i++) {
 		if (in_this_executable[i]) continue;

@@ -42,7 +42,7 @@ static FunctionDefinition *search_renamed_function(DKC_Compiler *compiler, Renam
 		for (FunctionDefinition *fun_def_pos = pos->compiler->function_list; 
             fun_def_pos; 
             fun_def_pos = fun_def_pos->next) {
-			if (!strcmp(fun_def_pos->name, rename->original_name) && fun_def_pos->class_definition == NULL) {
+			if (strcmp(fun_def_pos->name, rename->original_name) == 0 && fun_def_pos->class_definition == NULL) {
 				return fun_def_pos;
 			}
 		}
@@ -55,13 +55,13 @@ FunctionDefinition *dkc_search_function(char *name) {
 	DKC_Compiler *compiler = dkc_get_current_compiler();
 
 	for (FunctionDefinition *pos = compiler->function_list; pos; pos = pos->next) {
-        if (!strcmp(pos->name, name) && pos->class_definition == NULL) {
+        if (strcmp(pos->name, name) == 0 && pos->class_definition == NULL) {
             return pos;
         }
     }
 
 	for (RenameList *pos = compiler->rename_list; pos; pos = pos->next) {
-		if (!strcmp(pos->renamed_name, name)) {
+		if (strcmp(pos->renamed_name, name) == 0) {
 			FunctionDefinition *fun_def = search_renamed_function(compiler, pos);
 			if (fun_def) {
 				return fun_def;
@@ -71,7 +71,7 @@ FunctionDefinition *dkc_search_function(char *name) {
 
 	for (CompilerList *pos = compiler->required_list; pos; pos = pos->next) {
 		for (FunctionDefinition *fun_def_pos = pos->compiler->function_list; fun_def_pos; fun_def_pos = fun_def_pos->next) {
-			if (!strcmp(fun_def_pos->name, name) && fun_def_pos->class_definition == NULL) {
+			if (strcmp(fun_def_pos->name, name) == 0 && fun_def_pos->class_definition == NULL) {
 				return fun_def_pos;
 			}
 		}
@@ -88,7 +88,7 @@ Declaration *dkc_search_declaration(char *name, Block *block) {
 		for (declaration_pos = block_pos->declaration_list;
 		     declaration_pos;
 		     declaration_pos = declaration_pos->next) {
-			if (!strcmp(declaration_pos->declaration->name, name)) {
+			if (strcmp(declaration_pos->declaration->name, name) == 0) {
 				return declaration_pos->declaration;
 			}
 		}
@@ -98,7 +98,7 @@ Declaration *dkc_search_declaration(char *name, Block *block) {
 	for (declaration_pos = compiler->declaration_list;
 	     declaration_pos;
 	     declaration_pos = declaration_pos->next) {
-		if (!strcmp(declaration_pos->declaration->name, name)) {
+		if (strcmp(declaration_pos->declaration->name, name) == 0) {
 			return declaration_pos->declaration;
 		}
 	}

@@ -4,6 +4,8 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <string.h>
+#include <stdlib.h>
+#include "MEM.h"
 #include "DBG.h"
 #include "diksamc.h"
 
@@ -23,7 +25,6 @@ typedef struct {
 } MessageArgument;
 
 static void create_message_argument(MessageArgument *argument, va_list ap) {
-	printf("create_message_argument\t");
 	int index;
 	MessageArgumentType type;
 
@@ -130,17 +131,16 @@ static void format_message(int line_number, ErrorDefinition *format, VWString *v
 	MEM_free(wc_format);
 }
 
-static self_check() {
+static void self_check() {
 	if  (strcmp(dkc_error_message_format[0].format, "dummy") != 0) {
 		DBG_panic(("compile error message format error.\n"));
 	}
 	if (strcmp(dkc_error_message_format[COMPILE_ERROR_COUNT_PLUS_1].format, "dummy") != 0) {
-		DBG_panic(("compile error message format error. COMPILE_ERROR_COUNT_PLUS_1..%d\n", COMPILE_ERROR_COUNT_PLUS_1));	
+		DBG_panic(("compile error message format error. COMPILE_ERROR_COUNT_PLUS_1..%d\n", COMPILE_ERROR_COUNT_PLUS_1));
 	}
 }
 
 void dkc_compile_error(int line_number, CompileError id, ...) {
-	printf("dkc_compile_error\t");
 	va_list ap;
 	VWString message;
 	self_check();
@@ -152,7 +152,6 @@ void dkc_compile_error(int line_number, CompileError id, ...) {
 	dvm_print_wcs_ln(stderr, message.string);
 	va_end(ap);
 
-	printf("dkc_compile_error exit\n");
 	exit(1);
 }
 

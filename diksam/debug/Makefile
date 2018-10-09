@@ -1,6 +1,6 @@
 TARGET = dbg.o
 cc = gcc
-CFLAGS = -c -g -DDBG_NO_DEBUG -Wall -std=c99
+CFLAGS = -c -g -DEBUG -Wall -std=c99
 OBJS = debug.o
 
 $(TARGET):$(OBJS)

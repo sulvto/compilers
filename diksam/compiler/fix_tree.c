@@ -189,7 +189,7 @@ static int add_class(ClassDefinition *src) {
 
 	for (int i = 0; i < compiler->dvm_class_count; i++) {
 		if (dvm_compare_package_name(src_package_name, compiler->dvm_class[i].package_name) &&
-		    !strcmp(src->name, compiler->dvm_class[i].name)) {
+		    strcmp(src->name, compiler->dvm_class[i].name) == 0) {
 			MEM_free(src_package_name);
 			return i;
 		}
@@ -836,7 +836,7 @@ static DVM_Boolean is_interface_method(ClassDefinition *class_definition, Member
 				continue;
 			}
 
-			if (!strcmp(member->u.method.function_definition->name, member_pos->u.method.function_definition->name)) {
+			if (strcmp(member->u.method.function_definition->name, member_pos->u.method.function_definition->name) == 0) {
 				*target_interface = extends_pos->class_definition;
 				*interface_index_out = interface_index;
 				return DVM_TRUE;
@@ -887,7 +887,7 @@ static Expression *fix_array_method_expression(Expression *expression, Expressio
 	FunctionDefinition *function_definition;
 	int i;
 	for (i = 0; i < compiler->array_method_count; i++) {
-		if (!strcmp(compiler->array_method[i].name, member_name)) {
+		if (strcmp(compiler->array_method[i].name, member_name) == 0) {
 			break;
 		}
 	}
@@ -909,7 +909,7 @@ static Expression *fix_string_method_expression(Expression *expression, Expressi
 	FunctionDefinition *function_definition;
 	int i;
 	for (i = 0; i < compiler->string_method_count; i++) {
-		if (!strcmp(compiler->string_method[i].name, member_name)) {
+		if (strcmp(compiler->string_method[i].name, member_name) == 0) {
 			break;
 		}
 	}

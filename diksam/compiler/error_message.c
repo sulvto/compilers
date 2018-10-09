@@ -1,6 +1,7 @@
 //
 // Created by sulvto on 18-6-18.
 //
+#include <string.h>
 #include "diksamc.h"
 
 ErrorDefinition dkc_error_message_format[] = {
@@ -20,7 +21,7 @@ ErrorDefinition dkc_error_message_format[] = {
 		{"INC_DEC_TYPE_MISMATCH_ERR"},
 		{"FUNCTION_NOT_FOUND_ERR"},
 		{"ARGUMENT_COUNT_MISMATCH_ERR"},
-		{"IDENTIFIER_NOT_FOUND_ERR"},
+		{"identifier '$(name)' not found."},
 		{"FIELD_CAN_NOT_CALL_ERR"},
 		{"METHOD_IS_NOT_CALLED_ERR"},
 		{"REQUIRE_DUPLICATE_ERR"},
@@ -85,5 +86,6 @@ ErrorDefinition dkc_error_message_format[] = {
 		{"EOF_IN_C_COMMENT_ERR"},
 		{"EOF_IN_STRING_LITERAL_ERR"},
 		{"TOO_LONG_CHARACTER_LITERAL_ERR"},
+        {"ASSIGN_TO_METHOD_ERR"},
 		{"dummy"}
 };

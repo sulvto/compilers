@@ -652,7 +652,7 @@ static DVM_AccessModifier conv_access_modifier(ClassOrMemberModifierKind kind) {
 void dkc_start_class_definition(ClassOrMemberModifierList *modifier, DVM_ClassOrInterface class_or_interface,
                                 char *identifier,
                                 ExtendsList *extends) {
-    printf("dkc_start_class_definition %s\n", identifier);
+    printf("start class definition %s\n", identifier);
 	DKC_Compiler *compiler = dkc_get_current_compiler();
 	ClassDefinition *class_definition = dkc_malloc(sizeof(ClassDefinition));
 	class_definition->is_abstract = (class_or_interface == DVM_INTERFACE_DEFINITION);
