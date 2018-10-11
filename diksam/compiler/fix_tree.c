@@ -927,9 +927,14 @@ static Expression *fix_string_method_expression(Expression *expression, Expressi
 }
 
 static Expression *fix_member_expression(Block *current_block, Expression *expression) {
-	Expression *object = expression->u.member_expression.expression = fix_expression(current_block,
-	                                                                                 expression->u.member_expression.expression,
-	                                                                                 expression);
+
+// TODO: enum
+    // if (expression->u.member_expression.expression->kind == IDENTIFIER_EXPRESSION && dkc_search_enum())
+
+	Expression *object = expression->u.member_expression.expression 
+                        = fix_expression(current_block, 
+                                        expression->u.member_expression.expression,
+                                        expression);
 	if (dkc_is_class_object(object->type)) {
 		return fix_class_member_expression(expression, object, expression->u.member_expression.member_name);
 	} else if (dkc_is_array(object->type)) {
@@ -1486,8 +1491,11 @@ static void fix_extends(ClassDefinition *class_definition) {
 
 		if (super->class_or_interface == DVM_CLASS_DEFINITION) {
 			if (class_definition->super_class) {
-				dkc_compile_error(class_definition->line_number, MULTIPLE_INHERITANCE_ERR, STRING_MESSAGE_ARGUMENT,
-				                  "name", super->name, MESSAGE_ARGUMENT_END);
+				dkc_compile_error(class_definition->line_number, 
+                                MULTIPLE_INHERITANCE_ERR, 
+                                STRING_MESSAGE_ARGUMENT,
+				                "name", super->name, 
+                                MESSAGE_ARGUMENT_END);
 			}
 			if (!super->is_abstract) {
 				dkc_compile_error(class_definition->line_number, INHERIT_CONCRETE_CLASS_ERR, STRING_MESSAGE_ARGUMENT,
@@ -1521,7 +1529,7 @@ static void add_super_interfaces(ClassDefinition *class_definition) {
 			new_extends->next = NULL;
 			if (tail) {
 				tail->next = new_extends;
-			}else {
+			} else {
 				class_definition->interface_list = new_extends;
 			}
 			tail = new_extends;
@@ -1674,50 +1682,50 @@ static void fix_class_list(DKC_Compiler *compiler) {
 	for (class_pos = compiler->class_definition_list; class_pos; class_pos = class_pos->next) {
 		compiler->current_class_definition = class_pos;
 		get_super_field_method_count(class_pos, &field_index, &method_index);
-		for (MemberDeclaration *pos = class_pos->member; pos; pos = pos->next) {
-			if (pos->kind == METHOD_MEMBER) {
-				fix_function(pos->u.method.function_definition);
-				super_member = search_member_in_super(class_pos, pos->u.method.function_definition->name);
+		for (MemberDeclaration *member_pos = class_pos->member; member_pos; member_pos = member_pos->next) {
+			if (member_pos->kind == METHOD_MEMBER) {
+				fix_function(member_pos->u.method.function_definition);
+				super_member = search_member_in_super(class_pos, member_pos->u.method.function_definition->name);
 				if (super_member) {
 					if (super_member->kind != METHOD_MEMBER) {
-						dkc_compile_error(pos->line_number, FIELD_OVERRIDED_ERR,
+						dkc_compile_error(member_pos->line_number, FIELD_OVERRIDED_ERR,
 						                  STRING_MESSAGE_ARGUMENT, "name",
 						                  super_member->u.field.name,
 						                  MESSAGE_ARGUMENT_END);
 					}
 					if (!super_member->u.method.is_virtual) {
-						dkc_compile_error(pos->line_number, NON_VIRTUAL_METHOD_OVERRIDED_ERR,
+						dkc_compile_error(member_pos->line_number, NON_VIRTUAL_METHOD_OVERRIDED_ERR,
 						                  STRING_MESSAGE_ARGUMENT, "name",
 						                  super_member->u.method.function_definition->name,
 						                  MESSAGE_ARGUMENT_END);
 					}
-					if (!super_member->u.method.is_override) {
-						dkc_compile_error(pos->line_number, NEED_OVERRIDE_ERR,
+					if (!member_pos->u.method.is_override) {
+						dkc_compile_error(member_pos->line_number, NEED_OVERRIDE_ERR,
 						                  STRING_MESSAGE_ARGUMENT, "name",
 						                  super_member->u.method.function_definition->name,
 						                  MESSAGE_ARGUMENT_END);
 					}
-					check_method_override(super_member, pos);
+					check_method_override(super_member, member_pos);
 
-					pos->u.method.method_index = super_member->u.method.method_index;
+					member_pos->u.method.method_index = super_member->u.method.method_index;
 				} else {
-					pos->u.method.method_index = method_index;
+					member_pos->u.method.method_index = method_index;
 					method_index++;
 				}
-				if (pos->u.method.is_abstract) {
-					abstract_method_name = pos->u.method.function_definition->name;
+				if (member_pos->u.method.is_abstract) {
+					abstract_method_name = member_pos->u.method.function_definition->name;
 				}
 			} else {
-				DBG_assert(pos->kind == FIELD_MEMBER, ("member->kind..%d", pos->kind));
-				fix_type_specifier(pos->u.field.type);
-				super_member = search_member_in_super(class_pos, pos->u.field.name);
+				DBG_assert(member_pos->kind == FIELD_MEMBER, ("member->kind..%d", member_pos->kind));
+				fix_type_specifier(member_pos->u.field.type);
+				super_member = search_member_in_super(class_pos, member_pos->u.field.name);
 				if (super_member) {
-					dkc_compile_error(pos->line_number, FIELD_NAME_DUPLICATE_ERR,
+					dkc_compile_error(member_pos->line_number, FIELD_NAME_DUPLICATE_ERR,
 					                  STRING_MESSAGE_ARGUMENT, "name",
-					                  pos->u.field.name,
+					                  member_pos->u.field.name,
 					                  MESSAGE_ARGUMENT_END);
 				} else {
-					pos->u.field.field_index = field_index;
+					member_pos->u.field.field_index = field_index;
 					field_index++;
 				}
 			}

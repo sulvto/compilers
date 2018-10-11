@@ -268,7 +268,17 @@ MemberDeclaration *dkc_search_member(ClassDefinition *class_definition, char *me
         return member;
     }
 
-    for (extends_p = class_definition->interface_list; extends_p; extends_p = extends_p->next) {
+    if (class_definition->super_class) {
+        member= dkc_search_member(class_definition->super_class, member_name);
+    }
+
+    if (member) {
+        return member;
+    }
+
+    for (extends_p = class_definition->interface_list; 
+        extends_p; 
+        extends_p = extends_p->next) {
         member = dkc_search_member(extends_p->class_definition, member_name);
         if (member) {
             return member;

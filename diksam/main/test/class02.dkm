@@ -1,0 +1,23 @@
+require diksam.lang;
+
+abstract class A {
+    private string a;
+
+    virtual void a_method() {
+        println("a method");
+    }
+}
+
+class C : A {
+    private string c;
+    override void a_method() {
+        println("a method");
+    }
+    public void c_method() {
+        println("c method");
+    }
+}
+
+C c = new C();
+c.a_method();
+c.c_method();
