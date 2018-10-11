@@ -975,9 +975,74 @@ DVM_Value DVM_execute(DVM_VirtualMachine *dvm) {
 }
 
 void DVM_dispose_executable_list(DVM_ExecutableList *executable_list) {
+    DVM_ExecutableItem *executable_temp;
+    while (executable_list->list) {
+        executable_temp = executable_list->list;
+        executable_list->list = executable_temp->next;
+        dvm_dispose_executable(executable_temp->executable);
+        MEM_free(executable_temp);
+    }
+    MEM_free(executable_list);
+}
 
+static void dispose_v_table(DVM_VTable *v_table) {
+    for (int i = 0; i < v_table->table_size; i++) {
+        MEM_free(v_table->table[i].name);
+    }
+
+    MEM_free(v_table->table);
+    MEM_free(v_table);
 }
 
 void DVM_dispose_virtual_machine(DVM_VirtualMachine *dvm) {
+    while (dvm->executable_entry) {
+        ExecutableEntry *executable_entry_temp = dvm->executable_entry;
+        dvm->executable_entry = executable_entry_temp->next;
 
+        // MEM_free(executable_entry_temp->function_table);
+        // MEM_free(executable_entry_temp->class_table);
+        // MEM_free(executable_entry_temp->enum_table);
+        // MEM_free(executable_entry_temp->constant_table);
+        MEM_free(executable_entry_temp->static_v.variable);
+        MEM_free(executable_entry_temp);
+    }
+    dvm_garbage_collect(dvm);
+
+    MEM_free(dvm->stack.stack);
+    MEM_free(dvm->stack.pointer_flags);
+
+    for (int i = 0; i < dvm->function_count; i++) {
+        MEM_free(dvm->function[i]->package_name);
+        MEM_free(dvm->function[i]->name);
+        MEM_free(dvm->function[i]);
+    }
+    MEM_free(dvm->function);
+
+    for (int i = 0; i < dvm->class_count; i++) {
+        MEM_free(dvm->_class[i]->package_name);
+        MEM_free(dvm->_class[i]->name);
+        dispose_v_table(dvm->_class[i]->class_table);
+        for (int j = 0; j < dvm->_class[i]->interface_count; j++) {
+            dispose_v_table(dvm->_class[i]->interface_v_table[j]);
+        }
+        MEM_free(dvm->_class[i]->interface_v_table);
+        MEM_free(dvm->_class[i]->interface);
+        MEM_free(dvm->_class[i]->field_type);
+        MEM_free(dvm->_class[i]);
+    }
+
+    // for (int i = 0; i < dvm->constant_count; i++) {
+    //     MEM_free(dvm->constant[i]->name);
+    //     MEM_free(dvm->constant[i]->package_name);
+    //     MEM_free(dvm->constant[i]);
+    // }
+
+    MEM_free(dvm->array_v_table->table);
+    MEM_free(dvm->array_v_table);
+    MEM_free(dvm->string_v_table->table);
+    MEM_free(dvm->string_v_table);
+
+    MEM_free(dvm->_class);
+
+    MEM_free(dvm);
 }

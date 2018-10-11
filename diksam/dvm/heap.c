@@ -93,7 +93,7 @@ DVM_ObjectRef dvm_create_class_object_i(DVM_VirtualMachine *dvm, int class_index
 
 	obj.v_table = executable_class->class_table;
 	obj.data->u.class_object.field_count = executable_class->field_count;
-	obj.data->u.class_object.field = MEM_malloc(sizeof(sizeof(DVM_Value) * executable_class->field_count));
+	obj.data->u.class_object.field = MEM_malloc(sizeof(DVM_Value) * executable_class->field_count);
 	for (int i = 0; i < executable_class->field_count; i++) {
 		dvm_initialize_value(executable_class->field_type[i], &obj.data->u.class_object.field[i]);
 	}
@@ -165,6 +165,37 @@ static void gc_dispose_object(DVM_VirtualMachine *dvm, DVM_Object *object) {
 				MEM_free(object->u.string.string);
 			}
 			break;
+        case ARRAY_OBJECT:
+            switch (object->u.array.type) {
+                case INT_ARRAY:
+                    dvm->heap.current_heap_size 
+                        -= sizeof(int) * object->u.array.alloc_size;
+                    MEM_free(object->u.array.u.int_array);
+                    break;
+                case DOUBLE_ARRAY:
+                    dvm->heap.current_heap_size 
+                        -= sizeof(double) * object->u.array.alloc_size;
+                    MEM_free(object->u.array.u.double_array);
+                    break;
+                case OBJECT_ARRAY:
+                    dvm->heap.current_heap_size 
+                        -= sizeof(DVM_Object) * object->u.array.alloc_size;
+                    MEM_free(object->u.array.u.object);
+                    break;
+                case FUNCTION_INDEX_ARRAY:
+                    dvm->heap.current_heap_size 
+                        -= sizeof(int) * object->u.array.alloc_size;
+                    MEM_free(object->u.array.u.function_index);
+                    break;
+                default:
+                    DBG_assert(0, ("array type..%d", object->u.array.type));
+            }
+            break;
+        case CLASS_OBJECT:
+            dvm->heap.current_heap_size 
+                -= sizeof(DVM_Value) * object->u.class_object.field_count;
+            MEM_free(object->u.class_object.field);
+            break;
 		case OBJECT_TYPE_COUNT_PLUS_1:
 		default:
 			DBG_assert(0, ("bad type..%d\n", object->type));
