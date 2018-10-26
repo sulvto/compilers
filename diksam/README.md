@@ -75,3 +75,5 @@ graph BT
 1. BugException 只要没有程序错误就不会发生的异常
 2. RuntimeException 程序不能预期的异常
 3. ApplicationException 应该被程序预期到的异常
+
+可以被throw和catch的只有Exception的子类

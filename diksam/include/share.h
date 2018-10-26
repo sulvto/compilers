@@ -26,6 +26,8 @@ typedef enum {
 #define DIKSAM_REQUIRE_SUFFIX   (".dkh")
 #define DIKSAM_IMPLEMENTATION_SUFFIX (".dkm")
 
+#define EXCEPTION_CLASS_NAME    ("Exception")
+
 #define ARRAY_METHOD_SIZE   "size"
 #define ARRAY_METHOD_RESIZE "resize"
 #define ARRAY_METHOD_INSERT "insert"

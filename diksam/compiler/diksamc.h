@@ -104,6 +104,10 @@ typedef enum {
 	DOWN_CAST_TARGET_IS_NOT_CLASS_ERR,
 	DOWN_CAST_DO_NOTHING_ERR,
 	DOWN_CAST_TO_BAD_CLASS_ERR,
+    THROW_TYPE_IS_NOT_CLASS_ERR,
+    THROWS_TYPE_NOT_FOUND_ERR,
+    THROWS_TYPE_ID_NOT_EXCEPTION_ERR,
+    EXCEPTION_HAS_TO_BE_THROWN_ERR,
 	IF_CONDITION_NOT_BOOLEAN_ERR,
 	WHILE_CONDITION_NOT_BOOLEAN_ERR,
 	FOR_CONDITION_NOT_BOOLEAN_ERR,
@@ -556,6 +560,17 @@ struct Statement_tag {
     } u;
 };
 
+typedef struct {
+    char *identifier;
+    ClassDefinition *class_defintion;
+    int line_number;
+} ExceptionRef;
+
+typedef struct ExceptionList_tag {
+    ExceptionRef *ref;
+    struct ExceptionList_tag *next;
+} ExceptionList;
+
 struct FunctionDefinition_tag {
 	TypeSpecifier 	*type;
 	PackageName 	*package_name;
@@ -565,6 +580,7 @@ struct FunctionDefinition_tag {
 	int 			local_variable_count;
 	Declaration		**local_variable;
 	ClassDefinition	*class_definition;
+    ExceptionList   *throws;
 	int 			end_line_number;
 	struct FunctionDefinition_tag *next;
 };
@@ -734,10 +750,14 @@ RenameList *dkc_chain_rename_list(RenameList *list, RenameList *add);
 void dkc_set_require_and_rename_list(RequireList *require_list, RenameList *rename_list);
 
 
-FunctionDefinition *dkc_create_function_definition(TypeSpecifier *type, char *identifier,
-												   ParameterList *parameter_list, Block *block);
+FunctionDefinition *dkc_create_function_definition(TypeSpecifier *type, 
+                                                    char *identifier,
+                                                    ParameterList *parameter_list,
+                                                    ExceptionList *throws,
+                                                    Block *block);
 
-void dkc_function_define(TypeSpecifier *type, char *identifier, ParameterList *parameter_list,
+void dkc_function_define(TypeSpecifier *type, char *identifier, 
+                        ParameterList *parameter_list, ExceptionList *throws,
 						 Block *block);
 
 ParameterList *dkc_create_parameter(TypeSpecifier *type, char *identifier);
@@ -870,15 +890,24 @@ MemberDeclaration *dkc_create_member_declaration(ClassOrMemberModifierList *modi
 
 MemberDeclaration *dkc_chain_member_declaration(MemberDeclaration *list, MemberDeclaration *add);
 
-FunctionDefinition *dkc_method_function_define(TypeSpecifier *type, char *identifier, ParameterList *parameter_list,
-                                               Block *block);
+FunctionDefinition *dkc_method_function_define(TypeSpecifier *type, char *identifier, 
+                                                ParameterList *parameter_list,
+                                                ExceptionList *throws,
+                                                Block *block);
 
-FunctionDefinition *dkc_constructor_function_define(char *identifier, ParameterList *parameter_list, Block *block);
+FunctionDefinition *dkc_constructor_function_define(char *identifier, 
+                                                    ParameterList *parameter_list, 
+                                                    ExceptionList *throws,
+                                                    Block *block);
 
 MemberDeclaration *dkc_create_field_member(ClassOrMemberModifierList *modifier, DVM_Boolean is_final, TypeSpecifier *type, char *name, Expression *initializer);
 
 MemberDeclaration *dkc_create_method_member(ClassOrMemberModifierList *modifier,
                                             FunctionDefinition *function_definition, DVM_Boolean is_constructor);
+ExceptionList *dkc_create_throws(char *identifier);
+ExceptionList *dkc_chain_exception_list(ExceptionList *list, char *identifier);
+
+
 // string.c
 char *dkc_create_identifier(char *string);
 

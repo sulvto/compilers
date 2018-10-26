@@ -8,15 +8,20 @@
 #include "MEM.h"
 #include "diksamc.h"
 
-static Expression *fix_expression(Block *current_block, Expression *expression, Expression *parent);
+static Expression *fix_expression(Block *current_block, Expression *expression, 
+                                Expression *parent, ExceptionList **exception_list);
 
 static void fix_type_specifier(TypeSpecifier *type);
 
-static void fix_statement_list(Block *current_block, StatementList *list, FunctionDefinition *function_definition) ;
+static void fix_statement_list(Block *current_block, StatementList *list, 
+                                FunctionDefinition *function_definition, 
+                                ExceptionList **exception_list) ;
 
 static int add_class(ClassDefinition *src) ;
 
-static void fix_return_statement(Block *current_block, Statement *statement, FunctionDefinition *function_definition) ;
+static void fix_return_statement(Block *current_block, Statement *statement, 
+                                FunctionDefinition *function_definition, 
+                                ExceptionList **exception_list) ;
 
 static TypeSpecifier *create_function_derive_type(FunctionDefinition *function_definition) ;
 
@@ -51,7 +56,7 @@ static int reserve_function_index(DKC_Compiler *compiler, FunctionDefinition *sr
 	return compiler->dvm_function_count - 1;
 }
 
-static void add_return_function(FunctionDefinition *function_definition) {
+static void add_return_function(FunctionDefinition *function_definition, ExceptionList **exception_list) {
 	StatementList *last;
 	StatementList **last_p;
 	if (function_definition->block->statement_list == NULL) {
@@ -69,11 +74,12 @@ static void add_return_function(FunctionDefinition *function_definition) {
 	if (ret->u.return_s.return_value) {
 		ret->u.return_s.return_value->line_number = function_definition->end_line_number;
 	}
-	fix_return_statement(function_definition->block, ret, function_definition);
+	fix_return_statement(function_definition->block, ret, function_definition, exception_list);
 	*last_p = dkc_create_statement_list(ret);
 }
 
-static void add_local_variable(FunctionDefinition *function_definition, Declaration *declaration, DVM_Boolean is_parameter) {
+static void add_local_variable(FunctionDefinition *function_definition, 
+                                Declaration *declaration, DVM_Boolean is_parameter) {
 	function_definition->local_variable = MEM_realloc(function_definition->local_variable, sizeof(Declaration *) *
 	                                                                                       (function_definition->local_variable_count +
 	                                                                                        1));
@@ -87,7 +93,9 @@ static void add_local_variable(FunctionDefinition *function_definition, Declarat
 	function_definition->local_variable_count++;
 }
 
-static void add_declaration(Block *current_block, Declaration *declaration, FunctionDefinition *function_definition, int line_number, DVM_Boolean is_parameter) {
+static void add_declaration(Block *current_block, Declaration *declaration, 
+                            FunctionDefinition *function_definition, 
+                            int line_number, DVM_Boolean is_parameter) {
 	if (dkc_search_declaration(declaration->name, current_block)) {
 		dkc_compile_error(line_number, VARIABLE_MULTIPLE_DEFINE_ERR,
 		                  STRING_MESSAGE_ARGUMENT, "name", declaration->name,
@@ -125,13 +133,116 @@ static void add_parameter_as_declaration(FunctionDefinition *function_definition
 	}
 }
 
+static DVM_Boolean is_super_interface(ClassDefinition *child, ClassDefinition *parent, int *interface_index_out) {
+	int interface_index = 0;
+	for (ExtendsList *pos = child->interface_list; pos; pos = pos->next) {
+		if (pos->class_definition == parent) {
+			*interface_index_out = interface_index;
+			return DVM_TRUE;
+		}
+		interface_index++;
+	}
+	return DVM_FALSE;
+}
+
+static DVM_Boolean is_super_class(ClassDefinition *child, ClassDefinition *parent, DVM_Boolean *is_interface, int *interface_index) {
+	for (ClassDefinition *pos = child->super_class; pos; pos = pos->super_class) {
+		if (pos == parent) {
+			*is_interface = DVM_FALSE;
+			return DVM_TRUE;
+		}
+	}
+
+	*is_interface = DVM_TRUE;
+
+	return is_super_interface(child, parent, interface_index);
+}
+
+static DVM_Boolean is_exception_class(ClassDefinition *class_definition) {
+    ClassDefinition *exception_class = dkc_search_class(EXCEPTION_CLASS_NAME);
+    DVM_Boolean is_interface_dummy;
+    int interface_index_dummy;
+    if (class_definition == exception_class 
+        || (is_super_class(class_definition, exception_class, &is_interface_dummy, &interface_index_dummy))) {
+        return DVM_TRUE;
+    } else {
+        return DVM_FALSE;
+    }
+}
+
+static void fix_throws(ExceptionList *throws) {
+    for (ExceptionList *pos = throws; pos; pos = pos->next) {
+        if (pos->ref->class_defintion == NULL) {
+            dkc_compile_error(pos->ref->line_number,
+                THROWS_TYPE_NOT_FOUND_ERR,
+                STRING_MESSAGE_ARGUMENT, "name",
+                pos->ref->identifier,
+                MESSAGE_ARGUMENT_END);
+        }
+
+        if (!is_exception_class(pos->ref->class_defintion)) {
+            dkc_compile_error(pos->ref->line_number,
+                THROW_TYPE_IS_NOT_CLASS_ERR,
+                STRING_MESSAGE_ARGUMENT, "name",
+                pos->ref->identifier,
+                MESSAGE_ARGUMENT_END);
+        }
+    }
+}
+
+static DVM_Boolean check_throws(ExceptionList *wide, ExceptionList *narrow, ExceptionList **error_exception) {
+    printf("check_throws\n");
+    ExceptionList *wide_pos;
+    ExceptionList *narrow_pos;
+    DVM_Boolean is_interface_dummy;
+    int interface_index_dummy;
+    DVM_Boolean is_thrown = DVM_TRUE;
+
+    for (narrow_pos = narrow; narrow_pos; narrow_pos = narrow_pos->next) {
+        is_thrown = DVM_FALSE;
+        for (wide_pos = wide; wide_pos; wide_pos = wide_pos->next) {
+            if (narrow_pos->ref->class_defintion == wide_pos->ref->class_defintion
+                || is_super_class(narrow_pos->ref->class_defintion, 
+                                    wide_pos->ref->class_defintion,
+                                    &is_interface_dummy,
+                                    &interface_index_dummy)) {
+                is_thrown = DVM_TRUE;
+                break;
+            }
+        }
+
+        if (wide_pos == NULL) {
+            break;
+        }
+    }
+
+    if (!is_thrown) {
+        *error_exception = narrow_pos;
+    }
+
+    return is_thrown;
+}
+
 static void fix_function(FunctionDefinition *function_definition) {
+    ExceptionList *exception_list = NULL;
+    ExceptionList *error_exception;
+
 	add_parameter_as_declaration(function_definition);
 	fix_type_specifier(function_definition->type);
+    fix_throws(function_definition->throws);
 	if (function_definition->block) {
-		fix_statement_list(function_definition->block, function_definition->block->statement_list, function_definition);
-		add_return_function(function_definition);
+		fix_statement_list(function_definition->block, 
+                        function_definition->block->statement_list, function_definition, &exception_list);
+		add_return_function(function_definition, &exception_list);
 	}
+
+    if (!check_throws(function_definition->throws, exception_list, &error_exception)) {
+        dkc_compile_error(function_definition->end_line_number,
+        EXCEPTION_HAS_TO_BE_THROWN_ERR,
+        STRING_MESSAGE_ARGUMENT, "name",
+        error_exception->ref->identifier,
+        MESSAGE_ARGUMENT_END);
+    }
 }
 
 static Expression *fix_identifier_expression(Block *current_block, Expression *expression) {
@@ -213,9 +324,9 @@ static int add_class(ClassDefinition *src) {
 	return result;
 }
 
-static Expression *fix_comma_expression(Block *current_block, Expression *expression) {
-	expression->u.comma.left = fix_expression(current_block, expression->u.comma.left, expression);
-	expression->u.comma.right = fix_expression(current_block, expression->u.comma.right, expression);
+static Expression *fix_comma_expression(Block *current_block, Expression *expression, ExceptionList **exception_list) {
+	expression->u.comma.left = fix_expression(current_block, expression->u.comma.left, expression, exception_list);
+	expression->u.comma.right = fix_expression(current_block, expression->u.comma.right, expression, exception_list);
 	expression->type = expression->u.comma.right->type;
 	return expression;
 }
@@ -275,31 +386,6 @@ static Expression *create_up_cast(Expression *src, ClassDefinition *dest_interfa
 	cast_expression->u.up_cast.interface_index = interface_index;
 
 	return cast_expression;
-}
-
-static DVM_Boolean is_super_interface(ClassDefinition *child, ClassDefinition *parent, int *interface_index_out) {
-	int interface_index = 0;
-	for (ExtendsList *pos = child->interface_list; pos; pos = pos->next) {
-		if (pos->class_definition == parent) {
-			*interface_index_out = interface_index;
-			return DVM_TRUE;
-		}
-		interface_index++;
-	}
-	return DVM_FALSE;
-}
-
-static DVM_Boolean is_super_class(ClassDefinition *child, ClassDefinition *parent, DVM_Boolean *is_interface, int *interface_index) {
-	for (ClassDefinition *pos = child->super_class; pos; pos = pos->super_class) {
-		if (pos == parent) {
-			*is_interface = DVM_FALSE;
-			return DVM_TRUE;
-		}
-	}
-
-	*is_interface = DVM_TRUE;
-
-	return is_super_interface(child, parent, interface_index);
 }
 
 static Expression *alloc_cast_expression(CastType cast_type, Expression *operand) {
@@ -364,7 +450,7 @@ static Expression *create_assign_cast(Expression *src, TypeSpecifier *dest) {
 		DBG_assert(src->type->derive == NULL, ("derive != NULL"));
 		return src;
 	}
-printf("create_assign_cast\n");
+
 	if (dkc_is_class_object(src->type) && dkc_is_class_object(dest)) {
 		DVM_Boolean is_interface;
 		int interface_index;
@@ -400,17 +486,21 @@ printf("create_assign_cast\n");
 	return NULL;
 }
 
-static Expression *fix_assign_expression(Block *current_block, Expression *expression) {
+static Expression *fix_assign_expression(Block *current_block, Expression *expression, 
+                                            ExceptionList **exception_list) {
 	if (expression->u.assign_expression.left->kind != IDENTIFIER_EXPRESSION
 	    && expression->u.assign_expression.left->kind != INDEX_EXPRESSION
 	    && expression->u.assign_expression.left->kind != MEMBER_EXPRESSION) {
 		dkc_compile_error(expression->u.assign_expression.left->line_number, NOT_LVALUE_ERR, MESSAGE_ARGUMENT_END);
 	}
 
-	expression->u.assign_expression.left = fix_expression(current_block, expression->u.assign_expression.left,
-	                                                      expression);
+	expression->u.assign_expression.left = fix_expression(current_block, 
+                                                            expression->u.assign_expression.left,
+	                                                        expression, exception_list);
 	Expression *left = expression->u.assign_expression.left;
-	Expression *operand = fix_expression(current_block, expression->u.assign_expression.operand, expression);
+	Expression *operand = fix_expression(current_block, 
+                                        expression->u.assign_expression.operand, 
+                                        expression, exception_list);
 	expression->u.assign_expression.operand = create_assign_cast(operand, expression->u.assign_expression.left->type);
 	expression->type = left->type;
 
@@ -535,11 +625,11 @@ static Expression *cast_binary_expression(Expression *expression) {
 	return expression;
 }
 
-static Expression *fix_math_binary_expression(Block *current_block, Expression *expression) {
+static Expression *fix_math_binary_expression(Block *current_block, Expression *expression, ExceptionList **exception_list) {
 	expression->u.binary_expression.left = fix_expression(current_block, expression->u.binary_expression.left,
-	                                                      expression);
+	                                                      expression, exception_list);
 	expression->u.binary_expression.right = fix_expression(current_block, expression->u.binary_expression.right,
-	                                                       expression);
+	                                                       expression, exception_list);
 	expression = eval_math_expression(current_block, expression);
 	if (expression->kind == INT_EXPRESSION || expression->kind == DOUBLE_EXPRESSION ||
 	    expression->kind == STRING_EXPRESSION) {
@@ -685,11 +775,11 @@ static Expression *eval_compare_expression(Expression *expression) {
 	return expression;
 }
 
-static Expression *fix_compare_expression(Block *current_block, Expression *expression) {
+static Expression *fix_compare_expression(Block *current_block, Expression *expression, ExceptionList **exception_list) {
 	expression->u.binary_expression.left = fix_expression(current_block, expression->u.binary_expression.left,
-	                                                      expression);
+	                                                      expression, exception_list);
 	expression->u.binary_expression.right = fix_expression(current_block, expression->u.binary_expression.right,
-	                                                       expression);
+	                                                       expression, exception_list);
 	expression = eval_compare_expression(expression);
 	if (expression->kind == BOOLEAN_EXPRESSION) {
 		return expression;
@@ -710,11 +800,11 @@ static Expression *fix_compare_expression(Block *current_block, Expression *expr
 	return expression;
 }
 
-static Expression *fix_logical_and_or_expression(Block *current_block, Expression *expression) {
+static Expression *fix_logical_and_or_expression(Block *current_block, Expression *expression, ExceptionList **exception_list) {
 	expression->u.binary_expression.left = fix_expression(current_block, expression->u.binary_expression.left,
-	                                                      expression);
+	                                                      expression, exception_list);
 	expression->u.binary_expression.right = fix_expression(current_block, expression->u.binary_expression.right,
-	                                                       expression);
+	                                                       expression, exception_list);
 	if (dkc_is_boolean(expression->u.binary_expression.left->type) &&
 	    dkc_is_boolean(expression->u.binary_expression.right->type)) {
 		expression->type = dkc_alloc_type_specifier(DVM_BOOLEAN_TYPE);
@@ -725,12 +815,12 @@ static Expression *fix_logical_and_or_expression(Block *current_block, Expressio
 	return expression;
 }
 
-static void check_argument(Block *current_block, int line_number, ParameterList *parameter_list, ArgumentList *argument, TypeSpecifier *array_base) {
+static void check_argument(Block *current_block, int line_number, ParameterList *parameter_list, ArgumentList *argument, TypeSpecifier *array_base, ExceptionList **exception_list) {
 	ParameterList*parameter;
 	TypeSpecifier *temp_type;
 
 	for (parameter = parameter_list; parameter && argument; parameter = parameter->next, argument = argument->next) {
-		argument->expression = fix_expression(current_block, argument->expression, NULL);
+		argument->expression = fix_expression(current_block, argument->expression, NULL, exception_list);
 		if (parameter->type->basic_type == DVM_BASE_TYPE) {
 			DBG_assert(array_base != NULL, ("array_base == NULL\n"));
 			temp_type = array_base;
@@ -745,12 +835,13 @@ static void check_argument(Block *current_block, int line_number, ParameterList 
 	}
 }
 
-static Expression *fix_function_call_expression(Block *current_block, Expression *expression) {
+static Expression *fix_function_call_expression(Block *current_block, Expression *expression, ExceptionList **exception_list) {
 	DKC_Compiler *compiler = dkc_get_current_compiler();
 	TypeSpecifier *array_base_p = NULL;
 	TypeSpecifier array_base;
-	Expression *function_expression = fix_expression(current_block, expression->u.function_call_expression.function,
-	                                                 expression);
+	Expression *function_expression = fix_expression(current_block, 
+                                                    expression->u.function_call_expression.function,
+                                                    expression, exception_list);
 	FunctionDefinition *function_definition = NULL;
 
 	expression->u.function_call_expression.function = function_expression;
@@ -796,7 +887,7 @@ static Expression *fix_function_call_expression(Block *current_block, Expression
 
 	ParameterList *function_param = function_definition->parameter;
 	check_argument(current_block, expression->line_number, function_param,
-	               expression->u.function_call_expression.argument, array_base_p);
+	               expression->u.function_call_expression.argument, array_base_p, exception_list);
 	expression->type = dkc_alloc_type_specifier(function_type->basic_type);
 	*expression->type = *function_type;
 	expression->type->derive = function_type->derive;
@@ -926,7 +1017,7 @@ static Expression *fix_string_method_expression(Expression *expression, Expressi
 	return expression;
 }
 
-static Expression *fix_member_expression(Block *current_block, Expression *expression) {
+static Expression *fix_member_expression(Block *current_block, Expression *expression, ExceptionList **exception_list) {
 
 // TODO: enum
     // if (expression->u.member_expression.expression->kind == IDENTIFIER_EXPRESSION && dkc_search_enum())
@@ -934,7 +1025,7 @@ static Expression *fix_member_expression(Block *current_block, Expression *expre
 	Expression *object = expression->u.member_expression.expression 
                         = fix_expression(current_block, 
                                         expression->u.member_expression.expression,
-                                        expression);
+                                        expression, exception_list);
 	if (dkc_is_class_object(object->type)) {
 		return fix_class_member_expression(expression, object, expression->u.member_expression.member_name);
 	} else if (dkc_is_array(object->type)) {
@@ -988,19 +1079,19 @@ static Expression *fix_super_expression(Expression *expression, Expression *pare
 	return expression;
 }
 
-static Expression *fix_array_literal_expression(Block *current_block, Expression *expression) {
+static Expression *fix_array_literal_expression(Block *current_block, Expression *expression, ExceptionList **exception_list) {
 	TypeSpecifier *elem_type;
 	ExpressionList *literal = expression->u.array_literal;
 	if (literal == NULL) {
 		dkc_compile_error(expression->line_number, ARRAY_LITERAL_EMPTY_ERR, MESSAGE_ARGUMENT_END);
 	}
 
-	literal->expression = fix_expression(current_block, literal->expression, expression);
+	literal->expression = fix_expression(current_block, literal->expression, expression, exception_list);
 
 	elem_type = literal->expression->type;
 
 	for (ExpressionList *pos = literal->next; pos; pos = pos->next) {
-		pos->expression = fix_expression(current_block, pos->expression, expression);
+		pos->expression = fix_expression(current_block, pos->expression, expression, exception_list);
 		pos->expression = create_assign_cast(pos->expression, elem_type);
 	}
 
@@ -1012,10 +1103,10 @@ static Expression *fix_array_literal_expression(Block *current_block, Expression
 	return expression;
 }
 
-static Expression *fix_index_expression(Block *current_block, Expression *expression) {
+static Expression *fix_index_expression(Block *current_block, Expression *expression, ExceptionList **exception_list) {
 	IndexExpression *index_expression = &expression->u.index_expression;
-	index_expression->array = fix_expression(current_block, index_expression->array, expression);
-	index_expression->index = fix_expression(current_block, index_expression->index, expression);
+	index_expression->array = fix_expression(current_block, index_expression->array, expression, exception_list);
+	index_expression->index = fix_expression(current_block, index_expression->index, expression, exception_list);
 	if (index_expression->array->type->derive != NULL && index_expression->array->type->derive->tag == ARRAY_DERIVE) {
 		expression->type = dkc_alloc_type_specifier2(index_expression->array->type);
 		expression->type->derive = index_expression->array->type->derive->next;
@@ -1030,8 +1121,8 @@ static Expression *fix_index_expression(Block *current_block, Expression *expres
 	return expression;
 }
 
-static Expression *fix_inc_dec_expression(Block *current_block, Expression *expression) {
-	expression->u.inc_dec.operand = fix_expression(current_block, expression->u.inc_dec.operand, expression);
+static Expression *fix_inc_dec_expression(Block *current_block, Expression *expression, ExceptionList **exception_list) {
+	expression->u.inc_dec.operand = fix_expression(current_block, expression->u.inc_dec.operand, expression, exception_list);
 
 	if (!dkc_is_int(expression->u.inc_dec.operand->type)) {
 		dkc_compile_error(expression->line_number, INC_DEC_TYPE_MISMATCH_ERR, MESSAGE_ARGUMENT_END);
@@ -1042,12 +1133,15 @@ static Expression *fix_inc_dec_expression(Block *current_block, Expression *expr
 	return expression;
 }
 
-static Expression *fix_instanceof_expression(Block *current_block, Expression *expression) {
+static Expression *fix_instanceof_expression(Block *current_block, 
+                                            Expression *expression, 
+                                            ExceptionList **exception_list) {
 	DVM_Boolean is_interface_dummy;
 	int interface_index_dummy;
 	expression->u.instanceof_expression.operand = fix_expression(current_block,
 	                                                             expression->u.instanceof_expression.operand,
-	                                                             expression);
+	                                                             expression,
+                                                                 exception_list);
 	fix_type_specifier(expression->u.instanceof_expression.type);
 	Expression *operand = expression->u.instanceof_expression.operand;
 	TypeSpecifier *target = expression->u.instanceof_expression.type;
@@ -1083,7 +1177,7 @@ static Expression *fix_instanceof_expression(Block *current_block, Expression *e
 	return expression;
 }
 
-static Expression *fix_new_expression(Block *current_block, Expression *expression) {
+static Expression *fix_new_expression(Block *current_block, Expression *expression, ExceptionList **exception_list) {
 	MemberDeclaration *member;
 	TypeSpecifier *type;
 	expression->u.new_expression.class_definition = search_class_and_add(expression->line_number,
@@ -1118,10 +1212,10 @@ static Expression *fix_new_expression(Block *current_block, Expression *expressi
 	check_member_accessibility(expression->line_number, expression->u.new_expression.class_definition, member,
 	                           expression->u.new_expression.method_name);
 
-	DBG_assert(member->u.method.function_definition->type->derive==NULL&&member->u.method.function_definition->type->basic_type==DVM_VOID_TYPE, ("constructor is not void.\n"));
+	DBG_assert(member->u.method.function_definition->type->derive == NULL && member->u.method.function_definition->type->basic_type==DVM_VOID_TYPE, ("constructor is not void.\n"));
 
 	check_argument(current_block, expression->line_number, member->u.method.function_definition->parameter,
-	               expression->u.new_expression.argument, NULL);
+	               expression->u.new_expression.argument, NULL, exception_list);
 
 	expression->u.new_expression.method_declaration = member;
 	type = dkc_alloc_type_specifier(DVM_CLASS_TYPE);
@@ -1132,13 +1226,16 @@ static Expression *fix_new_expression(Block *current_block, Expression *expressi
 	return expression;
 }
 
-static Expression *fix_down_cast_expression(Block *current_block, Expression *expression) {
+static Expression *fix_down_cast_expression(Block *current_block, Expression *expression, 
+                                            ExceptionList **exception_list) {
 	DVM_Boolean is_interface_dummy;
 	int interface_index_dummy;
 	TypeSpecifier *org_type;
 	TypeSpecifier *target_type;
 
-	expression->u.down_cast.operand = fix_expression(current_block, expression->u.down_cast.operand, expression);
+	expression->u.down_cast.operand = fix_expression(current_block, 
+                                                    expression->u.down_cast.operand, 
+                                                    expression, exception_list);
 	fix_type_specifier(expression->u.down_cast.type);
 	org_type = expression->u.down_cast.operand->type;
 	target_type = expression->u.down_cast.type;
@@ -1164,14 +1261,14 @@ static Expression *fix_down_cast_expression(Block *current_block, Expression *ex
 	return expression;
 }
 
-static Expression *fix_array_creation_expression(Block *current_block, Expression *expression) {
+static Expression *fix_array_creation_expression(Block *current_block, Expression *expression, ExceptionList **exception_list) {
 	TypeDerive *derive = NULL;
 	TypeDerive *tmp_derive;
 	fix_type_specifier(expression->u.array_creation.type);
 
 	for (ArrayDimension *pos = expression->u.array_creation.dimension; pos; pos = pos->next) {
 		if (pos->expression) {
-			pos->expression = fix_expression(current_block, pos->expression, expression);
+			pos->expression = fix_expression(current_block, pos->expression, expression, exception_list);
 			if (!dkc_is_int(pos->expression->type)) {
 				dkc_compile_error(expression->line_number, ARRAY_SIZE_NOT_INT_ERR, MESSAGE_ARGUMENT_END);
 			}
@@ -1187,7 +1284,7 @@ static Expression *fix_array_creation_expression(Block *current_block, Expressio
 	return expression;
 }
 
-static Expression *fix_expression(Block *current_block, Expression *expression, Expression *parent) {
+static Expression *fix_expression(Block *current_block, Expression *expression, Expression *parent, ExceptionList **exception_list) {
 	if (expression == NULL) {
 		return NULL;
 	}
@@ -1208,17 +1305,17 @@ static Expression *fix_expression(Block *current_block, Expression *expression, 
 			expression = fix_identifier_expression(current_block, expression);
 			break;
 		case COMMA_EXPRESSION:
-			expression = fix_comma_expression(current_block, expression);
+			expression = fix_comma_expression(current_block, expression, exception_list);
 			break;
 		case ASSIGN_EXPRESSION:
-			expression = fix_assign_expression(current_block, expression);
+			expression = fix_assign_expression(current_block, expression, exception_list);
 			break;
 		case ADD_EXPRESSION:
 		case SUB_EXPRESSION:
 		case MUL_EXPRESSION:
 		case DIV_EXPRESSION:
 		case MOD_EXPRESSION:
-			expression = fix_math_binary_expression(current_block, expression);
+			expression = fix_math_binary_expression(current_block, expression, exception_list);
 			break;
 		case EQ_EXPRESSION:
 		case NE_EXPRESSION:
@@ -1226,17 +1323,17 @@ static Expression *fix_expression(Block *current_block, Expression *expression, 
 		case GE_EXPRESSION:
 		case LT_EXPRESSION:
 		case LE_EXPRESSION:
-			expression = fix_compare_expression(current_block, expression);
+			expression = fix_compare_expression(current_block, expression, exception_list);
 			break;
 		case LOGICAL_AND_EXPRESSION:
 		case LOGICAL_OR_EXPRESSION:
-			expression = fix_logical_and_or_expression(current_block, expression);
+			expression = fix_logical_and_or_expression(current_block, expression, exception_list);
 			break;
 		case FUNCTION_CALL_EXPRESSION:
-			expression = fix_function_call_expression(current_block, expression);
+			expression = fix_function_call_expression(current_block, expression, exception_list);
 			break;
 		case MEMBER_EXPRESSION:
-			expression = fix_member_expression(current_block, expression);
+			expression = fix_member_expression(current_block, expression, exception_list);
 			break;
 		case NULL_EXPRESSION:
 			expression->type = dkc_alloc_type_specifier(DVM_NULL_TYPE);
@@ -1248,30 +1345,30 @@ static Expression *fix_expression(Block *current_block, Expression *expression, 
 			expression = fix_super_expression(expression, parent);
 			break;
 		case ARRAY_LITERAL_EXPRESSION:
-			expression = fix_array_literal_expression(current_block, expression);
+			expression = fix_array_literal_expression(current_block, expression, exception_list);
 			break;
 		case INDEX_EXPRESSION:
-			expression = fix_index_expression(current_block, expression);
+			expression = fix_index_expression(current_block, expression, exception_list);
 			break;
 		case INCREMENT_EXPRESSION:
 		case DECREMENT_EXPRESSION:
-			expression = fix_inc_dec_expression(current_block, expression);
+			expression = fix_inc_dec_expression(current_block, expression, exception_list);
 			break;
 		case INSTANCEOF_EXPRESSION:
-			expression = fix_instanceof_expression(current_block, expression);
+			expression = fix_instanceof_expression(current_block, expression, exception_list);
 			break;
 		case DOWN_CAST_EXPRESSION:
-			expression = fix_down_cast_expression(current_block, expression);
+			expression = fix_down_cast_expression(current_block, expression, exception_list);
 			break;
 		case CAST_EXPRESSION:
 			break;
 		case UP_CAST_EXPRESSION:
 			break;
 		case NEW_EXPRESSION:
-			expression = fix_new_expression(current_block, expression);
+			expression = fix_new_expression(current_block, expression, exception_list);
 			break;
 		case ARRAY_CREATION_EXPRESSION:
-			expression = fix_array_creation_expression(current_block, expression);
+			expression = fix_array_creation_expression(current_block, expression, exception_list);
 			break;
 		case EXPRESSION_KIND_COUNT_PLUS_1:
 			break;
@@ -1284,57 +1381,68 @@ static Expression *fix_expression(Block *current_block, Expression *expression, 
 	return expression;
 }
 
-static void fix_if_statement(Block *current_block, IfStatement *if_statement, FunctionDefinition *function_definition) {
-	if_statement->condition = fix_expression(current_block, if_statement->condition, NULL);
+static void fix_if_statement(Block *current_block, IfStatement *if_statement, FunctionDefinition *function_definition, ExceptionList **exception_list) {
+	if_statement->condition = fix_expression(current_block, if_statement->condition, NULL, exception_list);
 	if (!dkc_is_boolean(if_statement->condition->type)) {
 		dkc_compile_error(if_statement->condition->line_number, IF_CONDITION_NOT_BOOLEAN_ERR, MESSAGE_ARGUMENT_END);
 	}
 
-	fix_statement_list(if_statement->then_block, if_statement->then_block->statement_list, function_definition);
+	fix_statement_list(if_statement->then_block, 
+                        if_statement->then_block->statement_list, 
+                        function_definition, exception_list);
 
 	for (Elseif *pos = if_statement->elseif_list; pos; pos = pos->next) {
-		pos->condition = fix_expression(current_block, pos->condition, NULL);
+		pos->condition = fix_expression(current_block, pos->condition, NULL, exception_list);
 		if (pos->block) {
-			fix_statement_list(pos->block, pos->block->statement_list, function_definition);
+			fix_statement_list(pos->block, pos->block->statement_list, 
+                                function_definition, exception_list);
 		}
 	}
 
 	if (if_statement->else_block) {
-		fix_statement_list(if_statement->else_block, if_statement->else_block->statement_list, function_definition);
+		fix_statement_list(if_statement->else_block, 
+                            if_statement->else_block->statement_list, 
+                            function_definition, exception_list);
 	}
 }
 
-static void fix_while_statement(Block *current_block, WhileStatement *while_s, FunctionDefinition *function_definition) {
-	while_s->condition = fix_expression(current_block, while_s->condition, NULL);
+static void fix_while_statement(Block *current_block, WhileStatement *while_s, 
+                                FunctionDefinition *function_definition, 
+                                ExceptionList **exception_list) {
+	while_s->condition = fix_expression(current_block, while_s->condition, NULL, exception_list);
 	if (!dkc_is_boolean(while_s->condition->type)) {
 		dkc_compile_error(while_s->condition->line_number, WHILE_CONDITION_NOT_BOOLEAN_ERR, MESSAGE_ARGUMENT_END);
 	}
-	fix_statement_list(while_s->block, while_s->block->statement_list, function_definition);
+	fix_statement_list(while_s->block, while_s->block->statement_list, function_definition, exception_list);
 }
 
-static void fix_for_statement(Block *current_block, ForStatement *for_s, FunctionDefinition *function_definition) {
-	for_s->init = fix_expression(current_block, for_s->init, NULL);
-	for_s->condition = fix_expression(current_block, for_s->condition, NULL);
+static void fix_for_statement(Block *current_block, ForStatement *for_s, 
+                            FunctionDefinition *function_definition, 
+                            ExceptionList **exception_list) {
+	for_s->init = fix_expression(current_block, for_s->init, NULL, exception_list);
+	for_s->condition = fix_expression(current_block, for_s->condition, NULL, exception_list);
 	if (for_s->condition != NULL && !dkc_is_boolean(for_s->condition->type)) {
 		dkc_compile_error(for_s->condition->line_number, FOR_CONDITION_NOT_BOOLEAN_ERR, MESSAGE_ARGUMENT_END);
 	}
-	for_s->post = fix_expression(current_block, for_s->post, NULL);
-	fix_statement_list(for_s->block, for_s->block->statement_list, function_definition);
+	for_s->post = fix_expression(current_block, for_s->post, NULL, exception_list);
+	fix_statement_list(for_s->block, for_s->block->statement_list, function_definition, exception_list);
 }
 
-static void fix_statement(Block *current_block, Statement *statement, FunctionDefinition *function_definition) {
+static void fix_statement(Block *current_block, Statement *statement, 
+                            FunctionDefinition *function_definition, 
+                            ExceptionList **exception_list) {
 	switch (statement->type) {
 		case EXPRESSION_STATEMENT:
-			statement->u.expression_s = fix_expression(current_block, statement->u.expression_s, NULL);
+			statement->u.expression_s = fix_expression(current_block, statement->u.expression_s, NULL, exception_list);
 			break;
 		case IF_STATEMENT:
-			fix_if_statement(current_block, &statement->u.if_s, function_definition);
+			fix_if_statement(current_block, &statement->u.if_s, function_definition, exception_list);
 			break;
 		case WHILE_STATEMENT:
-			fix_while_statement(current_block, &statement->u.while_s, function_definition);
+			fix_while_statement(current_block, &statement->u.while_s, function_definition, exception_list);
 			break;
 		case FOR_STATEMENT:
-			fix_for_statement(current_block, &statement->u.for_s, function_definition);
+			fix_for_statement(current_block, &statement->u.for_s, function_definition, exception_list);
 			break;
 		case DO_WHILE_STATEMENT:
 			// TODO
@@ -1348,19 +1456,20 @@ static void fix_statement(Block *current_block, Statement *statement, FunctionDe
 //			                   function_definition);
 			break;
 		case RETURN_STATEMENT:
-			fix_return_statement(current_block, statement, function_definition);
+			fix_return_statement(current_block, statement, function_definition, exception_list);
 			break;
 		case BREAK_STATEMENT:
 			break;
 		case CONTINUE_STATEMENT:
 			break;
 		case DECLARATION_STATEMENT:
-			add_declaration(current_block, statement->u.declaration_s, function_definition, statement->line_number,
+			add_declaration(current_block, statement->u.declaration_s, 
+                            function_definition, statement->line_number,
 			                DVM_FALSE);
 			fix_type_specifier(statement->u.declaration_s->type);
 			if (statement->u.declaration_s->initializer) {
 				statement->u.declaration_s->initializer = fix_expression(current_block,
-				                                                         statement->u.declaration_s->initializer, NULL);
+				                                                         statement->u.declaration_s->initializer, NULL, exception_list);
 				statement->u.declaration_s->initializer = create_assign_cast(statement->u.declaration_s->initializer,
 				                                                             statement->u.declaration_s->type);
 			}
@@ -1371,9 +1480,10 @@ static void fix_statement(Block *current_block, Statement *statement, FunctionDe
 	}
 }
 
-static void fix_return_statement(Block *current_block, Statement *statement, FunctionDefinition *function_definition) {
+static void fix_return_statement(Block *current_block, Statement *statement, 
+                                FunctionDefinition *function_definition, ExceptionList **exception_list) {
 	Expression *casted_expression;
-	Expression *return_value = fix_expression(current_block, statement->u.return_s.return_value, NULL);
+	Expression *return_value = fix_expression(current_block, statement->u.return_s.return_value, NULL, exception_list);
 
 	if (function_definition->type->derive == NULL && function_definition->type->basic_type == DVM_VOID_TYPE && return_value != NULL) {
 		dkc_compile_error(statement->line_number, RETURN_IN_VOID_FUNCTION_ERR, MESSAGE_ARGUMENT_END);
@@ -1422,10 +1532,12 @@ static void fix_return_statement(Block *current_block, Statement *statement, Fun
 	statement->u.return_s.return_value = casted_expression;
 }
 
-static void fix_statement_list(Block *current_block, StatementList *list, FunctionDefinition *function_definition) {
-	for (StatementList *pos = list; pos; pos = pos->next) {
-		fix_statement(current_block, pos->statement, function_definition);
-	}
+static void fix_statement_list(Block *current_block, StatementList *list, 
+                                FunctionDefinition *function_definition, 
+                                ExceptionList **exception_list) {
+    for (StatementList *pos = list; pos; pos = pos->next) {
+        fix_statement(current_block, pos->statement, function_definition, exception_list);
+    }
 }
 
 static MemberDeclaration *search_member_in_super(ClassDefinition *class_definition, char *member_name) {
@@ -1577,7 +1689,7 @@ static void add_default_constructor(ClassDefinition *class_definition) {
 	} else {
 		block->statement_list = NULL;
 	}
-	function_definition = dkc_create_function_definition(type, DEFAULT_CONSTRUCTOR_NAME, NULL, block);
+	function_definition = dkc_create_function_definition(type, DEFAULT_CONSTRUCTOR_NAME, NULL, NULL, block);
 
 	if (tail) {
 		tail->next = dkc_create_method_member(&modifier, function_definition, DVM_TRUE);
@@ -1743,12 +1855,13 @@ static void fix_class_list(DKC_Compiler *compiler) {
 void dkc_fix_tree(DKC_Compiler *compiler) {
     fix_class_list(compiler);
     int variable_count = 0;
+    ExceptionList *exception_list = NULL;
 
     for (FunctionDefinition *pos = compiler->function_list; pos; pos = pos->next) {
         reserve_function_index(compiler, pos);
     }
 
-    fix_statement_list(NULL, compiler->statement_list, NULL);
+    fix_statement_list(NULL, compiler->statement_list, NULL, &exception_list);
 
     for (FunctionDefinition *pos = compiler->function_list; pos; pos = pos->next) {
         if (pos->class_definition == NULL) {

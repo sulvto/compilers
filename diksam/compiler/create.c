@@ -22,8 +22,10 @@ static void add_function_to_compiler(FunctionDefinition *function_definition) {
  * create and add to compiler
  */
 FunctionDefinition *dkc_create_function_definition(TypeSpecifier *type,
-				char *identifier, ParameterList *parameter_list, 
-				Block *block) {
+                                                char *identifier, 
+                                                ParameterList *parameter_list,
+                                                ExceptionList *throws,
+                                                Block *block) {
 	FunctionDefinition *function_def;
 	DKC_Compiler *compiler = dkc_get_current_compiler();
 	function_def = dkc_malloc(sizeof(FunctionDefinition));
@@ -35,6 +37,7 @@ FunctionDefinition *dkc_create_function_definition(TypeSpecifier *type,
 	function_def->local_variable_count = 0;
 	function_def->local_variable = NULL;
 	function_def->class_definition = NULL;
+    function_def->throws = throws;
 	function_def->end_line_number = compiler->current_line_number;
 	function_def->next = NULL;
 
@@ -48,9 +51,9 @@ FunctionDefinition *dkc_create_function_definition(TypeSpecifier *type,
 	return function_def;
 }
 
-void dkc_function_define(TypeSpecifier *type,
-				char *identifier, ParameterList *parameter_list, 
-				Block *block) {
+void dkc_function_define(TypeSpecifier *type, char *identifier, 
+                        ParameterList *parameter_list, ExceptionList *throws,
+                        Block *block) {
 
 	if (dkc_search_function(identifier) 
 		|| dkc_search_declaration(identifier, NULL)) {
@@ -59,8 +62,8 @@ void dkc_function_define(TypeSpecifier *type,
 						STRING_MESSAGE_ARGUMENT, "name", identifier,
 						MESSAGE_ARGUMENT_END);
 	} else {
-		dkc_create_function_definition(type, identifier,
-						parameter_list, block);
+		dkc_create_function_definition(type, identifier, parameter_list, 
+                                        throws, block);
 	}
 }
 
@@ -869,14 +872,19 @@ MemberDeclaration *dkc_create_method_member(ClassOrMemberModifierList *modifier,
 	return ret;
 }
 
-FunctionDefinition *dkc_method_function_define(TypeSpecifier *type, char *identifier, ParameterList *parameter_list,
-                                               Block *block) {
-	return dkc_create_function_definition(type, identifier, parameter_list, block);
+FunctionDefinition *dkc_method_function_define(TypeSpecifier *type, char *identifier, 
+                                                ParameterList *parameter_list,
+                                                ExceptionList *throws,
+                                                Block *block) {
+	return dkc_create_function_definition(type, identifier, parameter_list, throws, block);
 }
 
-FunctionDefinition *dkc_constructor_function_define(char *identifier, ParameterList *parameter_list, Block *block) {
+FunctionDefinition *dkc_constructor_function_define(char *identifier, 
+                                                    ParameterList *parameter_list, 
+                                                    ExceptionList *throws,
+                                                    Block *block) {
 	TypeSpecifier *type = dkc_create_type_specifier(DVM_VOID_TYPE);
-	FunctionDefinition *function_definition = dkc_method_function_define(type, identifier, parameter_list, block);
+	FunctionDefinition *function_definition = dkc_method_function_define(type, identifier, parameter_list, throws, block);
 
 	return function_definition;
 }
@@ -899,10 +907,31 @@ ExtendsList *dkc_create_extends_list(char *identifier) {
 }
 
 ExtendsList *dkc_chain_extends_list(ExtendsList *list, char *add) {
-	ExtendsList *pos;
-	for (pos = list; pos->next; pos = pos->next);
+    ExtendsList *pos;
+    for (pos = list; pos->next; pos = pos->next);
 
-	pos->next = dkc_create_extends_list(add);
+    pos->next = dkc_create_extends_list(add);
 
-	return list;
+    return list;
+}
+
+ExceptionList *dkc_create_throws(char *identifier) {
+    ExceptionList *list;
+    list = dkc_malloc(sizeof(ExceptionList));
+    list->ref = dkc_malloc(sizeof(ExceptionRef));
+    list->ref->identifier = identifier;
+    list->ref->class_defintion = NULL;
+    list->ref->line_number = dkc_get_current_compiler()->current_line_number;
+    list->next = NULL;
+
+    return list;
+}
+
+ExceptionList *dkc_chain_exception_list(ExceptionList *list, char *identifier) {
+    ExceptionList *pos;
+    for (pos = list; pos->next; pos = pos->next) ;
+
+    pos->next = dkc_create_throws(identifier);
+
+    return list;
 }

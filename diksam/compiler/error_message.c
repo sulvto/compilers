@@ -6,7 +6,7 @@
 
 ErrorDefinition dkc_error_message_format[] = {
 		{"dummy"},
-		{"PARSE_ERR"},
+		{"PARSE_ERR token: $(token)"},
 		{"CHARACTER_INVALID_ERR"},
 		{"FUNCTION_MULTIPLE_DEFINE_ERR"},
 		{"BAD_MULTIBYTE_CHARACTER_ERR"},
@@ -70,6 +70,10 @@ ErrorDefinition dkc_error_message_format[] = {
 		{"DOWN_CAST_TARGET_IS_NOT_CLASS_ERR"},
 		{"DOWN_CAST_DO_NOTHING_ERR"},
 		{"DOWN_CAST_TO_BAD_CLASS_ERR"},
+        {"THROW_TYPE_IS_NOT_CLASS_ERR name: $(name)"},
+        {"THROWS_TYPE_NOT_FOUND_ERR name: $(name)"},
+        {"THROWS_TYPE_ID_NOT_EXCEPTION_ERR"},
+        {"EXCEPTION_HAS_TO_BE_THROWN_ERR"},
 		{"IF_CONDITION_NOT_BOOLEAN_ERR"},
 		{"WHILE_CONDITION_NOT_BOOLEAN_ERR"},
 		{"FOR_CONDITION_NOT_BOOLEAN_ERR"},

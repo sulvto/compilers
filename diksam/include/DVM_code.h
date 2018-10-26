@@ -181,10 +181,27 @@ typedef struct {
 } DVM_LineNumber;
 
 typedef struct {
+    int class_index;
+    int start_pc;
+    int end_pc;
+} DVM_CatchClause;
+
+typedef struct {
+    int try_start_pc;
+    int try_end_pc;
+    int catch_count;
+    DVM_CatchClause *catch_clause;
+    int finally_start_pc;
+    int finally_end_pc;
+} DVM_Try;
+
+typedef struct {
     int                 code_size;
     DVM_Byte            *code;
 	int      			line_number_size;
 	DVM_LineNumber      *line_number;
+    int                 try_size;
+    DVM_Try             *try;
     int                 need_stack_size;
 } DVM_CodeBlock;
 
