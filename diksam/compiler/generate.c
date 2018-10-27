@@ -1243,7 +1243,6 @@ static void generate_try_statement(DVM_Executable *executable, Block *current_bl
     set_label(opcode_buf, after_finally_label);
     dvm_try.finally_end_pc = opcode_buf->size - 1;
 
-    // FIXME: Segmentation fault.
     add_try_to_opcode_buf(opcode_buf, &dvm_try);
 }
 
@@ -1336,6 +1335,8 @@ static void init_opcode_buf(OpcodeBuf *opcode_buf) {
     opcode_buf->label_table_alloc_size = 0;
     opcode_buf->line_number = NULL;
     opcode_buf->line_number_size = 0;
+    opcode_buf->try = NULL;
+    opcode_buf->try_size = 0;
 }
 
 static void fix_labels(OpcodeBuf *opcode_buf) {
@@ -1500,6 +1501,8 @@ static void copy_opcode_buf(DVM_CodeBlock *code_block, OpcodeBuf *opcode_buf) {
     code_block->code = fix_opcode_buf(opcode_buf);
     code_block->line_number_size = opcode_buf->line_number_size;
     code_block->line_number = opcode_buf->line_number;
+    code_block->try = opcode_buf->try;
+    code_block->try_size = opcode_buf->try_size;
     code_block->need_stack_size = calc_need_stack_size(code_block->code, code_block->code_size);
 }
 
@@ -1523,11 +1526,7 @@ static void generate_field_initializer(DVM_Executable *executable, ClassDefiniti
         }
     }
     
-    dvm_class->field_initializer.code_size = opcode_buf.size;
-    dvm_class->field_initializer.code = fix_opcode_buf(&opcode_buf);
-    dvm_class->field_initializer.line_number_size = opcode_buf.line_number_size;
-    dvm_class->field_initializer.line_number = opcode_buf.line_number;
-    dvm_class->field_initializer.need_stack_size = calc_need_stack_size(dvm_class->field_initializer.code, dvm_class->field_initializer.code_size);
+    copy_opcode_buf(&dvm_class->field_initializer, &opcode_buf);
 }
 
 static void add_classes(DKC_Compiler *compiler, DVM_Executable *executable) {
@@ -1555,11 +1554,7 @@ static void add_function(DVM_Executable *executable, FunctionDefinition *src, DV
 		init_opcode_buf(&opcode_buf);
 		generate_statement_list(executable, src->block, src->block->statement_list, &opcode_buf);
 		dest->is_implemented = DVM_TRUE;
-        dest->code_block.code_size = opcode_buf.size;
-        dest->code_block.code = fix_opcode_buf(&opcode_buf);
-        dest->code_block.line_number_size = opcode_buf.line_number_size;
-        dest->code_block.line_number = opcode_buf.line_number;
-        dest->code_block.need_stack_size = calc_need_stack_size(dest->code_block.code, dest->code_block.code_size);
+        copy_opcode_buf(&dest->code_block, &opcode_buf);
 
 		dest->local_variable = copy_local_variables(src, dest->parameter_count);
 		dest->local_variable_count = src->local_variable_count - dest->parameter_count;
