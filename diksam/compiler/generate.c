@@ -28,6 +28,8 @@ typedef struct {
     LabelTable      *label_table;
     int             line_number_size;
     DVM_LineNumber  *line_number;
+    int             try_size;
+    DVM_Try         *try;
 } OpcodeBuf;
 
 
@@ -1032,10 +1034,11 @@ static void generate_for_statement(DVM_Executable *executable,
 	ForStatement *for_s = &statement->u.for_s;
 
 	if (for_s->init) {
-		generate_expression(executable, current_block, for_s->init, opcode_buf);
+		generate_expression_statement(executable, current_block, for_s->init, opcode_buf);
 	}
 
 	loop_label = get_label(opcode_buf);
+    set_label(opcode_buf, loop_label);
 
 	if (for_s->condition) {
 		generate_expression(executable, current_block, for_s->condition, opcode_buf);
@@ -1056,13 +1059,12 @@ static void generate_for_statement(DVM_Executable *executable,
 	set_label(opcode_buf, for_s->block->parent.statement.continue_label);
 
 	if (for_s->post) {
-		generate_expression(executable, current_block, for_s->post, opcode_buf);
+		generate_expression_statement(executable, current_block, for_s->post, opcode_buf);
 	}
 
 	generate_code(opcode_buf, statement->line_number, DVM_JUMP, loop_label);
 
 	set_label(opcode_buf, for_s->block->parent.statement.break_label);
-
 }
 
 static void generate_return_statement(DVM_Executable *executable, 
@@ -1171,6 +1173,92 @@ static void generate_continue_statement(DVM_Executable *executable,
     				DVM_JUMP, block_p->parent.statement.continue_label);
 }
 
+static void add_try_to_opcode_buf(OpcodeBuf *opcode_buf, DVM_Try *dvm_try) {
+    opcode_buf->try = MEM_realloc(opcode_buf->try, sizeof(DVM_Try) * (opcode_buf->try_size + 1));
+    opcode_buf->try[opcode_buf->try_size] = *dvm_try;
+    opcode_buf->try_size++;
+}
+
+static void generate_try_statement(DVM_Executable *executable, Block *current_block,
+                                    Statement *statement, OpcodeBuf *opcode_buf) {
+    TryStatement *try_statement = &statement->u.try_s;
+    CatchClause *catch_pos;
+    DVM_Try dvm_try;
+    int catch_count = 0;
+    int catch_index;
+    DVM_CatchClause *dvm_catch;
+    int after_finally_label;
+    int finally_label_backup;
+    DKC_Compiler *compiler = dkc_get_current_compiler();
+
+    after_finally_label = get_label(opcode_buf);
+    finally_label_backup = compiler->current_finally_label;
+    compiler->current_finally_label = get_label(opcode_buf);
+    dvm_try.try_start_pc = opcode_buf->size;
+    generate_statement_list(executable, try_statement->try_block,
+                            try_statement->try_block->statement_list, opcode_buf);
+    generate_code(opcode_buf, statement->line_number, DVM_GO_FINALLY, 
+                    compiler->current_finally_label);
+    generate_code(opcode_buf, statement->line_number, DVM_JUMP, 
+                    after_finally_label);
+    dvm_try.try_end_pc = opcode_buf->size - 1;
+
+    for (catch_pos = try_statement->catch_clause; 
+        catch_pos;
+        catch_pos = catch_pos->next) {
+        catch_count++;
+    }
+    dvm_catch = MEM_malloc(sizeof(DVM_CatchClause) * catch_count);
+
+    for (catch_pos = try_statement->catch_clause, catch_index = 0; 
+        catch_pos;
+        catch_pos = catch_pos->next, catch_index++) {
+        dvm_catch[catch_index].class_index
+            = catch_pos->type->u.class_ref.class_index;
+        dvm_catch[catch_index].start_pc = opcode_buf->size;
+
+        generate_pop_to_identifier(catch_pos->variable_declaration,
+                                catch_pos->line_number, opcode_buf);
+        generate_statement_list(executable, catch_pos->block, 
+                                catch_pos->block->statement_list, 
+                                opcode_buf);
+        generate_code(opcode_buf, catch_pos->line_number, 
+                    DVM_GO_FINALLY, compiler->current_finally_label);
+        generate_code(opcode_buf, catch_pos->line_number, DVM_JUMP, 
+                    after_finally_label);
+        dvm_catch[catch_index].end_pc = opcode_buf->size - 1;
+    }
+    dvm_try.catch_clause = dvm_catch;
+    dvm_try.catch_count = catch_count;
+
+    dvm_try.finally_start_pc = opcode_buf->size;
+    set_label(opcode_buf, compiler->current_finally_label);
+    if (try_statement->finally_block) {
+        generate_statement_list(executable, try_statement->finally_block,
+                                try_statement->finally_block->statement_list, 
+                                opcode_buf);
+    }
+
+    generate_code(opcode_buf, statement->line_number, DVM_FINALLY_END);
+    set_label(opcode_buf, after_finally_label);
+    dvm_try.finally_end_pc = opcode_buf->size - 1;
+
+    // FIXME: Segmentation fault.
+    add_try_to_opcode_buf(opcode_buf, &dvm_try);
+}
+
+static void generate_throw_statement(DVM_Executable *executable, Block *current_block,
+                                    Statement *statement, OpcodeBuf *opcode_buf) {
+    if (statement->u.throw_s.exception) {
+        generate_expression(executable, current_block, statement->u.throw_s.exception, opcode_buf);
+        generate_code(opcode_buf, statement->line_number, DVM_THROW);
+    } else {
+        generate_identifier(statement->u.throw_s.variable_declaration,
+                            opcode_buf, statement->line_number);
+        generate_code(opcode_buf, statement->line_number, DVM_RETHROW);
+    }
+}
+
 static void generate_initializer(DVM_Executable *executable, Block *current_block, 
 				Statement *statement, OpcodeBuf *opcode_buf) {
 	Declaration *declaration = statement->u.declaration_s;
@@ -1207,6 +1295,8 @@ static void generate_statement_list(DVM_Executable *executable,
 								current_block, pos->statement, opcode_buf);
                 break;
             case FOREACH_STATEMENT:
+            // TODO: FOREACH_STATEMENT 
+                printf("TODO: FOREACH_STATEMENT\n");
                 break;
             case RETURN_STATEMENT:
 				generate_return_statement(executable, current_block,
@@ -1221,8 +1311,10 @@ static void generate_statement_list(DVM_Executable *executable,
 								pos->statement, opcode_buf);
                 break;
             case TRY_STATEMENT:
+                generate_try_statement(executable, current_block, pos->statement, opcode_buf);
 				break;
             case THROW_STATEMENT:
+                generate_throw_statement(executable, current_block, pos->statement, opcode_buf);
 				break;
             case DECLARATION_STATEMENT:
 				generate_initializer(executable, current_block,
@@ -1238,7 +1330,7 @@ static void generate_statement_list(DVM_Executable *executable,
 static void init_opcode_buf(OpcodeBuf *opcode_buf) {
     opcode_buf->size = 0;
     opcode_buf->alloc_size = 0;
-    opcode_buf->code = 0;
+    opcode_buf->code = NULL;
     opcode_buf->label_table = NULL;
     opcode_buf->label_table_size = 0;
     opcode_buf->label_table_alloc_size = 0;
@@ -1250,9 +1342,10 @@ static void fix_labels(OpcodeBuf *opcode_buf) {
 	int label;
 	int address;
 	for (int i = 0; i < opcode_buf->size; i++) {
-		if (opcode_buf->code[i] == DVM_JUMP 
+		if (opcode_buf->code[i] == DVM_JUMP
 			||opcode_buf->code[i] == DVM_JUMP_IF_TRUE
-			|| opcode_buf->code[i] == DVM_JUMP_IF_FALSE) {
+			|| opcode_buf->code[i] == DVM_JUMP_IF_FALSE
+            || opcode_buf->code[i] == DVM_GO_FINALLY) {
 			label = (opcode_buf->code[i + 1] << 8) + (opcode_buf->code[i+2]);
 			address = opcode_buf->label_table[label].label_address;
 			opcode_buf->code[i+1] = (DVM_Byte)(address >> 8);
@@ -1280,7 +1373,7 @@ static DVM_Byte *fix_opcode_buf(OpcodeBuf *opcode_buf) {
 	fix_labels(opcode_buf);
 	ret = MEM_realloc(opcode_buf->code, opcode_buf->size);
 	MEM_free(opcode_buf->label_table);
-			
+
 	return ret;
 }
 
@@ -1430,7 +1523,11 @@ static void generate_field_initializer(DVM_Executable *executable, ClassDefiniti
         }
     }
     
-    copy_opcode_buf(&dvm_class->field_initializer, &opcode_buf);
+    dvm_class->field_initializer.code_size = opcode_buf.size;
+    dvm_class->field_initializer.code = fix_opcode_buf(&opcode_buf);
+    dvm_class->field_initializer.line_number_size = opcode_buf.line_number_size;
+    dvm_class->field_initializer.line_number = opcode_buf.line_number;
+    dvm_class->field_initializer.need_stack_size = calc_need_stack_size(dvm_class->field_initializer.code, dvm_class->field_initializer.code_size);
 }
 
 static void add_classes(DKC_Compiler *compiler, DVM_Executable *executable) {
@@ -1458,7 +1555,12 @@ static void add_function(DVM_Executable *executable, FunctionDefinition *src, DV
 		init_opcode_buf(&opcode_buf);
 		generate_statement_list(executable, src->block, src->block->statement_list, &opcode_buf);
 		dest->is_implemented = DVM_TRUE;
-        copy_opcode_buf(&dest->code_block, &opcode_buf);
+        dest->code_block.code_size = opcode_buf.size;
+        dest->code_block.code = fix_opcode_buf(&opcode_buf);
+        dest->code_block.line_number_size = opcode_buf.line_number_size;
+        dest->code_block.line_number = opcode_buf.line_number;
+        dest->code_block.need_stack_size = calc_need_stack_size(dest->code_block.code, dest->code_block.code_size);
+
 		dest->local_variable = copy_local_variables(src, dest->parameter_count);
 		dest->local_variable_count = src->local_variable_count - dest->parameter_count;
 	} else {
@@ -1533,6 +1635,14 @@ static void add_top_level(DKC_Compiler *compiler, DVM_Executable *executable) {
     executable->need_stack_size = calc_need_stack_size(executable->code, executable->code_size);
 }
 
+static void generate_constant_initializer(DKC_Compiler *compiler, DVM_Executable *executable) {
+    // OpcodeBuf opcode_buf;
+    // init_opcode_buf(&opcode_buf);
+
+    // for ()
+    // TODO: coding...
+}
+
 DVM_Executable *dkc_generate(DKC_Compiler *compiler) {
     DVM_Executable *executable = alloc_executable(compiler->package_name);
 	executable->function_count = compiler->dvm_function_count;
@@ -1544,6 +1654,8 @@ DVM_Executable *dkc_generate(DKC_Compiler *compiler) {
 	add_classes(compiler, executable);
     add_functions(compiler, executable);
     add_top_level(compiler, executable);
+
+    generate_constant_initializer(compiler, executable);
 
     return executable;
 }

@@ -27,6 +27,8 @@ typedef enum {
 #define DIKSAM_IMPLEMENTATION_SUFFIX (".dkm")
 
 #define EXCEPTION_CLASS_NAME    ("Exception")
+#define BUG_EXCEPTION_CLASS_NAME    ("BugException")
+#define RUNTIME_EXCEPTION_CLASS_NAME    ("RUntimeException")
 
 #define ARRAY_METHOD_SIZE   "size"
 #define ARRAY_METHOD_RESIZE "resize"

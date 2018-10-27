@@ -23,6 +23,14 @@ static void fix_return_statement(Block *current_block, Statement *statement,
                                 FunctionDefinition *function_definition, 
                                 ExceptionList **exception_list) ;
 
+static void fix_try_statement(Block *current_block, Statement *statement, 
+                                FunctionDefinition *function_definition, 
+                                ExceptionList **exception_list);
+
+static void fix_throw_statement(Block *current_block, Statement *statement, 
+                                FunctionDefinition *function_definition, 
+                                ExceptionList **exception_list);
+
 static TypeSpecifier *create_function_derive_type(FunctionDefinition *function_definition) ;
 
 
@@ -172,7 +180,8 @@ static DVM_Boolean is_exception_class(ClassDefinition *class_definition) {
 
 static void fix_throws(ExceptionList *throws) {
     for (ExceptionList *pos = throws; pos; pos = pos->next) {
-        if (pos->ref->class_defintion == NULL) {
+        pos->ref->class_definition = dkc_search_class(pos->ref->identifier);
+        if (pos->ref->class_definition == NULL) {
             dkc_compile_error(pos->ref->line_number,
                 THROWS_TYPE_NOT_FOUND_ERR,
                 STRING_MESSAGE_ARGUMENT, "name",
@@ -180,7 +189,7 @@ static void fix_throws(ExceptionList *throws) {
                 MESSAGE_ARGUMENT_END);
         }
 
-        if (!is_exception_class(pos->ref->class_defintion)) {
+        if (!is_exception_class(pos->ref->class_definition)) {
             dkc_compile_error(pos->ref->line_number,
                 THROW_TYPE_IS_NOT_CLASS_ERR,
                 STRING_MESSAGE_ARGUMENT, "name",
@@ -190,8 +199,9 @@ static void fix_throws(ExceptionList *throws) {
     }
 }
 
-static DVM_Boolean check_throws(ExceptionList *wide, ExceptionList *narrow, ExceptionList **error_exception) {
-    printf("check_throws\n");
+static DVM_Boolean check_throws(ExceptionList *wide, 
+                                ExceptionList *narrow, 
+                                ExceptionList **error_exception) {
     ExceptionList *wide_pos;
     ExceptionList *narrow_pos;
     DVM_Boolean is_interface_dummy;
@@ -201,9 +211,9 @@ static DVM_Boolean check_throws(ExceptionList *wide, ExceptionList *narrow, Exce
     for (narrow_pos = narrow; narrow_pos; narrow_pos = narrow_pos->next) {
         is_thrown = DVM_FALSE;
         for (wide_pos = wide; wide_pos; wide_pos = wide_pos->next) {
-            if (narrow_pos->ref->class_defintion == wide_pos->ref->class_defintion
-                || is_super_class(narrow_pos->ref->class_defintion, 
-                                    wide_pos->ref->class_defintion,
+            if (narrow_pos->ref->class_definition == wide_pos->ref->class_definition
+                || is_super_class(narrow_pos->ref->class_definition, 
+                                    wide_pos->ref->class_definition,
                                     &is_interface_dummy,
                                     &interface_index_dummy)) {
                 is_thrown = DVM_TRUE;
@@ -277,6 +287,7 @@ static TypeSpecifier *create_function_derive_type(FunctionDefinition *function_d
 	*ret = *function_definition->type;
 	ret->derive = dkc_alloc_type_derive(FUNCTION_DERIVE);
 	ret->derive->u.function_derive.parameter_list = function_definition->parameter;
+	ret->derive->u.function_derive.throws = function_definition->throws;
 	ret->derive->next = function_definition->type->derive;
 
 	return ret;
@@ -343,7 +354,7 @@ static void fix_type_specifier(TypeSpecifier *type) {
 	for (TypeDerive *pos = type->derive; pos; pos = pos->next) {
 		if (pos->tag == FUNCTION_DERIVE) {
 			fix_parameter_list(pos->u.function_derive.parameter_list);
-            // TODO: throws
+            fix_throws(pos->u.function_derive.throws);
 		}
 	}
 
@@ -815,6 +826,82 @@ static Expression *fix_logical_and_or_expression(Block *current_block, Expressio
 	return expression;
 }
 
+static DVM_Boolean is_ignoreable_exception(ExceptionList *exception) {
+    ClassDefinition *exception_class = dkc_search_class(BUG_EXCEPTION_CLASS_NAME);
+    DVM_Boolean is_interface_dummy;
+    int interface_index_dummy;
+
+    if (exception->ref->class_definition == exception_class
+        || (is_super_class(exception->ref->class_definition, 
+                            exception_class, 
+                            &is_interface_dummy, 
+                            &interface_index_dummy))) {
+        return DVM_TRUE;
+    }
+
+    exception_class = dkc_search_class(RUNTIME_EXCEPTION_CLASS_NAME);
+    if (exception->ref->class_definition == exception_class
+        || (is_super_class(exception->ref->class_definition, 
+                            exception_class, 
+                            &is_interface_dummy, 
+                            &interface_index_dummy))) {
+        return DVM_TRUE;
+    }
+
+    return DVM_FALSE;
+}
+
+static void add_exception(ExceptionList **exception_list, ExceptionList *throws) {
+    ExceptionList *new_list = NULL;
+    ExceptionList *pos;
+    ExceptionList *prev;
+    ExceptionList *new_item;
+
+    // TODO: ?? WTF ??
+    for (prev = NULL, pos = throws; pos; prev = pos, pos = pos->next) {
+        if (is_ignoreable_exception(pos)) {
+            continue;
+        }
+
+        new_item = dkc_malloc(sizeof(ExceptionList));
+        new_item->ref = pos->ref;
+        new_item->next = NULL;
+        if (prev) {
+            prev->next = new_item;
+        } else {
+            new_list = new_item;
+        }
+    }
+
+    if (*exception_list == NULL) {
+        *exception_list = new_list;
+    } else {
+        if (throws) {
+            for (pos = throws; pos->next; pos = pos->next) ;
+            pos->next = new_list;
+        }
+    }
+}
+
+static void remove_exception(ExceptionList **exception_list, ClassDefinition *catched) {
+    DVM_Boolean is_interface_dummy;
+    int interface_index_dummy;
+    for (ExceptionList *prev = NULL, *pos = *exception_list;
+        pos;
+        prev = pos, pos = pos->next) {
+            if (pos->ref->class_definition == catched
+                || is_super_class(pos->ref->class_definition, catched,
+                                    &is_interface_dummy, 
+                                    &interface_index_dummy)) {
+                if (prev) {
+                    prev->next = pos->next;
+                } else {
+                    *exception_list = pos->next;
+                }
+            }
+    }
+}
+
 static void check_argument(Block *current_block, int line_number, ParameterList *parameter_list, ArgumentList *argument, TypeSpecifier *array_base, ExceptionList **exception_list) {
 	ParameterList*parameter;
 	TypeSpecifier *temp_type;
@@ -835,7 +922,9 @@ static void check_argument(Block *current_block, int line_number, ParameterList 
 	}
 }
 
-static Expression *fix_function_call_expression(Block *current_block, Expression *expression, ExceptionList **exception_list) {
+static Expression *fix_function_call_expression(Block *current_block,
+                                                Expression *expression,
+                                                ExceptionList **exception_list) {
 	DKC_Compiler *compiler = dkc_get_current_compiler();
 	TypeSpecifier *array_base_p = NULL;
 	TypeSpecifier array_base;
@@ -883,11 +972,14 @@ static Expression *fix_function_call_expression(Block *current_block, Expression
 		                  MESSAGE_ARGUMENT_END);
 	}
 
-	TypeSpecifier *function_type = function_definition->type;
+    TypeSpecifier *function_type = function_definition->type;
+    ParameterList *function_param = function_definition->parameter;
+    ExceptionList *function_throws = function_definition->throws;
 
-	ParameterList *function_param = function_definition->parameter;
+    add_exception(exception_list, function_throws);
 	check_argument(current_block, expression->line_number, function_param,
-	               expression->u.function_call_expression.argument, array_base_p, exception_list);
+                    expression->u.function_call_expression.argument,
+                    array_base_p, exception_list);
 	expression->type = dkc_alloc_type_specifier(function_type->basic_type);
 	*expression->type = *function_type;
 	expression->type->derive = function_type->derive;
@@ -1459,9 +1551,19 @@ static void fix_statement(Block *current_block, Statement *statement,
 			fix_return_statement(current_block, statement, function_definition, exception_list);
 			break;
 		case BREAK_STATEMENT:
+        //  TODO: fix_break_statement
+            printf("TODO BREAK_STATEMENT\n");
 			break;
 		case CONTINUE_STATEMENT:
+        //  TODO: fix_continue_statement
+            printf("TODO CONTINUE_STATEMENT\n");
 			break;
+        case TRY_STATEMENT:
+            fix_try_statement(current_block, statement, function_definition, exception_list);
+            break;
+        case THROW_STATEMENT:
+            fix_throw_statement(current_block, statement, function_definition, exception_list);
+            break;
 		case DECLARATION_STATEMENT:
 			add_declaration(current_block, statement->u.declaration_s, 
                             function_definition, statement->line_number,
@@ -1530,6 +1632,117 @@ static void fix_return_statement(Block *current_block, Statement *statement,
 	}
 	casted_expression = create_assign_cast(statement->u.return_s.return_value, function_definition->type);
 	statement->u.return_s.return_value = casted_expression;
+}
+
+static void fix_try_statement(Block *current_block, Statement *statement,
+                                FunctionDefinition *function_definition,
+                                ExceptionList **exception_list) {
+    TryStatement *try_statement = &statement->u.try_s;
+    CatchClause *catch_pos;
+    Declaration *declaration;
+    TryStatement *current_try_backup;
+    CatchClause *catch_backup;
+    DKC_Compiler *compiler = dkc_get_current_compiler();
+    ExceptionList *new_exception = NULL;
+
+    current_try_backup = compiler->current_try_statement;
+    compiler->current_try_statement = try_statement;
+    fix_statement_list(try_statement->try_block,
+                        try_statement->try_block->statement_list, 
+                        function_definition, &new_exception);
+    for (catch_pos = try_statement->catch_clause; 
+        catch_pos; 
+        catch_pos = catch_pos->next) {
+        catch_backup = compiler->current_catch_clause;
+        compiler->current_catch_clause = catch_pos;
+
+        fix_type_specifier(catch_pos->type);
+
+        if (!dkc_is_class_object(catch_pos->type)) {
+            dkc_compile_error(catch_pos->line_number,
+                                CATCH_TYPE_IS_NOT_CLASS_ERR,
+                                MESSAGE_ARGUMENT_END);
+        }
+
+        if (!is_exception_class(catch_pos->type->u.class_ref.class_definition)) {
+            dkc_compile_error(catch_pos->line_number,
+                        CATCH_TYPE_IS_NOT_EXCEPTION_ERR,
+                        STRING_MESSAGE_ARGUMENT, "class_name",
+                        catch_pos->type->identifier,
+                        MESSAGE_ARGUMENT_END);
+        }
+        remove_exception(&new_exception, 
+                        catch_pos->type->u.class_ref.class_definition);
+        declaration = dkc_alloc_declaration(catch_pos->type, catch_pos->variable_name);
+        add_declaration(catch_pos->block, declaration, function_definition,
+                        catch_pos->line_number, DVM_FALSE);
+        catch_pos->variable_declaration = declaration;
+        fix_statement_list(catch_pos->block, catch_pos->block->statement_list,
+                            function_definition, exception_list);
+        compiler->current_catch_clause = catch_backup;
+    }
+    add_exception(exception_list, new_exception);
+    if (try_statement->finally_block) {
+        fix_statement_list(try_statement->finally_block,
+                            try_statement->finally_block->statement_list,
+                            function_definition, exception_list);
+    }
+}
+
+static ExceptionList *type_to_exception_list(TypeSpecifier *type, int line_number) {
+    ExceptionList *exception_list = dkc_malloc(sizeof(ExceptionList));
+    exception_list->ref = dkc_malloc(sizeof(ExceptionRef));
+    exception_list->next = NULL;
+    exception_list->ref->identifier = type->identifier;
+    exception_list->ref->class_definition = type->u.class_ref.class_definition;
+    exception_list->ref->line_number = line_number;
+
+    return exception_list;
+}
+
+static void fix_throw_statement(Block *current_block, Statement *statement,
+                                FunctionDefinition *function_definition,
+                                ExceptionList **exception_list_p) {
+    CatchClause *current_catch;
+    ExceptionList *exception_list;
+    statement->u.throw_s.exception 
+        = fix_expression(current_block,
+                        statement->u.throw_s.exception,
+                        NULL,
+                        exception_list_p);
+
+    if (statement->u.throw_s.exception) {
+        fix_type_specifier(statement->u.throw_s.exception->type);
+        if (!dkc_is_class_object(statement->u.throw_s.exception->type)) {
+            dkc_compile_error(statement->line_number,
+                                THROW_TYPE_IS_NOT_CLASS_ERR,
+                                MESSAGE_ARGUMENT_END);
+        }
+        
+        if (!is_exception_class(statement->u.throw_s.exception->type->u.class_ref.class_definition)) {
+            dkc_compile_error(statement->line_number,
+                                THROW_TYPE_IS_NOT_EXCEPTION_ERR,
+                                STRING_MESSAGE_ARGUMENT, "class_name",
+                                statement->u.throw_s.exception->type->identifier,
+                                MESSAGE_ARGUMENT_END);
+        }
+
+        exception_list = type_to_exception_list(statement->u.throw_s.exception->type,
+                                                statement->line_number);
+    } else {
+        current_catch = dkc_get_current_compiler()->current_catch_clause;
+        if (current_catch == NULL) {
+            dkc_compile_error(statement->line_number, 
+                            RETHROW_OUT_OF_CATCH_ERR,
+                            MESSAGE_ARGUMENT_END);
+        }
+
+        statement->u.throw_s.variable_declaration = current_catch->variable_declaration;
+        exception_list = type_to_exception_list(current_catch->type, 
+                                                current_catch->line_number);
+    }
+
+    add_exception(exception_list_p, exception_list);
 }
 
 static void fix_statement_list(Block *current_block, StatementList *list, 

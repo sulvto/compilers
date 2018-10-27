@@ -17,6 +17,7 @@
 	StatementList	*statement_list;
 	Block			*block;
 	Elseif			*elseif;
+    CatchClause     *catch_clause;
 	AssignmentOperator	assignment_operator;
 	TypeSpecifier   *type_specifier;
 	DVM_BasicType	basic_type_specifier;
@@ -59,10 +60,11 @@
 %type	<statement>			statement
 		if_statement while_statement for_statement foreach_statement
 		return_statement break_statement continue_statement
-		throw_statement declaration_statement
+        try_statement throw_statement declaration_statement
 %type 	<statement_list> 	statement_list
 %type	<block>				block
 %type	<elseif>			elseif	elseif_list
+%type   <catch_clause>      catch_clause catch_list
 %type	<assignment_operator>	assignment_operator
 %type	<identifier>		identifier_opt	label_opt
 %type 	<type_specifier>	type_specifier	identifier_type_specifier
@@ -541,7 +543,7 @@ statement
 		| return_statement
 		| break_statement
 		| continue_statement
-//		| try_statement
+		| try_statement
 		| throw_statement
 		| declaration_statement
 		;
@@ -635,6 +637,37 @@ continue_statement
 			$$ = dkc_create_continue_statement($2);
 		}
 		;
+try_statement
+        : TRY block catch_list FINALLY block
+        {
+            $$ = dkc_create_try_statement($2, $3, $5);
+        }
+        | TRY block FINALLY block
+        {
+            $$ = dkc_create_try_statement($2, NULL, $4);
+        }
+        | TRY block catch_list
+        {
+            $$ = dkc_create_try_statement($2, $3, NULL);
+        }
+        ;
+catch_list
+        : catch_clause
+        | catch_list catch_clause
+        {
+            $$ = dkc_chain_catch_list($1, $2);
+        }
+        ;
+catch_clause
+        : CATCH
+        {
+            $$ = dkc_start_catch_clause();
+        }
+          LP type_specifier IDENTIFIER RP block
+        {
+            $$ = dkc_end_catch_clause($<catch_clause>2, $4, $5, $7);
+        }
+        ;
 throw_statement
 		: THROW expression SEMICOLON
 		{

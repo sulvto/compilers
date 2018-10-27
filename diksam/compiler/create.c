@@ -421,7 +421,7 @@ Expression *dkc_create_basic_array_creation(DVM_BasicType basic_type,
 Expression *dkc_create_class_array_creation(TypeSpecifier *type,
                                             ArrayDimension *dim_expr_list,
                                             ArrayDimension *dim_list) {
-    printf("dkc_create_class_array_creation\n");
+
 	Expression *expression = dkc_alloc_expression(ARRAY_CREATION_EXPRESSION);
 	expression->u.array_creation.type = type;
 	expression->u.array_creation.dimension = dkc_chain_array_dimension(dim_expr_list, dim_list);
@@ -596,12 +596,51 @@ Statement *dkc_create_continue_statement(char *label) {
 }
 
 Statement *dkc_create_try_statement(Block *try_block, CatchClause *catch_clause, Block *finally_block) {
-	Statement *statement = alloc_statement(TRY_STATEMENT);
+	Statement *statement = dkc_alloc_statement(TRY_STATEMENT);
 	statement->u.try_s.try_block = try_block;
+    try_block->type = TRY_CLAUSE_BLOCK;
 	statement->u.try_s.catch_clause = catch_clause;
-	statement->u.try_s.finally_block = finally_block;
+    statement->u.try_s.finally_block = finally_block;
+    if (finally_block) {
+        finally_block->type = FINALLY_CLAUSE_BLOCK;
+    }
 
 	return statement;
+}
+
+CatchClause *dkc_create_catch_clause(TypeSpecifier *type, char *variable_name, Block *block) {
+    CatchClause *catch_clause = dkc_malloc(sizeof(CatchClause));
+    catch_clause->type = type;
+    catch_clause->variable_name = variable_name;
+    catch_clause->block = block;
+    block->type = CATCH_CLAUSE_TYPE;
+    catch_clause->next = NULL;
+
+    return catch_clause;
+}
+
+CatchClause *dkc_start_catch_clause(void) {
+    CatchClause *catch_clause = dkc_malloc(sizeof(CatchClause));
+    catch_clause->line_number = dkc_get_current_compiler()->current_line_number;
+    catch_clause->next = NULL;
+
+    return catch_clause;
+}
+
+CatchClause *dkc_end_catch_clause(CatchClause *catch_clause, TypeSpecifier *type, char *variable_name, Block *block) {
+    catch_clause->type = type;
+    catch_clause->variable_name = variable_name;
+    catch_clause->block = block;
+
+    return catch_clause;
+}
+
+CatchClause *dkc_chain_catch_list(CatchClause *list, CatchClause *add) {
+    CatchClause *pos;
+    for (pos = list; pos->next; pos = pos->next) ;
+    pos->next = add;
+
+    return list;
 }
 
 Statement *dkc_create_throw_statement(Expression *expression) {
@@ -655,7 +694,7 @@ static DVM_AccessModifier conv_access_modifier(ClassOrMemberModifierKind kind) {
 void dkc_start_class_definition(ClassOrMemberModifierList *modifier, DVM_ClassOrInterface class_or_interface,
                                 char *identifier,
                                 ExtendsList *extends) {
-    printf("start class definition %s\n", identifier);
+
 	DKC_Compiler *compiler = dkc_get_current_compiler();
 	ClassDefinition *class_definition = dkc_malloc(sizeof(ClassDefinition));
 	class_definition->is_abstract = (class_or_interface == DVM_INTERFACE_DEFINITION);
@@ -920,7 +959,7 @@ ExceptionList *dkc_create_throws(char *identifier) {
     list = dkc_malloc(sizeof(ExceptionList));
     list->ref = dkc_malloc(sizeof(ExceptionRef));
     list->ref->identifier = identifier;
-    list->ref->class_defintion = NULL;
+    list->ref->class_definition = NULL;
     list->ref->line_number = dkc_get_current_compiler()->current_line_number;
     list->next = NULL;
 

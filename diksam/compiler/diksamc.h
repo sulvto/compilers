@@ -104,7 +104,11 @@ typedef enum {
 	DOWN_CAST_TARGET_IS_NOT_CLASS_ERR,
 	DOWN_CAST_DO_NOTHING_ERR,
 	DOWN_CAST_TO_BAD_CLASS_ERR,
+    CATCH_TYPE_IS_NOT_CLASS_ERR,
+    CATCH_TYPE_IS_NOT_EXCEPTION_ERR,
     THROW_TYPE_IS_NOT_CLASS_ERR,
+    THROW_TYPE_IS_NOT_EXCEPTION_ERR,
+    RETHROW_OUT_OF_CATCH_ERR,
     THROWS_TYPE_NOT_FOUND_ERR,
     THROWS_TYPE_ID_NOT_EXCEPTION_ERR,
     EXCEPTION_HAS_TO_BE_THROWN_ERR,
@@ -222,6 +226,17 @@ typedef struct ParameterList_tag {
 	struct ParameterList_tag *next;
 } ParameterList;
 
+typedef struct {
+    char *identifier;
+    ClassDefinition *class_definition;
+    int line_number;
+} ExceptionRef;
+
+typedef struct ExceptionList_tag {
+    ExceptionRef *ref;
+    struct ExceptionList_tag *next;
+} ExceptionList;
+
 typedef enum {
 	FUNCTION_DERIVE,
 	ARRAY_DERIVE
@@ -229,6 +244,7 @@ typedef enum {
 
 typedef struct {
 	ParameterList *parameter_list;
+    ExceptionList *throws;
 } FunctionDerive;
 
 typedef struct {
@@ -429,7 +445,10 @@ typedef enum {
 	UNDEFINED_BLOCK = 1,
 	FUNCTION_BLOCK,
 	WHILE_STATEMENT_BLOCK,
-	FOR_STATEMENT_BLOCK
+	FOR_STATEMENT_BLOCK,
+    TRY_CLAUSE_BLOCK,
+    CATCH_CLAUSE_TYPE,
+    FINALLY_CLAUSE_BLOCK
 } BlockType;
 
 typedef struct {
@@ -507,7 +526,7 @@ typedef struct {
 } ContinueStatement;
 
 typedef struct CatchClause_tag {
-	TypeSpecifier   type;
+	TypeSpecifier   *type;
 	char            *variable_name;
 	Declaration     *variable_declaration;
 	Block           *block;
@@ -523,6 +542,7 @@ typedef struct {
 
 typedef struct {
 	Expression *exception;
+    Declaration *variable_declaration;
 } ThrowStatement;
 
 typedef enum {
@@ -555,21 +575,10 @@ struct Statement_tag {
 		ContinueStatement	continue_s;
 		ReturnStatement	return_s;
 		TryStatement	try_s;
-		ThrowStatement	throw_s;
+		ThrowStatement  throw_s;
 		Declaration 	*declaration_s;
     } u;
 };
-
-typedef struct {
-    char *identifier;
-    ClassDefinition *class_defintion;
-    int line_number;
-} ExceptionRef;
-
-typedef struct ExceptionList_tag {
-    ExceptionRef *ref;
-    struct ExceptionList_tag *next;
-} ExceptionList;
 
 struct FunctionDefinition_tag {
 	TypeSpecifier 	*type;
@@ -858,7 +867,7 @@ Statement *dkc_create_continue_statement(char *label);
 
 Statement *dkc_create_try_statement(Block *try_block, CatchClause *catch_clause, Block *finally_block);
 
-Statement *dkc_create_catch_clause(Expression *expression);
+CatchClause *dkc_create_catch_clause(TypeSpecifier *type, char *variable_name, Block *block);
 
 CatchClause *dkc_start_catch_clause(void);
 

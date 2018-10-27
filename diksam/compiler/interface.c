@@ -40,22 +40,26 @@ static BuiltInMethodParameter st_array_add_arg[] = {
         {"new_item", DVM_BASE_TYPE}
 };
 
-static BuiltInMethod st_string_method[] = {
-        {ARRAY_METHOD_SIZE,   DVM_INT_TYPE,  NULL,                0},
-        {ARRAY_METHOD_RESIZE, DVM_VOID_TYPE, st_array_resize_arg, ARRAY_SIZE(st_array_resize_arg)},
-        {ARRAY_METHOD_INSERT, DVM_VOID_TYPE, st_array_insert_arg, ARRAY_SIZE(st_array_insert_arg)},
-        {ARRAY_METHOD_REMOVE, DVM_VOID_TYPE, st_array_remove_arg, ARRAY_SIZE(st_array_remove_arg)},
-        {ARRAY_METHOD_ADD,    DVM_VOID_TYPE, st_array_add_arg,    ARRAY_SIZE(st_array_add_arg)},
-};
-
 static BuiltInMethodParameter st_string_substr_arg[] = {
         {"start",  DVM_INT_TYPE},
         {"length", DVM_INT_TYPE}
 };
 
-static BuiltInMethod st_array_method[] = {
+static BuiltInMethod st_string_method[] = {
         {"length", DVM_INT_TYPE,    NULL,                 0},
         {"substr", DVM_STRING_TYPE, st_string_substr_arg, ARRAY_SIZE(st_string_substr_arg)}
+};
+
+static BuiltInMethod st_array_method[] = {
+        {ARRAY_METHOD_SIZE,   DVM_INT_TYPE,  NULL,            0},
+        {ARRAY_METHOD_RESIZE, DVM_VOID_TYPE, st_array_resize_arg,
+            ARRAY_SIZE(st_array_resize_arg)},
+        {ARRAY_METHOD_INSERT, DVM_VOID_TYPE, st_array_insert_arg,
+            ARRAY_SIZE(st_array_insert_arg)},
+        {ARRAY_METHOD_REMOVE, DVM_VOID_TYPE, st_array_remove_arg,
+            ARRAY_SIZE(st_array_remove_arg)},
+        {ARRAY_METHOD_ADD,    DVM_VOID_TYPE, st_array_add_arg,
+            ARRAY_SIZE(st_array_add_arg)}
 };
 
 
@@ -77,6 +81,7 @@ static FunctionDefinition *create_built_in_method(BuiltInMethod *src, int method
             }
         }
         function_definition_array[i].parameter = parameter_list;
+        function_definition_array[i].throws = NULL;
     }
 
     return function_definition_array;

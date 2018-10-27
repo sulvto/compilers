@@ -1,0 +1,11 @@
+
+int sum(int a, int b) throws ApplicationException {
+    return a + b;
+}
+int x = 199;
+try {
+    int result = sum(x, 256);
+    println("add: " + result);
+} catch(Exception e) {
+    println("add: catch exception.");
+}
