@@ -44,6 +44,18 @@ DVM_ObjectRef dvm_literal_to_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *str
 	return result;
 }
 
+DVM_ObjectRef dvm_create_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string) {
+    DVM_ObjectRef result = alloc_object(dvm, STRING_OBJECT);
+    int length = dvm_wcslen(string);
+    result.v_table = dvm->string_v_table;
+    result.data->u.string.string = string;
+    dvm->heap.current_heap_size += sizeof(DVM_Char) * (length + 1);
+    result.data->u.string.is_literal = DVM_FALSE;
+    result.data->u.string.length = length;
+
+    return result;
+}
+
 DVM_ObjectRef alloc_array(DVM_VirtualMachine *dvm, ArrayType type, int size) {
 	DVM_ObjectRef ret = alloc_object(dvm, ARRAY_OBJECT);
 	ret.data->u.array.type = type;

@@ -105,8 +105,8 @@ static DVM_Executable *alloc_executable(PackageName *package_name) {
 	executable->function = NULL;
 	executable->type_specifier_count = 0;
 	executable->type_specifier = NULL;
-	executable->code_size = 0;
-	executable->code = NULL;
+	executable->top_level.code_size = 0;
+	executable->top_level.code = NULL;
 
 	return executable;
 }
@@ -390,7 +390,7 @@ static void generate_identifier_expression(DVM_Executable *executable, Block *cu
 			generate_code(opcode_buf, expression->line_number, DVM_PUSH_FUNCTION, expression->u.identifier.u.function.function_index);
 			break;
 		case VARIABLE_IDENTIFIER:
-			generate_identifier(expression->u.identifier.u.declaration, opcode_buf, executable->line_number);
+			generate_identifier(expression->u.identifier.u.declaration, opcode_buf, expression->line_number);
 			break;
 		default:
 			DBG_panic(("bad default. kind..%d", expression->u.identifier.kind));
@@ -1623,11 +1623,13 @@ static void add_top_level(DKC_Compiler *compiler, DVM_Executable *executable) {
     init_opcode_buf(&opcode_buf);
     generate_statement_list(executable, NULL, compiler->statement_list, &opcode_buf);
 
-    executable->code_size = opcode_buf.size;
-    executable->code = fix_opcode_buf(&opcode_buf);
-    executable->line_number_size = opcode_buf.line_number_size;
-    executable->line_number = opcode_buf.line_number;
-    executable->need_stack_size = calc_need_stack_size(executable->code, executable->code_size);
+    executable->top_level.code_size = opcode_buf.size;
+    executable->top_level.code = fix_opcode_buf(&opcode_buf);
+    executable->top_level.line_number_size = opcode_buf.line_number_size;
+    executable->top_level.line_number = opcode_buf.line_number;
+    executable->top_level.try_size = opcode_buf.try_size;
+    executable->top_level.try = opcode_buf.try;
+    executable->top_level.need_stack_size = calc_need_stack_size(executable->top_level.code, executable->top_level.code_size);
 }
 
 static void generate_constant_initializer(DKC_Compiler *compiler, DVM_Executable *executable) {

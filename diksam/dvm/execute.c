@@ -10,7 +10,8 @@
 
 extern OpcodeInfo dvm_opcode_info[];
 
-
+DVM_Value dvm_execute_i(DVM_VirtualMachine *dvm, Function *function,
+                         DVM_Byte *code, int code_size, int base);
 
 static void expand_stack(DVM_VirtualMachine *dvm, int need_stack_size) {
     int rest = dvm->stack.alloc_size - dvm->stack.stack_pointer;
@@ -141,8 +142,8 @@ static DVM_Boolean do_return(DVM_VirtualMachine *dvm, Function **function_p,
     } else {
         *executable_entry_p = dvm->top_level;
         *executable_p = dvm->top_level->executable;
-        *code_p = dvm->top_level->executable->code;
-        *code_size_p = dvm->top_level->executable->code_size;
+        *code_p = dvm->top_level->executable->top_level.code;
+        *code_size_p = dvm->top_level->executable->top_level.code_size;
     }
     *function_p = call_info->caller;
     dvm->stack.stack_pointer = *base_p;
@@ -341,7 +342,212 @@ static DVM_Boolean check_instanceof(DVM_VirtualMachine *dvm, DVM_ObjectRef *obje
 	return check_instanceof_i(dvm, object, target_index, &is_interface_dummy, &interface_index_dummy);
 }
 
-static DVM_Value execute(DVM_VirtualMachine *dvm, Function *function,
+static void reset_stack_pointer(DVM_Function *dvm_function, int *sp_p, int base) {
+    if (dvm_function) {
+        *sp_p = base 
+                + dvm_function->parameter_count 
+                + (dvm_function->is_method ? 1 : 0)
+                + CALL_INFO_ALIGN_SIZE
+                + dvm_function->local_variable_count;
+    } else {
+        *sp_p = 0;
+    }
+}
+
+static DVM_Boolean throw_in_try(DVM_VirtualMachine *dvm, DVM_Executable *executable,
+                                ExecutableEntry *executable_entry, 
+                                Function *function, int *pc_p,
+                                int *sp_p, int base) {
+    DVM_CodeBlock *code_block;
+    DVM_Function *dvm_function = NULL;
+
+    if (function) {
+        code_block = &(function->u.diksam_function.executable
+                                                    ->executable
+                                                    ->function[function->u.diksam_function.index])
+                                                    .code_block;
+        dvm_function = &(function->u.diksam_function.executable
+                                                    ->executable
+                                                    ->function[function->u.diksam_function.index]);
+    } else {
+        code_block = &executable->top_level;
+    }
+
+    int exception_idnex = dvm->current_exception.v_table->executable_class->class_index;
+    
+    int try_index, catch_index;
+    DVM_Boolean throw_in_try = DVM_FALSE;
+    DVM_Boolean throw_in_catch = DVM_FALSE;
+
+    for (try_index = 0; try_index < code_block->try_size; try_index++) {
+        if ((*pc_p) >= code_block->try[try_index].try_start_pc 
+            && (*pc_p) <= code_block->try[try_index].try_end_pc) {
+            throw_in_try = DVM_TRUE;
+            break;
+        }
+        for (catch_index = 0; 
+            catch_index < code_block->try[try_index].catch_count;
+            catch_index++) {
+            if ((*pc_p) >= code_block->try[try_index].catch_clause[catch_index].start_pc
+                && (*pc_p) <= code_block->try[try_index].catch_clause[catch_index].end_pc) {
+                throw_in_catch = DVM_TRUE;
+                break;
+            }
+        }
+    }
+
+    if (try_index == code_block->try_size) {
+        return DVM_FALSE;
+    }
+
+    DBG_assert(throw_in_try || throw_in_catch, ("bad flags"));
+
+    if (throw_in_try) {
+        for (catch_index = 0; 
+            catch_index < code_block->try[try_index].catch_count;
+            catch_index++) {
+            int class_index_in_exe = code_block->try[try_index].catch_clause[catch_index].class_index;
+            int class_index_in_dvm = executable_entry->class_table[class_index_in_exe];
+            if (exception_idnex == class_index_in_dvm
+                || check_instanceof(dvm, &dvm->current_exception,
+                                    class_index_in_dvm)) {
+                *pc_p = code_block->try[try_index].catch_clause[catch_index].start_pc;
+                reset_stack_pointer(dvm_function, sp_p, base);
+                STO_WRITE(dvm, 0, dvm->current_exception);
+                dvm->stack.stack_pointer++;
+                dvm->current_exception = dvm_null_object_ref;
+                return DVM_TRUE;
+            }
+        }
+    }
+
+    *pc_p = code_block->try[try_index].finally_start_pc;
+    reset_stack_pointer(dvm_function, sp_p, base);
+
+    return DVM_TRUE;
+}
+
+static void add_stack_trace(DVM_VirtualMachine *dvm, DVM_Executable *executable, 
+                            Function *function, int pc) {
+    int line_number = dvm_conv_pc_to_line_number(executable, function, pc);
+    int class_index = DVM_search_class(dvm, DVM_DIKSAM_DEFAULT_PACKAGE, DIKSAM_STACK_TRACE_CLASS);
+    DVM_ObjectRef stack_trace = dvm_create_class_object_i(dvm, class_index);
+    STO_WRITE(dvm, 0, stack_trace);
+    dvm->stack.stack_pointer++;
+    
+    int line_number_index = DVM_get_field_index(dvm, stack_trace, "line_number");
+    stack_trace.data->u.class_object.field[line_number_index].int_value = line_number;
+    
+    int file_name_index = DVM_get_field_index(dvm, stack_trace, "file_name");
+    DVM_Char *wc_string = dvm_mbstowcs_alloc(dvm, executable->path);
+    stack_trace.data->u.class_object.field[file_name_index].object = dvm_create_dvm_string_i(dvm, wc_string);
+
+    int function_name_index = DVM_get_field_index(dvm, stack_trace, "function_name");
+    char *function_name;
+    if (function) {
+        function_name = executable->function[function->u.diksam_function.index].name;
+    } else {
+        function_name = "top_level";
+    }
+
+    wc_string = dvm_mbstowcs_alloc(dvm, function_name);
+    stack_trace.data->u.class_object.field[function_name_index].object 
+        = dvm_create_dvm_string_i(dvm, wc_string);
+
+    int stack_trace_index = DVM_get_field_index(dvm, dvm->current_exception, "stack_trace");
+    DVM_Object *stack_trace_array = dvm->current_exception.data->u.class_object.field[stack_trace_index].object.data;
+    
+    int array_size = DVM_array_size(dvm, stack_trace_array);
+    DVM_Value value;
+    value.object = stack_trace;
+    DVM_array_insert(dvm, stack_trace_array, array_size, value);
+
+    dvm->stack.stack_pointer--;
+}
+
+static DVM_Value invoke_diksam_function_from_native(DVM_VirtualMachine *dvm,
+                                                        Function *callee,
+                                                        DVM_ObjectRef object,
+                                                        DVM_Value *args) {
+    ExecutableEntry *current_executable_backup = dvm->current_executable;
+    Function *current_function_backup = dvm->current_function;
+    int current_pc_backup = dvm->pc;
+    DVM_Executable *dvm_executable = callee->u.diksam_function.executable->executable;
+    DVM_Function *dvm_function = &dvm_executable->function[callee->u.diksam_function.index];
+    int base = dvm->stack.stack_pointer;
+    for (int i = 0; i < dvm_function->parameter_count; i++) {
+        dvm->stack.stack[dvm->stack.stack_pointer] = args[i];
+        dvm->stack.pointer_flags[dvm->stack.stack_pointer] = is_pointer_type(dvm_function->parameter[i].type);
+        dvm->stack.stack_pointer++;
+    }
+
+    if (!is_null_pointer(&object)) {
+        STO_WRITE(dvm, 0, object);
+        dvm->stack.stack_pointer++;
+    }
+    
+    CallInfo *call_info = (CallInfo*)&dvm->stack.stack[dvm->stack.stack_pointer];
+    call_info->caller = dvm->current_function;
+    call_info->caller_address = CALL_FROM_NATIVE;
+    call_info->base = 0; // dummy
+    for (int i = 0; i < CALL_INFO_ALIGN_SIZE; i++) {
+        dvm->stack.pointer_flags[dvm->stack.stack_pointer + i] = DVM_FALSE;
+        dvm->pc = 0;
+        dvm->current_executable = callee->u.diksam_function.executable;
+    }
+
+    dvm->stack.stack_pointer += CALL_INFO_ALIGN_SIZE;
+    initialize_local_variables(dvm, dvm_function, dvm->stack.stack_pointer);
+    dvm->stack.stack_pointer += dvm_function->local_variable_count;
+    DVM_Byte *code = dvm_executable->function[callee->u.diksam_function.index].code_block.code;
+    int code_size = dvm_executable->function[callee->u.diksam_function.index].code_block.code_size;
+
+    DVM_Value result = dvm_execute_i(dvm, callee, code, code_size, base);
+    dvm->stack.stack_pointer--;
+    current_executable_backup = dvm->current_executable;
+    current_function_backup = dvm->current_function;
+    current_pc_backup = dvm->pc;
+
+    return result;
+}
+
+static DVM_Boolean do_throw(DVM_VirtualMachine *dvm, Function **function_p,
+                         DVM_Byte **code_p, int *code_size_p, int *pc_p, 
+                         int *base_p, ExecutableEntry **executable_entry_p, 
+                         DVM_Executable **executable_p, DVM_ObjectRef *exception) {
+    DVM_Boolean in_try;
+    dvm->current_exception = *exception;
+
+    while (1) {
+        in_try = throw_in_try(dvm, *executable_p, *executable_entry_p, *function_p,
+                                pc_p, &dvm->stack.stack_pointer, *base_p);
+        if (in_try) break;
+        if (*function_p) {
+            add_stack_trace(dvm, *executable_p, *function_p, *pc_p);
+            if (do_return(dvm, function_p, code_p, code_size_p, pc_p, base_p,
+                            executable_entry_p, executable_p)) {
+                return DVM_TRUE;
+            }
+        } else {
+            int function_index = dvm_search_function(dvm, DVM_DIKSAM_DEFAULT_PACKAGE, DIKSAM_PRINT_STACK_TRACE_FUNCTION);
+            add_stack_trace(dvm, *executable_entry_p, *function_p, *pc_p);
+
+            invoke_diksam_function_from_native(dvm, dvm->function[function_index],
+                                                dvm->current_exception, NULL);
+            exit(1);
+        }
+    }
+
+    return DVM_FALSE;
+}
+
+static void clear_stack_trace(DVM_VirtualMachine *dvm, DVM_ObjectRef *ex) {
+    int stack_trace_index = DVM_get_field_index(dvm, *ex, "stack_trace");
+    ex->data->u.class_object.field[stack_trace_index].object
+        = dvm_create_array_double_i(dvm, 0);
+}
+
+DVM_Value dvm_execute_i(DVM_VirtualMachine *dvm, Function *function,
                          DVM_Byte *code, int code_size, int base) {
     DVM_Value ret;
 
@@ -952,6 +1158,44 @@ static DVM_Value execute(DVM_VirtualMachine *dvm, Function *function,
                 pc += 3;
                 break;
             }
+            case DVM_THROW: {
+                DVM_ObjectRef* exception = &STO(dvm, -1);
+                clear_stack_trace(dvm, exception);
+                if (do_throw(dvm, &function, &code, &code_size, &pc,
+                            &base, &executable_entry, &executable, 
+                            exception)) {
+                    goto EXECUTE_END;
+                }
+                break;
+            }
+            case DVM_RETHROW : {
+                DVM_ObjectRef* exception = &STO(dvm, -1);
+                if (do_throw(dvm, &function, &code, &code_size, &pc,
+                            &base, &executable_entry, &executable, 
+                            exception)) {
+                    goto EXECUTE_END;
+                }
+                break;
+            }
+            case DVM_GO_FINALLY : {
+                STI_WRITE(dvm, 0, pc);
+                dvm->stack.stack_pointer++;
+                pc = GET_2BYTE_INT(&code[pc + 1]);
+                break;
+            }
+            case DVM_FINALLY_END : {
+                if (!is_object_null(dvm->current_exception)) {
+                    if (do_throw(dvm, &function, &code, &code_size, &pc,
+                            &base, &executable_entry, &executable, 
+                            &dvm->current_exception)) {
+                        goto EXECUTE_END;
+                    }
+                } else {
+                    pc = STI(dvm, -1) + 3;
+                    dvm->stack.stack_pointer--;
+                }
+                break;
+            }
             default:
                 DBG_assert(0, ("code[pc]..%d\n", code[pc]));
         }
@@ -967,8 +1211,8 @@ DVM_Value DVM_execute(DVM_VirtualMachine *dvm) {
     dvm->current_executable = dvm->top_level;
     dvm->current_function = NULL;
     dvm->pc = 0;
-    expand_stack(dvm, dvm->top_level->executable->need_stack_size);
-    execute(dvm, NULL, dvm->top_level->executable->code, dvm->top_level->executable->code_size, 0);
+    expand_stack(dvm, dvm->top_level->executable->top_level.need_stack_size);
+    dvm_execute_i(dvm, NULL, dvm->top_level->executable->top_level.code, dvm->top_level->executable->top_level.code_size, 0);
 
     // ret
     return ret;

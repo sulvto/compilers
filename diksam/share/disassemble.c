@@ -190,8 +190,8 @@ void dvm_disassemble(DVM_Executable *executable) {
 	dump_function(executable, executable->function_count, executable->function);
 	dump_types(executable, executable->type_specifier_count, executable->type_specifier);
 	fprintf(disassemble_fp, "****************** toplevel ******************\n");
-	dump_opcode(executable->code_size, executable->code);
-	dump_line_number(executable->line_number_size, executable->line_number);
+	dump_opcode(executable->top_level.code_size, executable->top_level.code);
+	dump_line_number(executable->top_level.line_number_size, executable->top_level.line_number);
 
     fclose(disassemble_fp);
 }

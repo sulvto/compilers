@@ -281,13 +281,9 @@ struct DVM_Executable_tag {
     DVM_Function        *function;
 	int 				type_specifier_count;
 	DVM_TypeSpecifier	*type_specifier;
-    int                 code_size;
-    DVM_Byte            *code;
 	int 				class_count;
 	DVM_Class			*class_definition;
-    int                 line_number_size;
-    DVM_LineNumber     *line_number;
-    int                 need_stack_size;
+    DVM_CodeBlock       top_level;
 };
 
 typedef struct DVM_ExecutableItem_tag {

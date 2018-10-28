@@ -112,7 +112,6 @@ void dvm_dispose_executable(DVM_Executable *executable) {
     }
     MEM_free(executable->class_definition);
 
-    MEM_free(executable->code);
-    MEM_free(executable->line_number);
+    MEM_free(&executable->top_level);
     MEM_free(executable);
 }

@@ -26,6 +26,32 @@ static ExecutableEntry *add_executable_to_dvm(DVM_VirtualMachine *dvm, DVM_Execu
 SearchFileStatus dkc_dynamic_compile(DKC_Compiler *pTag, char *name, DVM_ExecutableList *pList_tag,
                                      DVM_ExecutableItem **pItem_tag, char file[4096]);
 
+int DVM_search_class(DVM_VirtualMachine *dvm, char *package_name, char *name) {
+    for (int i = 0; i< dvm->class_count; i++) {
+        if (dvm_compare_package_name(dvm->_class[i]->package_name, package_name)
+            && !strcmp(dvm->_class[i]->name, name)) {
+            return i;
+        }
+    }
+
+    dvm_error_i(NULL, NULL, NO_LINE_NUMBER_PC, CLASS_NOT_FOUND_ERR,
+                DVM_STRING_MESSAGE_ARGUMENT, "name", name,
+                DVM_MESSAGE_ARGUMENT_END);
+
+    return 0; // make compiler happy
+}
+
+int dvm_search_function(DVM_VirtualMachine *dvm, char *package_name, char *name) {
+    for (int i = 0; i < dvm->function_count; i++) {
+        if (dvm_compare_package_name(dvm->function[i]->package_name, package_name)
+            && !strcmp(dvm->function[i]->name, name)) {
+            return i;
+        }
+    }
+
+    return FUNCTION_NOT_FOUND;
+}
+
 void dvm_dynamic_load(DVM_VirtualMachine *dvm, DVM_Executable *callee_executable , Function *caller, int pc,
                       Function *function) {
 	DKC_Compiler *compiler = DKC_create_compiler();
@@ -546,8 +572,8 @@ static ExecutableEntry *add_executable_to_dvm(DVM_VirtualMachine *dvm, DVM_Execu
     add_functions(dvm, new_entry);
     add_classes(dvm, new_entry);
 
-    convert_code(dvm, executable, executable->code,
-                 executable->code_size, NULL);
+    convert_code(dvm, executable, executable->top_level.code,
+                 executable->top_level.code_size, NULL);
 
     for (int i = 0; i < executable->function_count; i++) {
         if (executable->function[i].is_implemented) {

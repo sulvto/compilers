@@ -19,6 +19,7 @@
 
 #define NO_LINE_NUMBER_PC   (-1)
 #define FUNCTION_NOT_FOUND  (-1)
+#define FIELD_NOT_FOUND  (-1)
 #define CALL_FROM_NATIVE    (-1)
 
 #define LINE_BUF_SIZE           (1024)
@@ -33,6 +34,7 @@
 								|| (type)->derive_count > 0 \
 									&& (type)->derive[0].tag == DVM_ARRAY_DERIVE))
 
+#define is_object_null(obj) ((obj).data == NULL)
 
 typedef struct ExecutableEntry_tag ExecutableEntry;
 
@@ -188,6 +190,7 @@ struct DVM_VTable_tag {
 
 struct ExecutableEntry_tag {
 	DVM_Executable		*executable;
+    int                 *class_table;
 	Static 				static_v;
 	struct ExecutableEntry_tag *next;
 };
@@ -211,9 +214,8 @@ struct DVM_VirtualMachine_tag {
 	DVM_VTable			*string_v_table;
 };
 
-// load.c
-void dvm_dynamic_load(DVM_VirtualMachine *dvm, DVM_Executable *callee_executable , Function *caller, int pc,
-                      Function *function);
+// execute.c
+DVM_Value dvm_execute_i(DVM_VirtualMachine *dvm, Function *function, DVM_Byte *code, int code_size, int base);
 
 // heap.c
 DVM_ObjectRef dvm_literal_to_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string);
@@ -232,6 +234,11 @@ void dvm_garbage_collect(DVM_VirtualMachine *dvm);
 
 // native.c
 void dvm_add_native_functions(DVM_VirtualMachine *dvm);
+
+// load.c
+int dvm_search_function(DVM_VirtualMachine *dvm, char *package_name, char *name);
+void dvm_dynamic_load(DVM_VirtualMachine *dvm, DVM_Executable *callee_executable ,
+                        Function *caller, int pc, Function *function);
 
 // wchar.c
 

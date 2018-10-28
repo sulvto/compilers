@@ -147,3 +147,28 @@ DVM_Value DVM_string_substr(DVM_VirtualMachine *dvm, DVM_Object *string, int pos
 	return value;
 }
 
+static int get_field_index_sub(ExecutableClass *executable_class, char *field_name, int *super_count) {
+    int index;
+    if (executable_class->super_class) {
+        index = get_field_index_sub(executable_class->super_class, field_name, super_count);
+        if (index != FIELD_NOT_FOUND) {
+            return index;
+        }
+    }
+
+    for (int i = 0; i < executable_class->dvm_class->field_count; i++) {
+        if (!strcmp(executable_class->dvm_class->field[i].name, field_name)) {
+            return i + *super_count;
+        }
+    }
+    *super_count += executable_class->dvm_class->field_count;
+
+    return FIELD_NOT_FOUND;
+}
+
+int DVM_get_field_index(DVM_VirtualMachine *dvm, DVM_ObjectRef object, char *field_name) {
+    int super_count = 0;
+
+    return get_field_index_sub(object.v_table->executable_class, field_name, &super_count);
+}
+

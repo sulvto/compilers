@@ -25,6 +25,8 @@ typedef enum {
 
 #define DIKSAM_REQUIRE_SUFFIX   (".dkh")
 #define DIKSAM_IMPLEMENTATION_SUFFIX (".dkm")
+#define DIKSAM_STACK_TRACE_CLASS ("StackTrace")
+#define DIKSAM_PRINT_STACK_TRACE_FUNCTION ("Exception#print_stack_tracr")
 
 #define EXCEPTION_CLASS_NAME    ("Exception")
 #define BUG_EXCEPTION_CLASS_NAME    ("BugException")

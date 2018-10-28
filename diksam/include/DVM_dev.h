@@ -35,6 +35,9 @@ typedef struct {
 	DVM_ErrorDefinition *message_format;
 } DVM_NativeLibInfo;
 
+// load.c
+int DVM_search_class(DVM_VirtualMachine *dvm, char *package_name, char *name);
+
 // execute.c
 void DVM_add_native_function(DVM_VirtualMachine *dvm, char *package_name, char *function_name,
                                   DVM_NativeFunctionProc *proc, int arg_count, DVM_Boolean is_method,
@@ -66,6 +69,7 @@ int DVM_string_length(DVM_VirtualMachine *dvm, DVM_Object *string);
 
 DVM_Value DVM_string_substr(DVM_VirtualMachine *dvm, DVM_Object *string, int pos, int length);
 
+int DVM_get_field_index(DVM_VirtualMachine *dvm, DVM_ObjectRef object, char *field_name);
 
 // heap.c
 DVM_ObjectRef DVM_create_dvm_string(DVM_VirtualMachine *dvm, DVM_Char *string);

@@ -181,14 +181,13 @@ int dvm_conv_pc_to_line_number(DVM_Executable *executable, Function *function, i
 		line_number = executable->function[function->u.diksam_function.index].code_block.line_number;
 		line_number_size = executable->function[function->u.diksam_function.index].code_block.line_number_size;
 	} else {
-		line_number = executable->line_number;
-		line_number_size = executable->line_number_size;
+		line_number = executable->top_level.line_number;
+		line_number_size = executable->top_level.line_number_size;
 	}
 
 	for (int i = 0; i < line_number_size; i++) {
 		if (pc >= line_number[i].start_pc && pc < line_number[i].start_pc + line_number[i].pc_count) {
 			ret = line_number[i].line_number;
-
 		}
 	}
 
