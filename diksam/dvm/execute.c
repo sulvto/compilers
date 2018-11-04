@@ -522,6 +522,7 @@ static DVM_Boolean do_throw(DVM_VirtualMachine *dvm, Function **function_p,
         in_try = throw_in_try(dvm, *executable_p, *executable_entry_p, *function_p,
                                 pc_p, &dvm->stack.stack_pointer, *base_p);
         if (in_try) break;
+
         if (*function_p) {
             add_stack_trace(dvm, *executable_p, *function_p, *pc_p);
             if (do_return(dvm, function_p, code_p, code_size_p, pc_p, base_p,
@@ -557,7 +558,7 @@ DVM_Value dvm_execute_i(DVM_VirtualMachine *dvm, Function *function,
     int pc = dvm->pc;
 
     while (pc < code_size) {
-        DBG_debug_write((1, "execute pc: %d opcode: %s \n", pc, dvm_opcode_info[code[pc]].mnemonic));
+        DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "execute pc: %d opcode: %s \n", pc, dvm_opcode_info[code[pc]].mnemonic));
 
         switch ((DVM_Opcode) code[pc]) {
             case DVM_PUSH_INT_1BYTE:

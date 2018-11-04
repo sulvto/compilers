@@ -1,5 +1,6 @@
 
 int sum(int a, int b) throws ApplicationException {
+    throw new NumberFormatException();
     return a + b;
 }
 int x = 199;

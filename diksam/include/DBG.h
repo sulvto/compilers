@@ -13,7 +13,7 @@ void DBG_set(DBG_Controller controller, char *file, int line);
 
 void DBG_set_expression(char *expression);
 
-
+#define DBG_DEBUG_LEVEL_DEFAULT     1
 
 #ifdef DBG_NO_DEBUG
 #define DBG_create_controller()     ((void)0)

@@ -9,6 +9,11 @@ sequenceDiagram
     generate.c->>generate.c: alloc_executable
     generate.c->>generate.c: add_global_variable
     generate.c->>generate.c: add_classes
+    opt add_class
+        generate.c->>generate.c: add_fields
+        Note right of generate.c: in add_classes
+        generate.c->>generate.c: add_methods
+    end
     generate.c->>generate.c: add_functions
     generate.c->>generate.c: add_top_level
     generate.c-->>DKC: dkc_generate

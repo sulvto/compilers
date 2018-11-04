@@ -672,7 +672,11 @@ throw_statement
 		: THROW expression SEMICOLON
 		{
 			$$ = dkc_create_throw_statement($2);
-		}
+		} 
+        | THROW SEMICOLON
+        {
+            $$ = dkc_create_throw_statement(NULL);
+        }
 		;
 declaration_statement
 		: type_specifier IDENTIFIER SEMICOLON

@@ -44,7 +44,7 @@ ErrorDefinition dkc_error_message_format[] = {
 		{"RENAME_HAS_NO_PACKAGED_NAME_ERR"},
 		{"CONSTRUCTOR_IS_FIELD_ERR"},
 		{"NOT_CONSTRUCTOR_ERR"},
-		{"NEW_ABSTRACT_CLASS_ERR"},
+		{"NEW_ABSTRACT_CLASS name: $(name)"},
 		{"RETURN_IN_VOID_FUNCTION_ERR"},
 		{"NOT_LVALUE_ERR"},
 		{"DIVISION_BY_ZERO_IN_COMPILE_ERR"},
