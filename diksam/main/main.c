@@ -34,12 +34,11 @@ int main(int argc, char **argv) {
 	DVM_set_executable(dvm, executable_list);
     DKC_dispose_compiler(compiler);
 	DVM_execute(dvm);
-
-	DVM_dispose_virtual_machine(dvm);
-    DVM_dispose_executable_list(executable_list);
-
+    
+    DVM_dispose_virtual_machine(dvm);
+	DVM_dispose_executable_list(executable_list);
+	
     MEM_check_all_blocks();
-
     FILE *dump_blocks_fp = fopen("./dump_blocks.txt", "w");
     MEM_dump_blocks(dump_blocks_fp);
     fclose(dump_blocks_fp);

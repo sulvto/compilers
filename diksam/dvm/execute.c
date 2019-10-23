@@ -127,7 +127,7 @@ static DVM_Boolean do_return(DVM_VirtualMachine *dvm, Function **function_p,
     if (callee_p->is_method) {
         arg_count++;
     }
-    CallInfo *call_info = (CallInfo * ) & dvm->stack.stack[*base_p + arg_count];
+    CallInfo *call_info = (CallInfo *)&dvm->stack.stack[*base_p + arg_count];
 
     DVM_Function *caller_p;
 
@@ -550,6 +550,9 @@ static void clear_stack_trace(DVM_VirtualMachine *dvm, DVM_ObjectRef *ex) {
 
 DVM_Value dvm_execute_i(DVM_VirtualMachine *dvm, Function *function,
                          DVM_Byte *code, int code_size, int base) {
+
+    DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "EXECUTE_START\n"));
+    
     DVM_Value ret;
 
     ExecutableEntry *executable_entry = dvm->current_executable;
@@ -898,6 +901,8 @@ DVM_Value dvm_execute_i(DVM_VirtualMachine *dvm, Function *function,
             }
             case DVM_UP_CAST: {
                 // TODO
+                DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "TODO: DVM_UP_CAST unsuppet"));
+                break;
             }
             case DVM_DOWN_CAST: {
                 // TODO
@@ -1204,6 +1209,7 @@ DVM_Value dvm_execute_i(DVM_VirtualMachine *dvm, Function *function,
 
     EXECUTE_END:;
 
+    DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "EXECUTE_END\n"));
     return ret;
 }
 

@@ -613,7 +613,7 @@ CatchClause *dkc_create_catch_clause(TypeSpecifier *type, char *variable_name, B
     catch_clause->type = type;
     catch_clause->variable_name = variable_name;
     catch_clause->block = block;
-    block->type = CATCH_CLAUSE_TYPE;
+    block->type = CATCH_CLAUSE_BLOCK;
     catch_clause->next = NULL;
 
     return catch_clause;

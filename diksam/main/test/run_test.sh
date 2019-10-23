@@ -7,4 +7,4 @@ make clean
 make
 cp ./diksam ./test
 cd -
-./diksam class02.dkm
+./diksam sum.dkm

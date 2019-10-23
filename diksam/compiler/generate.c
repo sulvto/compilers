@@ -1070,8 +1070,18 @@ static void generate_for_statement(DVM_Executable *executable,
 static void generate_return_statement(DVM_Executable *executable, 
 				Block *current_block, Statement *statement, 
 				OpcodeBuf *opcode_buf) {
-	DBG_assert(statement->u.return_s.return_value != NULL, 
+	DKC_Compiler *compiler = dkc_get_current_compiler();
+    DBG_assert(statement->u.return_s.return_value != NULL, 
 					("return value is null."));
+    
+
+    for (Block *pos = current_block; pos; pos = pos->outer_block) {
+        if (pos->type == TRY_CLAUSE_BLOCK || 
+            pos->type == CATCH_CLAUSE_BLOCK) {
+            generate_code(opcode_buf, statement->line_number, DVM_GO_FINALLY, compiler->current_finally_label);
+        }
+    }
+
 	generate_expression(executable, current_block, statement->u.return_s.return_value, opcode_buf);
 	generate_code(opcode_buf, statement->line_number, DVM_RETURN);
 }

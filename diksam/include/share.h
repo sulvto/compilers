@@ -40,7 +40,7 @@ typedef enum {
 #define ARRAY_PREFIX   "array#"
 
 #define STRING_METHOD_LENGTH    "length"
-#define STRING_METHOD_SUBSTR    "SUBSTR"
+#define STRING_METHOD_SUBSTR    "substr"
 #define STRING_PREFIX   "string#"
 
 #define ARRAY_SIZE(array)   (sizeof(array) / sizeof((array)[0]))
