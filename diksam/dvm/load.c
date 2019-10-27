@@ -587,9 +587,7 @@ static void add_reference_table(DVM_VirtualMachine *dvm, ExecutableEntry *execut
     }
 }
 
-
-static ExecutableEntry *add_executable_to_dvm(DVM_VirtualMachine *dvm, DVM_Executable *executable, DVM_Boolean is_top_level) {
-
+static ExecutableEntry *add_executable_entry(DVM_VirtualMachine *dvm, DVM_Executable *executable) {
     ExecutableEntry *entry_pos;
     ExecutableEntry *new_entry = MEM_malloc(sizeof(ExecutableEntry));
     new_entry->executable = executable;
@@ -601,6 +599,13 @@ static ExecutableEntry *add_executable_to_dvm(DVM_VirtualMachine *dvm, DVM_Execu
         for (entry_pos = dvm->executable_entry; entry_pos->next; entry_pos = entry_pos->next);
         entry_pos->next = new_entry;
     }
+
+    return new_entry;
+}
+
+static ExecutableEntry *add_executable_to_dvm(DVM_VirtualMachine *dvm, DVM_Executable *executable, DVM_Boolean is_top_level) {
+
+    ExecutableEntry *new_entry = add_executable_entry(dvm, executable);
 
     add_functions(dvm, new_entry);
     add_classes(dvm, new_entry);

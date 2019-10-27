@@ -19,9 +19,20 @@ sequenceDiagram
     generate.c-->>DKC: dkc_generate
     DKC-->>main.c: compile
     main.c->>DVM: create_virtual_machine
-    main.c->>DVM: add_excutable
-    main.c->>DVM: excute
+    main.c->>DVM: set_executable
+    DVM->>DVM: add_executable_entry
+    DVM->>DVM: add_functions
+    DVM->>DVM: add_classes
+    DVM->>DVM: convert_code(top_level)
+    opt function
+        DVM->>DVM: convert_code
+    end
+    DVM->>DVM: add_reference_table
+    DVM->>DVM: add_static_variables
+    DVM-->>main.c: set_executable
+    DVM->>DVM: initialize_constant
     main.c->>DVM: dispose_compiler
+    main.c->>DVM: excute
     main.c->>DVM: dispose_virtual_machine
     main.c->>MEM: check_all_blocks
     main.c->>MEM: dump_blocks
@@ -85,4 +96,45 @@ graph BT
 2. RuntimeException 程序不能预期的异常
 3. ApplicationException 应该被程序预期到的异常
 
-可以被throw和catch的只有Exception的子类
+可以被throw和catch的只有Exception的子类.
+
+---
+
+## 一个对象的创建和方法的调用
+
+### 对象创建函数 dvm_create_class_object_i
+1. 检查 gc (heap.c#check_gc)
+2. 创建 DVM_ObjectRef 分配内存初始化属性 (heap.c#alloc_object)
+3. 将 class_table 赋值给对象的 vtable
+4. 添加 field 并设置默认值
+4. 初始化 field, 执行 field_initializer 字节码
+
+### 方法的调用
+虚拟机用一个数组存放所有的方法和函数, 方法的调用会事先将方法所在的对象入栈, 通过对象的 vtable 找到方法所在的 index, 通过 invoke 指令调用指定 index 的方法.
+而函数的调用将直接调用指令中给出的 index 对应的函数, 不需要 vtable.
+
+方法的调用字节码
+```java
+Point1 p = new Point2(5, 10);
+// new 1                    以指定 index(1) 的 class 创建一个 class 对象(dvm_create_class_object_i)并入栈
+// push_int_1byte 5         将对象构造函数的参数入栈
+// push_int_1byte 10        参数入栈
+// duplicate_offset 2       栈中偏移量为2的元素即刚刚创建的 class 对象复制一份并入栈
+p.print();
+// push_method 1            取栈顶的对象, 以 table index(1) 从对象的 vtable 中取出 method 的 index 并入栈
+// invoke                   调用以栈顶元素为 index 的方法
+// ...
+```
+
+
+函数的调用字节码
+```java
+void foo() {
+    println("hello world\n");
+}
+
+foo();
+// push_function 5          将函数的 index 入栈(index 5 对应函数 foo)
+// invoke                   调用以栈顶元素为 index 的函数
+// ...
+```

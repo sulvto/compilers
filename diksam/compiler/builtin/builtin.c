@@ -31,6 +31,7 @@ char *st_diksam_lang_dkh_text[] = {
 	"    }\n",
 	"\n",
 	"    public virtual constructor init() {\n",
+	"        print(\"Exception init\\n\");\n",
 	"        this.stack_trace = new StackTrace[0];\n",
 	"    }\n",
 	"}\n",

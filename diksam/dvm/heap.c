@@ -109,8 +109,6 @@ static void initialize_fields(DVM_VirtualMachine *dvm, ExecutableClass *executab
     dvm->current_function = NULL;
     dvm->pc = 0;
 
-    DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "initialize_fields class name: %s\n", executable_class->dvm_class->name));
-
     dvm_expand_stack(dvm, executable_class->dvm_class->field_initializer.need_stack_size);
     dvm_execute_i(dvm, NULL, executable_class->dvm_class->field_initializer.code, 
                     executable_class->dvm_class->field_initializer.code_size, 0);
@@ -123,6 +121,7 @@ DVM_ObjectRef dvm_create_class_object_i(DVM_VirtualMachine *dvm, int class_index
 	ExecutableClass *executable_class = dvm->_class[class_index];
 
 	obj.v_table = executable_class->class_table;
+
 	obj.data->u.class_object.field_count = executable_class->field_count;
 	obj.data->u.class_object.field = MEM_malloc(sizeof(DVM_Value) * executable_class->field_count);
 	for (int i = 0; i < executable_class->field_count; i++) {

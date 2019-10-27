@@ -561,8 +561,6 @@ static void clear_stack_trace(DVM_VirtualMachine *dvm, DVM_ObjectRef *ex) {
 DVM_Value dvm_execute_i(DVM_VirtualMachine *dvm, Function *function,
                          DVM_Byte *code, int code_size, int base) {
 
-    DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "EXECUTE_START code_size: %d\n", code_size));
-    
     DVM_Value ret;
 
     ExecutableEntry *executable_entry = dvm->current_executable;
@@ -571,7 +569,6 @@ DVM_Value dvm_execute_i(DVM_VirtualMachine *dvm, Function *function,
     int pc = dvm->pc;
 
     while (pc < code_size) {
-        DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "execute pc: %d opcode: %s \n", pc, dvm_opcode_info[code[pc]].mnemonic));
 
         switch ((DVM_Opcode) code[pc]) {
             case DVM_PUSH_INT_1BYTE:
@@ -665,7 +662,6 @@ DVM_Value dvm_execute_i(DVM_VirtualMachine *dvm, Function *function,
                 break;
             case DVM_PUSH_STATIC_OBJECT: {
                 int index = GET_2BYTE_INT(&code[pc + 1]);
-                DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "execute DVM_PUSH_STATIC_OBJECT index:%d \n", index));
                 DVM_ObjectRef object = executable_entry->static_v.variable[index].object;
                 STO_WRITE(dvm, 0, object);
                 dvm->stack.stack_pointer++;
@@ -1261,7 +1257,6 @@ DVM_Value dvm_execute_i(DVM_VirtualMachine *dvm, Function *function,
 
     EXECUTE_END:;
 
-    DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "EXECUTE_END\n"));
     return ret;
 }
 

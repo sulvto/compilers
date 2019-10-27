@@ -28,11 +28,18 @@ class Point2 : Point1 {
     }
 }
 
-println("start...");
-
-println("HAHA\n");
 Point1 p = new Point2(5, 10);
-
-
-println("OO\n");
 p.print();
+
+
+
+
+
+
+
+void foo() {
+	println("hello world\n");
+}
+
+
+foo();
