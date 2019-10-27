@@ -29,7 +29,11 @@ sequenceDiagram
 
 ---
 
-## fix_tree
+## create.c
+创建语法分析树
+
+## fix_tree.c
+修正分析树， ‘语义分析’。
 1. 常量表达式的包装
 2. 为表达式添加类型
 3. 增加转换节点
@@ -39,7 +43,7 @@ sequenceDiagram
 5. 标识符和声明的绑定
 
 ## generate
-创建 DVM_Executable 结构体
+自上而下遍历分析树生成字节码，创建 DVM_Executable 结构体。
 1. 常量池
 2. 全局变量
 3. 函数

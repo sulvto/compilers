@@ -12,6 +12,8 @@
 
 typedef struct TypeSpecifier_tag TypeSpecifier;
 typedef struct ClassDefinition_tag ClassDefinition;
+typedef struct EnumDefinition_tag EnumDefinition;
+typedef struct ConstantDefinition_tag ConstantDefinition;
 typedef struct FunctionDefinition_tag FunctionDefinition;
 typedef struct MemberDeclaration_tag MemberDeclaration;
 typedef struct Expression_tag Expression;
@@ -22,6 +24,8 @@ typedef struct Expression_tag Expression;
 
 #define LINE_BUF_SIZE			(1024)
 #define MESSAGE_ARGUMENT_MAX    (256)
+
+#define UNDEFINED_ENUMERATOR    (-1)
 
 #define ABSTRACT_METHOD_INDEX   (-1)
 
@@ -269,8 +273,7 @@ struct TypeSpecifier_tag {
             int class_index;
         } class_ref;
         struct {
-            // TODO:enum
-            // ClassDefinition *class_definition;
+            EnumDefinition *enum_definition;
             int enum_index;
         } enum_ref;
     } u;
@@ -615,6 +618,12 @@ typedef struct {
 	int 			method_index;
 } MethodMember;
 
+typedef struct Enumerator_tag {
+    char                    *name;
+    int                     value;
+    struct Enumerator_tag   *next;
+} Enumerator;
+
 typedef struct {
 	char            *name;
 	TypeSpecifier   *type;
@@ -646,6 +655,24 @@ struct ClassDefinition_tag {
 	MemberDeclaration 	*member;
 	int 				line_number;
 	struct ClassDefinition_tag *next;
+};
+
+struct EnumDefinition_tag {
+	PackageName			    *package_name;
+	char 				    *name;
+    Enumerator              *enumerator;
+	int 	                index;
+	struct EnumDefinition   *next;
+};
+
+struct ConstantDefinition_tag {
+	TypeSpecifier       *type;
+	PackageName			*package_name;
+	char 				*name;
+	int 		        index;
+    Expression          *initializer;
+    int 			    line_number;
+	ConstantDefinition  *next;
 };
 
 typedef enum {
@@ -686,11 +713,17 @@ struct DKC_Compiler_tag {
 	FunctionDefinition 	*function_list;
 	int					dvm_function_count;
 	DVM_Function		*dvm_function;
+    int                 dvm_enum_count;
+    DVM_Enum            *dvm_enum;
+    int                 dvm_constant_count;
+    DVM_Constant        *dvm_constant;
 	int 				dvm_class_count;
 	DVM_Class			*dvm_class;
 	DeclarationList		*declaration_list;
 	StatementList		*statement_list;
 	ClassDefinition		*class_definition_list;
+    EnumDefinition      *enum_definition_list;
+    ConstantDefinition  *constant_definition_list;
 	int 				current_line_number;
 	Block 				*current_block;
 	ClassDefinition		*current_class_definition;
@@ -916,6 +949,10 @@ MemberDeclaration *dkc_create_method_member(ClassOrMemberModifierList *modifier,
                                             FunctionDefinition *function_definition, DVM_Boolean is_constructor);
 ExceptionList *dkc_create_throws(char *identifier);
 ExceptionList *dkc_chain_exception_list(ExceptionList *list, char *identifier);
+void dkc_create_enum_definition(char *identifier, Enumerator *enumerator);
+Enumerator *dkc_create_enumerator(char *identifier);
+Enumerator *dkc_chain_enumerator(Enumerator *list, char *identifier);
+void dkc_create_const_definition(TypeSpecifier *type, char *identifier, Expression *initializer);
 
 
 // string.c

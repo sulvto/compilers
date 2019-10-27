@@ -14,7 +14,7 @@ void dvm_initialize_value(DVM_TypeSpecifier *type, DVM_Value *value) {
 			DBG_assert(0, ("tag..%d", type->derive[0].tag));
 		}
 	} else {
-	switch (type->basic_type) {
+	    switch (type->basic_type) {
 		case DVM_VOID_TYPE:
 		case DVM_BOOLEAN_TYPE:
 		case DVM_INT_TYPE:
@@ -29,9 +29,10 @@ void dvm_initialize_value(DVM_TypeSpecifier *type, DVM_Value *value) {
 	        break;
 		case DVM_NULL_TYPE:
 		case DVM_BASE_TYPE:
+        case DVM_UNSPECIFIED_IDENTIFIER_TYPE:
 		default:
 			DBG_assert(0, ("basic_type..%d", type->basic_type));
-	}
+	    }
 	}
 
 }
@@ -45,7 +46,7 @@ static int my_strlen(char *string) {
 		return 0;
 	}
 
-	return strlen(string);
+	return dvm_wcslen(string);
 }
 
 void dvm_vstr_append_string(VString *v, DVM_Char *string) {

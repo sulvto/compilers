@@ -11,7 +11,7 @@ BUILTIN_SCRIPT = ../../require/diksam/lang.dkh\
 
 clean:
 	rm -f *.o *~
-	rm builtin_conv
+	# rm builtin_conv
 
 builtin.c:builtin_conv head.txt tail.txt $(BUILTIN_SCRIPT)
 		./builtin_conv

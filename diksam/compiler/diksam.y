@@ -28,6 +28,7 @@
 	MemberDeclaration   		*member_declaration;
 	FunctionDefinition  		*function_definition;
     ExceptionList               *exception_list;
+    Enumerator                  *enumerator;
 }
 %token 	<expression>	INT_LITERAL
 %token 	<expression>	DOUBLE_LITERAL
@@ -43,7 +44,7 @@
 		NULL_T VOID_T BOOLEAN_T INT_T DOUBLE_T STRING_T
 		NEW REQUIRE RENAME CLASS_T INTERFACE_T PUBLIC_T PRIVATE_T
 		VIRTUAL_T OVERRIDE_T ABSTRACT_T THIS_T SUPER_T CONSTRUCTOR
-		INSTANCEOF DOWN_CAST_BEGIN DOWN_CAST_END ENUM FINAL
+		INSTANCEOF DOWN_CAST_BEGIN DOWN_CAST_END ENUM FINAL CONST
 %type	<package_name>		package_name
 %type	<require_list>		require_list require_declaration
 %type	<rename_list>		rename_list  rename_declaration
@@ -80,6 +81,7 @@
 		method_member field_member
 %type	<function_definition>	method_function_definition constructor_definition
 %type   <exception_list> exception_list throws_clause
+%type   <enumerator> enumerator_list
 
 %%
 translation_unit
@@ -911,6 +913,36 @@ field_member
 		| class_or_member_modifier_list FINAL type_specifier IDENTIFIER initializer_opt SEMICOLON
 		{
 			$$ = dkc_create_field_member(&$1, DVM_TRUE, $3, $4, $5);
+		}
+		;
+enum_definition
+		: ENUM IDENTIFIER LC enumerator_list RC
+		{
+			dkc_create_enum_definition($2, $4);
+		}
+		| ENUM IDENTIFIER LC enumerator_list COMMA RC
+		{
+			dkc_create_enum_definition($2, $4);
+		}
+		;
+enumerator_list
+		: IDENTIFIER
+		{
+			dkc_create_enumerator($1);
+		}
+		| enumerator_list COMMA IDENTIFIER
+		{
+			dkc_chain_enumerator($1, $3);
+		}
+		;
+const_definition
+		: CONST IDENTIFIER ASSIGN_T expression SEMICOLON
+		{
+			dkc_create_const_definition(NULL, $2, $4);
+		}
+		| CONST type_specifier IDENTIFIER SEMICOLON
+		{
+			dkc_create_const_definition($2, $3, NULL);
 		}
 		;
 %%

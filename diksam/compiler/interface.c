@@ -102,11 +102,17 @@ DKC_Compiler *DKC_create_compiler(void) {
     compiler->function_list = NULL;
     compiler->dvm_function_count = 0;
     compiler->dvm_function = NULL;
+    compiler->dvm_enum_count = 0;
+    compiler->dvm_enum = NULL;
+    compiler->dvm_constant_count = 0;
+    compiler->dvm_constant = NULL;
     compiler->dvm_class_count = 0;
     compiler->dvm_class = NULL;
     compiler->declaration_list = NULL;
     compiler->statement_list = NULL;
     compiler->class_definition_list = NULL;
+    compiler->enum_definition_list = NULL;
+    compiler->constant_definition_list = NULL;
     compiler->current_block = NULL;
     compiler->current_line_number = 1;
     compiler->current_class_definition = NULL;

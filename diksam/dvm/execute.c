@@ -38,6 +38,9 @@ static void invoke_native_function(DVM_VirtualMachine *dvm, Function *caller, Fu
 	} else {
 		argument_count = callee->u.native_function.argument_count;
 	}
+
+    // TODO: push context
+
 	CallInfo *call_info = (CallInfo *) &dvm->stack.stack[*sp_p];
 	call_info->caller = caller;
 	call_info->caller_address = pc;
@@ -546,6 +549,7 @@ static DVM_Boolean throw_null_pointer_exception(DVM_VirtualMachine *dvm, Functio
                                                 DVM_Byte **code_p, int *code_size_p, int *pc_p,
                                                 int *base_p, ExecutableEntry **executable_entry, DVM_Executable **executable_p) {
 // TODO: coding
+    DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "TODO: throw_null_pointer_exception\n"));
 }
 
 static void clear_stack_trace(DVM_VirtualMachine *dvm, DVM_ObjectRef *ex) {
@@ -625,11 +629,13 @@ DVM_Value dvm_execute_i(DVM_VirtualMachine *dvm, Function *function,
                 dvm->stack.stack_pointer++;
                 pc += 3;
                 break;
-            case DVM_PUSH_STACK_OBJECT:
-                STO_WRITE(dvm, 0, STO_I(dvm, base + GET_2BYTE_INT(&code[pc + 1])));
+            case DVM_PUSH_STACK_OBJECT: {
+                DVM_ObjectRef object = STO_I(dvm, base + GET_2BYTE_INT(&code[pc + 1]));
+                STO_WRITE(dvm, 0, object);
                 dvm->stack.stack_pointer++;
                 pc += 3;
                 break;
+            }
             case DVM_POP_STACK_INT:
                 STI_WRITE_I(dvm, base + GET_2BYTE_INT(&code[pc + 1]), STI(dvm, -1));
                 dvm->stack.stack_pointer--;
@@ -657,12 +663,15 @@ DVM_Value dvm_execute_i(DVM_VirtualMachine *dvm, Function *function,
                 dvm->stack.stack_pointer++;
                 pc += 3;
                 break;
-            case DVM_PUSH_STATIC_OBJECT:
-                STO_WRITE(dvm, 0,
-                          executable_entry->static_v.variable[GET_2BYTE_INT(&code[pc + 1])].object);
+            case DVM_PUSH_STATIC_OBJECT: {
+                int index = GET_2BYTE_INT(&code[pc + 1]);
+                DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "execute DVM_PUSH_STATIC_OBJECT index:%d \n", index));
+                DVM_ObjectRef object = executable_entry->static_v.variable[index].object;
+                STO_WRITE(dvm, 0, object);
                 dvm->stack.stack_pointer++;
                 pc += 3;
                 break;
+            }
             case DVM_POP_STATIC_INT:
                 executable_entry->static_v.variable[GET_2BYTE_INT(&code[pc + 1])].int_value = STI(dvm, -1);
                 dvm->stack.stack_pointer--;
@@ -677,6 +686,29 @@ DVM_Value dvm_execute_i(DVM_VirtualMachine *dvm, Function *function,
                 executable_entry->static_v.variable[GET_2BYTE_INT(&code[pc + 1])].object = STO(dvm, -1);
                 dvm->stack.stack_pointer--;
                 pc += 3;
+                break;
+            case DVM_PUSH_CONSTANT_INT:
+                DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "execute TODO: DVM_PUSH_CONSTANT_INT \n"));
+                break;
+            case DVM_PUSH_CONSTANT_DOUBLE:
+                DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "execute TODO: DVM_PUSH_CONSTANT_DOUBLE \n"));
+              
+                break;
+            case DVM_PUSH_CONSTANT_OBJECT:
+                DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "execute TODO: DVM_PUSH_CONSTANT_OBJECT \n"));
+                
+                break;
+            case DVM_POP_CONSTANT_INT:
+                DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "execute TODO: DVM_POP_CONSTANT_INT \n"));
+                
+                break;
+            case DVM_POP_CONSTANT_DOUBLE:
+                DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "execute TODO: DVM_POP_CONSTANT_DOUBLE \n"));
+                
+                break;
+            case DVM_POP_CONSTANT_OBJECT:
+                DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "execute TODO: DVM_POP_CONSTANT_OBJECT \n"));
+               
                 break;
             case DVM_PUSH_ARRAY_INT: {
                 DVM_ObjectRef array = STO(dvm, -2);
@@ -912,6 +944,8 @@ DVM_Value dvm_execute_i(DVM_VirtualMachine *dvm, Function *function,
             }
             case DVM_DOWN_CAST: {
                 // TODO
+                DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "TODO: DVM_DOWN_CAST unsuppet"));
+                break;
             }
             case DVM_EQ_INT:
                 STI(dvm, -2) = (STI(dvm, -2) == STI(dvm, -1));
@@ -1061,30 +1095,28 @@ DVM_Value dvm_execute_i(DVM_VirtualMachine *dvm, Function *function,
                 }
                 dvm->stack.stack_pointer--;
                 break;
-            case DVM_PUSH_FUNCTION:
-                STI_WRITE(dvm, 0, GET_2BYTE_INT(&code[pc + 1]));
+            case DVM_PUSH_FUNCTION: {
+                int index_in_executable = GET_2BYTE_INT(&code[pc + 1]);
+                int index = executable_entry->function_table[index_in_executable];
+                STI_WRITE(dvm, 0, index);
                 dvm->stack.stack_pointer++;
                 pc += 3;
                 break;
+            }
             case DVM_PUSH_METHOD: {
                 DVM_ObjectRef object = STO(dvm, -1);
                 int index = GET_2BYTE_INT(&code[pc + 1]);
-                DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "TODO: DVM_PUSH_METHOD\n", object));
 
                 if (is_null_pointer(&object)) {
-                    DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "TODO: DVM_PUSH_METHOD is_null_pointer\n"));
-
                     if (throw_null_pointer_exception(dvm, &function, &code, &code_size, 
                                                     &pc, &base, &executable_entry, &executable)) {
                         goto EXECUTE_END;
                     }
                 } else {
-                    DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "TODO: DVM_PUSH_METHOD !is_null_pointer table_size: %d\n", object.v_table->table_size));
                     STI_WRITE(dvm, 0, object.v_table->table[index].index);
                     dvm->stack.stack_pointer++;
                     pc += 3;
                 }
-                DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "TODO: DVM_PUSH_METHOD over\n"));
 
                 break;
             }
@@ -1110,7 +1142,8 @@ DVM_Value dvm_execute_i(DVM_VirtualMachine *dvm, Function *function,
 	            }
                 break;
             case DVM_NEW: {
-                int class_index = GET_2BYTE_INT(&code[pc + 1]);
+                int index_in_executable = GET_2BYTE_INT(&code[pc + 1]);
+                int class_index = executable_entry->class_table[index_in_executable];
                 STO_WRITE(dvm, 0, dvm_create_class_object_i(dvm, class_index));
                 dvm->stack.stack_pointer++;
                 pc += 3;
@@ -1282,8 +1315,9 @@ void DVM_dispose_virtual_machine(DVM_VirtualMachine *dvm) {
         ExecutableEntry *executable_entry_temp = dvm->executable_entry;
         dvm->executable_entry = executable_entry_temp->next;
 
-        // MEM_free(executable_entry_temp->function_table);
-        // MEM_free(executable_entry_temp->class_table);
+        MEM_free(executable_entry_temp->function_table);
+        MEM_free(executable_entry_temp->class_table);
+        // TODO: free enum_table
         // MEM_free(executable_entry_temp->enum_table);
         // MEM_free(executable_entry_temp->constant_table);
         MEM_free(executable_entry_temp->static_v.variable);

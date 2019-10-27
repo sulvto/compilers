@@ -191,6 +191,7 @@ struct DVM_VTable_tag {
 struct ExecutableEntry_tag {
 	DVM_Executable		*executable;
     int                 *class_table;
+    int                 *function_table;
 	Static 				static_v;
 	struct ExecutableEntry_tag *next;
 };

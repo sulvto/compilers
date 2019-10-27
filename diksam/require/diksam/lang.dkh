@@ -26,6 +26,7 @@ abstract public class Exception {
     }
 
     public virtual constructor init() {
+        print("Exception init\n");
         this.stack_trace = new StackTrace[0];
     }
 }

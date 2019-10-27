@@ -52,6 +52,15 @@ int dvm_search_function(DVM_VirtualMachine *dvm, char *package_name, char *name)
     return FUNCTION_NOT_FOUND;
 }
 
+static void initialize_constant(DVM_VirtualMachine *dvm, ExecutableEntry *executable_entry) {
+    DVM_Executable *executable = executable_entry->executable;
+    dvm->current_executable = executable;
+    dvm->current_function = NULL;
+    dvm->pc = 0;
+    dvm_expand_stack(dvm, executable->constant_initializer.need_stack_size);
+    dvm_execute_i(dvm, NULL, executable->constant_initializer.code, executable->constant_initializer.code_size, 0);
+}
+
 void dvm_dynamic_load(DVM_VirtualMachine *dvm, DVM_Executable *callee_executable , Function *caller, int pc,
                       Function *function) {
 	DKC_Compiler *compiler = DKC_create_compiler();
@@ -80,6 +89,7 @@ void dvm_dynamic_load(DVM_VirtualMachine *dvm, DVM_Executable *callee_executable
 
 	for (DVM_ExecutableItem *pos = add_top; pos; pos = pos->next) {
 		ExecutableEntry *executable_entry = add_executable_to_dvm(dvm, pos->executable, DVM_FALSE);
+        initialize_constant(dvm, executable_entry);
 	}
 
 	DKC_dispose_compiler(compiler);
@@ -165,7 +175,6 @@ void DVM_add_native_function(DVM_VirtualMachine *dvm, char *package_name, char *
     dvm->function[dvm->function_count] = MEM_malloc(sizeof(Function));
     dvm->function[dvm->function_count]->package_name = MEM_strdup(package_name);
     dvm->function[dvm->function_count]->name = MEM_strdup(function_name);
-    DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "[DVM_add_native_function] add function: %s\n", function_name));
     dvm->function[dvm->function_count]->is_implemented = DVM_TRUE;
     dvm->function[dvm->function_count]->kind = NATIVE_FUNCTION;
     dvm->function[dvm->function_count]->u.native_function.proc = proc;
@@ -206,11 +215,6 @@ static void convert_code(DVM_VirtualMachine *dvm,
             }
 
             SET_2BYTE_INT(&code[i + 1], dest_index);
-        } else if (code[i] == DVM_PUSH_FUNCTION){
-            int inx_in_exe = GET_2BYTE_INT(&code[i + 1]);
-	        unsigned int func_inx = search_function(dvm, executable->function[inx_in_exe].package_name,
-	                                                executable->function[inx_in_exe].name);
-            SET_2BYTE_INT(&code[i + 1], func_inx);
         }
 
         OpcodeInfo *info = &dvm_opcode_info[code[i]];
@@ -294,7 +298,6 @@ static void add_functions(DVM_VirtualMachine *dvm, ExecutableEntry *executable_e
             dvm->function[dest_index]->package_name = NULL;
         }
         dvm->function[dest_index]->name = MEM_strdup(executable_entry->executable->function[src_index].name);
-        DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "[add_functions] add function: %s\n", dvm->function[dest_index]->name));
 
         dvm->function[dest_index]->kind = DIKSAM_FUNCTION;
         dvm->function[dest_index]->is_implemented = executable_entry->executable->function[src_index].is_implemented;
@@ -310,6 +313,7 @@ static void add_functions(DVM_VirtualMachine *dvm, ExecutableEntry *executable_e
 
 
 static void add_static_variables(ExecutableEntry *executable_entry, DVM_Executable *executable) {
+
     executable_entry->static_v.variable_count = executable->global_variable_count;
 	executable_entry->static_v.variable = MEM_malloc(sizeof(DVM_Value) * executable->global_variable_count);
 
@@ -573,6 +577,14 @@ static void add_reference_table(DVM_VirtualMachine *dvm, ExecutableEntry *execut
                                                             executable->class_definition[i].package_name,
                                                             executable->class_definition[i].name);
     }
+
+    executable_entry->function_table = MEM_malloc(sizeof(int) * executable->function_count);
+
+    for (int i = 0; i < executable->function_count; i++) {
+        executable_entry->function_table[i] = dvm_search_function(dvm, 
+                                                                executable->function[i].package_name,
+                                                                executable->function[i].name);
+    }
 }
 
 
@@ -619,6 +631,7 @@ void DVM_set_executable(DVM_VirtualMachine *dvm, DVM_ExecutableList *executable_
 
     int old_class_count = dvm->class_count;
     for (DVM_ExecutableItem *pos = executable_list->list; pos; pos = pos->next) {
-        add_executable_to_dvm(dvm, pos->executable, (pos->executable == executable_list->top_level));
+        ExecutableEntry *executable_entry = add_executable_to_dvm(dvm, pos->executable, (pos->executable == executable_list->top_level));
+        initialize_constant(dvm, executable_entry);
     }
 }

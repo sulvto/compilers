@@ -974,3 +974,59 @@ ExceptionList *dkc_chain_exception_list(ExceptionList *list, char *identifier) {
 
     return list;
 }
+
+void dkc_create_enum_definition(char *identifier, Enumerator *enumerator) {
+    EnumDefinition *enum_definition;
+    EnumDefinition *pos;
+    DKC_Compiler *compiler = dkc_get_current_compiler();
+    enum_definition = dkc_malloc(sizeof(EnumDefinition));
+    enum_definition->package_name = compiler->package_name;
+    enum_definition->name = identifier;
+    enum_definition->enumerator = enumerator;
+    enum_definition->next = NULL;
+
+    if (compiler->enum_definition_list == NULL) {
+        compiler->enum_definition_list = enum_definition;
+    } else {
+        for (pos = compiler->enum_definition_list; pos->next; pos = pos->next) ;
+        compiler->enum_definition_list->next = enum_definition;
+    }
+}
+
+Enumerator *dkc_create_enumerator(char *identifier) {
+    Enumerator *enumerator = dkc_malloc(sizeof(Enumerator));
+    enumerator->name = identifier;
+    enumerator->value = UNDEFINED_ENUMERATOR;
+    enumerator->next = NULL;
+
+    return enumerator;
+}
+
+Enumerator *dkc_chain_enumerator(Enumerator *list, char *identifier) {
+    Enumerator *pos;
+    for (pos = list; pos->next; pos = pos->next) ;
+
+    pos->next = dkc_create_enumerator(identifier);
+
+    return list;
+}
+
+
+void dkc_create_const_definition(TypeSpecifier *type, char *identifier, Expression *initializer) {
+    ConstantDefinition *constant_definition;
+    ConstantDefinition *pos;
+    DKC_Compiler *compiler = dkc_get_current_compiler();
+    constant_definition = dkc_malloc(sizeof(ConstantDefinition));
+    constant_definition->type = type;
+    constant_definition->name = identifier;
+    constant_definition->initializer = initializer;
+    constant_definition->line_number = compiler->current_line_number;
+    constant_definition->next = NULL;
+
+    if (compiler->constant_definition_list == NULL) {
+        compiler->constant_definition_list = constant_definition;
+    } else {
+        for (pos = compiler->constant_definition_list; pos->next; pos = pos->next) ;
+        compiler->constant_definition_list->next = constant_definition;
+    }
+}

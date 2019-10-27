@@ -18,6 +18,7 @@ typedef enum {
     DVM_STRING_TYPE,
 	DVM_CLASS_TYPE,
     DVM_DELEGATE_TYPE,
+    DVM_ENUM_TYPE,
 	DVM_NULL_TYPE,
 	DVM_BASE_TYPE,
     DVM_UNSPECIFIED_IDENTIFIER_TYPE
@@ -76,6 +77,14 @@ typedef enum {
 	DVM_POP_STATIC_INT,
     DVM_POP_STATIC_DOUBLE,
 	DVM_POP_STATIC_OBJECT,
+
+    DVM_PUSH_CONSTANT_INT,
+    DVM_PUSH_CONSTANT_DOUBLE,
+    DVM_PUSH_CONSTANT_OBJECT,
+    DVM_POP_CONSTANT_INT,
+    DVM_POP_CONSTANT_DOUBLE,
+    DVM_POP_CONSTANT_OBJECT,
+
 	DVM_PUSH_ARRAY_INT,
 	DVM_PUSH_ARRAY_DOUBLE,
 	DVM_PUSH_ARRAY_OBJECT,
@@ -269,6 +278,23 @@ typedef struct {
     DVM_CodeBlock           field_initializer;
 } DVM_Class;
 
+typedef struct {
+    char        *package_name;
+    char        *name;
+    DVM_Boolean is_defined;
+    int         enumerator_count;
+    char        **enumerator;
+
+} DVM_Enum;
+
+typedef struct {
+    DVM_TypeSpecifier *type;
+    char        *package_name;
+    char        *name;
+    DVM_Boolean is_defined;
+
+} DVM_Constant;
+
 struct DVM_Executable_tag {
 	char 				*package_name;
 	DVM_Boolean			is_required;
@@ -283,7 +309,12 @@ struct DVM_Executable_tag {
 	DVM_TypeSpecifier	*type_specifier;
 	int 				class_count;
 	DVM_Class			*class_definition;
+    int                 enum_count;
+    DVM_Enum            *enum_definition;
+    int                 constant_count;
+    DVM_Constant        *constant_definition;
     DVM_CodeBlock       top_level;
+    DVM_CodeBlock       constant_initializer;
 };
 
 typedef struct DVM_ExecutableItem_tag {

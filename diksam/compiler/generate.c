@@ -242,6 +242,7 @@ static void generate_code(OpcodeBuf *opcode_buf,
 	va_start(ap, code);
 
 	parameter = dvm_opcode_info[(int) code].parameter;
+
 	parameter_count = strlen(parameter);
 	if (opcode_buf->alloc_size < opcode_buf->size + 1 + (parameter_count * 2)) {
 		opcode_buf->code =
@@ -628,7 +629,7 @@ static void generate_push_argument(DVM_Executable *executable, Block *current_bl
 static int get_method_index(MemberExpression *member) {
 	int method_index;
 	if (dkc_is_array(member->expression->type) || dkc_is_string(member->expression->type)) {
-		method_index = member->method_index;
+        method_index = member->method_index;
 	} else {
 		DBG_assert(member->declaration->kind == METHOD_MEMBER,
 		           ("member->declaration->kind..%d", member->declaration->kind));
@@ -1306,6 +1307,7 @@ static void generate_statement_list(DVM_Executable *executable,
             case FOREACH_STATEMENT:
             // TODO: FOREACH_STATEMENT 
                 printf("TODO: FOREACH_STATEMENT\n");
+                DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "FOREACH_STATEMENT is unimplemented\n"));
                 break;
             case RETURN_STATEMENT:
 				generate_return_statement(executable, current_block,
@@ -1643,11 +1645,28 @@ static void add_top_level(DKC_Compiler *compiler, DVM_Executable *executable) {
 }
 
 static void generate_constant_initializer(DKC_Compiler *compiler, DVM_Executable *executable) {
-    // OpcodeBuf opcode_buf;
-    // init_opcode_buf(&opcode_buf);
+    ConstantDefinition *pos;
+    OpcodeBuf opcode_buf;
+    init_opcode_buf(&opcode_buf);
 
-    // for ()
-    // TODO: coding...
+    for (pos = compiler->constant_definition_list; pos; pos = pos->next) {
+        if (pos->initializer) {
+            generate_expression(executable, NULL, pos->initializer, &opcode_buf);
+            generate_code(&opcode_buf, pos->line_number, 
+                        DVM_POP_CONSTANT_INT + get_opcode_type_offset(pos->type), 
+                        pos->index);
+        }
+    }
+
+    executable->constant_initializer.code_size = opcode_buf.size;
+    executable->constant_initializer.code = fix_opcode_buf(&opcode_buf);
+    executable->constant_initializer.line_number_size = opcode_buf.line_number_size;
+    executable->constant_initializer.line_number = opcode_buf.line_number;
+    executable->constant_initializer.try_size = opcode_buf.try_size;
+    executable->constant_initializer.try = opcode_buf.try;
+    executable->constant_initializer.need_stack_size = 
+        calc_need_stack_size(executable->constant_initializer.code, executable->constant_initializer.code_size);
+
 }
 
 DVM_Executable *dkc_generate(DKC_Compiler *compiler) {
@@ -1656,6 +1675,10 @@ DVM_Executable *dkc_generate(DKC_Compiler *compiler) {
 	executable->function = compiler->dvm_function;
 	executable->class_count = compiler->dvm_class_count;
 	executable->class_definition = compiler->dvm_class;
+    executable->enum_count = compiler->dvm_enum_count;
+    executable->enum_definition = compiler->dvm_enum;
+    executable->constant_count = compiler->dvm_constant_count;
+    executable->constant_pool = compiler->dvm_constant;
 
 	add_global_variable(compiler, executable);
 	add_classes(compiler, executable);

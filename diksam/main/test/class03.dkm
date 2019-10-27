@@ -1,0 +1,38 @@
+require diksam.lang;
+
+// abstract
+abstract class Point1 {
+    double x;
+    double y;
+
+    // virtual
+    virtual void print() {
+        println("x.." + this.x + ", y.." + this.y);
+    }
+    virtual constructor init(double x, double y) {
+        this.x = x;
+        this.y = y;
+    }
+}
+
+class Point2 : Point1 {
+    override void print() {
+        super.print();
+        println("overrided:x.." + this.x + ", y.." + this.y);
+    }
+
+    override constructor init(double x, double y) {
+        println("p2 constructor");
+        this.x = x;
+        this.y = y;
+    }
+}
+
+println("start...");
+
+println("HAHA\n");
+Point1 p = new Point2(5, 10);
+
+
+println("OO\n");
+p.print();

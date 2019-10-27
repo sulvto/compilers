@@ -361,7 +361,18 @@ static void function_type_to_string(VString *vstring, TypeDerive *derive) {
     }
     dkc_vstr_append_string(vstring, ")");
 
-    // TODO: throws
+    if (derive->u.function_derive.throws) {
+        dkc_vstr_append_string(vstring, " throws ");
+        for (ExceptionList *exception_pos = derive->u.function_derive.throws;
+            exception_pos;
+            exception_pos = exception_pos->next) {
+
+            dkc_vstr_append_string(vstring, exception_pos->ref->identifier);
+            if (exception_pos->next) {
+                dkc_vstr_append_string(vstring, ", ");
+            }
+        }
+    }
 }
 
 char *dkc_get_type_name(TypeSpecifier *type) {

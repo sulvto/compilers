@@ -64,6 +64,57 @@ static int reserve_function_index(DKC_Compiler *compiler, FunctionDefinition *sr
 	return compiler->dvm_function_count - 1;
 }
 
+static int reserve_enum_index(DKC_Compiler *compiler, EnumDefinition *src, DVM_Boolean is_defined) {
+    DVM_Enum *dest;
+    int dest_index;
+    int i;
+
+    char *src_package_name = dkc_package_name_to_string(src->package_name);
+
+    for (i = 0; compiler->dvm_enum_count; i++) {
+        if (dvm_compare_package_name(src_package_name, compiler->dvm_enum[i].package_name)
+        && !strcmp(src->name, compiler->dvm_enum[i].name)) {
+            MEM_free(src_package_name);
+            dest = &compiler->dvm_enum[i];
+            if (!is_defined || dest->is_defined) {
+                return i;
+            } else {
+                break;
+            }
+        }
+    }
+
+    if (i == compiler->dvm_enum_count) {
+        compiler->dvm_enum = MEM_realloc(compiler->dvm_enum, sizeof(DVM_Enum) * (compiler->dvm_enum_count + 1));
+        dest = &compiler->dvm_enum[compiler->dvm_enum_count];
+        dest_index = compiler->dvm_enum_count;
+        compiler->dvm_enum_count++;
+
+        dest->package_name = src_package_name;
+        dest->name = MEM_strdup(src->name);
+    } else {
+        dest = &compiler->dvm_enum[i];
+        dest_index = i;
+    }
+
+    dest->is_defined = is_defined;
+    if (is_defined) {
+        Enumerator *enumerator_pos;
+        int enumerator_count = 0;
+        for (enumerator_pos = src->enumerator; enumerator_pos; enumerator_pos = enumerator_pos->next) {
+            enumerator_count++;
+        }
+        dest->enumerator_count = enumerator_count;
+        dest->enumerator = MEM_malloc(sizeof(char*) * enumerator_count);
+
+        for (i = 0, enumerator_pos = src->enumerator; enumerator_pos; i++, enumerator_pos = enumerator_pos->next) {
+            dest->enumerator[i] = MEM_strdup(enumerator_pos->name);
+        }
+    }
+
+    return dest_index;
+}
+
 static void add_return_function(FunctionDefinition *function_definition, ExceptionList **exception_list) {
 	StatementList *last;
 	StatementList **last_p;
@@ -374,7 +425,15 @@ static void fix_type_specifier(TypeSpecifier *type) {
             return;
         }
         
-        // TODO: enum
+        // EnumDefinition *enum_definition = dkc_search_enum(type->identifier);
+
+        // if (enum_definition) {
+        //     type->basic_type = DVM_ENUM_TYPE;
+        //     type->u.enum_ref.enum_definition = enum_definition;
+        //     type->u.enum_ref.enum_index = reserve_enum_index(compiler, enum_definition, DVM_FALSE);
+        //     return;
+        // }
+
         dkc_compile_error(type->line_number, TYPE_NAME_NOT_FOUND_ERR,
                         STRING_MESSAGE_ARGUMENT, "name",
                         type->identifier,
@@ -1462,6 +1521,7 @@ static Expression *fix_expression(Block *current_block, Expression *expression, 
 		case ARRAY_CREATION_EXPRESSION:
 			expression = fix_array_creation_expression(current_block, expression, exception_list);
 			break;
+        // case ENUMERATOR_EXPRESSION:
 		case EXPRESSION_KIND_COUNT_PLUS_1:
 			break;
 		default:
@@ -2065,8 +2125,24 @@ static void fix_class_list(DKC_Compiler *compiler) {
 	}
 }
 
+// void fix_enum_list(DKC_Compiler *compiler) {
+//     // for (EnumDefinition *pos = compiler->enum_definition_list; pos; pos = pos->next) {
+//     //     pos->index = reserve_enum_index(compiler, pos, DVM_TRUE);
+//     // }
+// }
+
+// void fix_constant_list(DKC_Compiler *compiler) {
+//     // DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "TODO: fix_consant_list\n"));
+
+//     // TODO:
+    
+// }
+
 void dkc_fix_tree(DKC_Compiler *compiler) {
     fix_class_list(compiler);
+    // fix_enum_list(compiler);
+    // fix_constant_list(compiler);
+    
     int variable_count = 0;
     ExceptionList *exception_list = NULL;
 

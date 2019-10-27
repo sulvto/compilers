@@ -35,6 +35,7 @@ static DVM_ObjectRef alloc_object(DVM_VirtualMachine *dvm, ObjectType type) {
 }
 
 DVM_ObjectRef dvm_literal_to_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string) {
+
 	DVM_ObjectRef result = alloc_object(dvm, STRING_OBJECT);
 	result.v_table = dvm->string_v_table;
 	result.data->u.string.string = string;
@@ -57,13 +58,13 @@ DVM_ObjectRef dvm_create_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string)
 }
 
 DVM_ObjectRef alloc_array(DVM_VirtualMachine *dvm, ArrayType type, int size) {
-	DVM_ObjectRef ret = alloc_object(dvm, ARRAY_OBJECT);
-	ret.data->u.array.type = type;
-	ret.data->u.array.size = size;
-	ret.data->u.array.alloc_size = size;
-	ret.v_table = dvm->array_v_table;
+	DVM_ObjectRef result = alloc_object(dvm, ARRAY_OBJECT);
+	result.data->u.array.type = type;
+	result.data->u.array.size = size;
+	result.data->u.array.alloc_size = size;
+	result.v_table = dvm->array_v_table;
 
-	return ret;
+	return result;
 }
 
 DVM_ObjectRef dvm_create_array_int_i(DVM_VirtualMachine *dvm, int size) {
@@ -189,9 +190,13 @@ static void gc_mark_objects(DVM_VirtualMachine *dvm) {
 		}
 	}
 	gc_mark(&dvm->current_exception);
+
+    // TODO: context
 }
 
-static void gc_dispose_object(DVM_VirtualMachine *dvm, DVM_Object *object) {
+static DVM_Boolean gc_dispose_object(DVM_VirtualMachine *dvm, DVM_Object *object) {
+    DVM_Boolean call_finalizer = DVM_FALSE;
+
 	switch (object->type) {
 		case STRING_OBJECT:
 			if (!object->u.string.is_literal) {
@@ -231,6 +236,9 @@ static void gc_dispose_object(DVM_VirtualMachine *dvm, DVM_Object *object) {
                 -= sizeof(DVM_Value) * object->u.class_object.field_count;
             MEM_free(object->u.class_object.field);
             break;
+            // TODO: NATIVE_POINT_OBJECT
+        // case NATIVE_POINT_OBJECT:
+        // break;
 		case OBJECT_TYPE_COUNT_PLUS_1:
 		default:
 			DBG_assert(0, ("bad type..%d\n", object->type));
@@ -238,9 +246,13 @@ static void gc_dispose_object(DVM_VirtualMachine *dvm, DVM_Object *object) {
 
 	dvm->heap.current_heap_size -= sizeof(DVM_Object);
 	MEM_free(object);
+
+    return call_finalizer;
 }
 
-static void gc_sweep_objects(DVM_VirtualMachine *dvm) {
+static DVM_Boolean gc_sweep_objects(DVM_VirtualMachine *dvm) {
+    DVM_Boolean call_finalizer = DVM_FALSE;
+
 	for (DVM_Object *object = dvm->heap.header; object;) {
 		if (!object->marked) {
 			if (object->prev) {
@@ -254,7 +266,9 @@ static void gc_sweep_objects(DVM_VirtualMachine *dvm) {
 			}
 
 			DVM_Object *temp = object->next;
-			gc_dispose_object(dvm, object);
+			if (gc_dispose_object(dvm, object)) {
+                call_finalizer = DVM_TRUE;
+            }
 			object = temp;
 		} else {
 			object = object->next;
@@ -263,6 +277,11 @@ static void gc_sweep_objects(DVM_VirtualMachine *dvm) {
 }
 
 void dvm_garbage_collect(DVM_VirtualMachine *dvm) {
-	gc_mark_objects(dvm);
-	gc_sweep_objects(dvm);
+    DVM_Boolean call_finalizer;
+
+    do {
+        gc_mark_objects(dvm);
+        call_finalizer = gc_sweep_objects(dvm);
+
+    } while (call_finalizer);
 }

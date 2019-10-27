@@ -23,5 +23,17 @@ echo 'test class01.dkm'
 echo 'test class02.dkm'
 ./diksam class02.dkm
 
+echo 'test class03.dkm'
+./diksam class03.dkm
+
 echo 'test array.dkm'
 ./diksam array.dkm
+
+echo 'test for.dkm'
+./diksam for.dkm
+
+echo 'test throw.dkm'
+./diksam throw.dkm
+
+echo 'test trycatch.dkm'
+./diksam trycatch.dkm
