@@ -215,7 +215,13 @@ struct DVM_VirtualMachine_tag {
 };
 
 // execute.c
+void dvm_expand_stack(DVM_VirtualMachine *dvm, int need_stack_size);
+
 DVM_Value dvm_execute_i(DVM_VirtualMachine *dvm, Function *function, DVM_Byte *code, int code_size, int base);
+
+void dvm_push_object(DVM_VirtualMachine *dvm, DVM_Value value);
+
+DVM_Value dvm_pop_object(DVM_VirtualMachine *dvm);
 
 // heap.c
 DVM_ObjectRef dvm_literal_to_dvm_string_i(DVM_VirtualMachine *dvm, DVM_Char *string);

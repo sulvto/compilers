@@ -99,6 +99,24 @@ DVM_ObjectRef dvm_create_array_object_i(DVM_VirtualMachine *dvm, int size) {
 	return ret;
 }
 
+static void initialize_fields(DVM_VirtualMachine *dvm, ExecutableClass *executable_class, DVM_ObjectRef object) {
+    DVM_Value value;
+    value.object = object;
+    dvm_push_object(dvm, value);
+
+    dvm->current_executable = executable_class->executable;
+    dvm->current_function = NULL;
+    dvm->pc = 0;
+
+    DBG_debug_write((DBG_DEBUG_LEVEL_DEFAULT, "initialize_fields class name: %s\n", executable_class->dvm_class->name));
+
+    dvm_expand_stack(dvm, executable_class->dvm_class->field_initializer.need_stack_size);
+    dvm_execute_i(dvm, NULL, executable_class->dvm_class->field_initializer.code, 
+                    executable_class->dvm_class->field_initializer.code_size, 0);
+
+    dvm_pop_object(dvm);
+}
+
 DVM_ObjectRef dvm_create_class_object_i(DVM_VirtualMachine *dvm, int class_index) {
 	DVM_ObjectRef obj = alloc_object(dvm, CLASS_OBJECT);
 	ExecutableClass *executable_class = dvm->_class[class_index];
@@ -110,19 +128,24 @@ DVM_ObjectRef dvm_create_class_object_i(DVM_VirtualMachine *dvm, int class_index
 		dvm_initialize_value(executable_class->field_type[i], &obj.data->u.class_object.field[i]);
 	}
 
+    initialize_fields(dvm, executable_class, obj);
+
 	return obj;
 }
 
-DVM_ObjectRef DVM_create_dvm_string(DVM_VirtualMachine *dvm, DVM_Char *string) {
-	DVM_ObjectRef ret = alloc_object(dvm, STRING_OBJECT);
-	int length = dvm_wcslen(string);
-	ret.v_table = dvm->string_v_table;
-	ret.data->u.string.string = string;
-	dvm->heap.current_heap_size += sizeof(DVM_Char) * (length + 1);
-	ret.data->u.string.is_literal = DVM_FALSE;
-	ret.data->u.string.length = length;
+static void add_ref_in_native_method(DVM_Context *context, DVM_ObjectRef *object) {
+    RefInNativeFunc *new_ref = MEM_malloc(sizeof(RefInNativeFunc));
+    new_ref->object = *object;
+    new_ref->next = context->ref_in_native_method;
+    context->ref_in_native_method = new_ref;
+}
 
-	return ret;
+DVM_ObjectRef DVM_create_dvm_string(DVM_VirtualMachine *dvm, DVM_Context *context, DVM_Char *string) {
+	DVM_ObjectRef result;
+    result = dvm_create_dvm_string_i(dvm, string);
+    add_ref_in_native_method(context, &result);
+
+	return result;
 }
 
 static void gc_mark(DVM_Object *object) {

@@ -7,4 +7,21 @@ make clean
 make
 cp ./diksam ./test
 cd -
+
+echo 'test simple.dkm'
+./diksam simple.dkm
+
+echo 'test sum.dkm'
 ./diksam sum.dkm
+
+echo 'test hoge.dkm'
+./diksam hoge.dkm
+
+echo 'test class01.dkm'
+./diksam class01.dkm
+
+echo 'test class02.dkm'
+./diksam class02.dkm
+
+echo 'test array.dkm'
+./diksam array.dkm

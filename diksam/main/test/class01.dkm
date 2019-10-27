@@ -22,10 +22,13 @@ class Point2 : Point1 {
     }
 
     override constructor init(double x, double y) {
+        println("p2 constructor");
         this.x = x;
         this.y = y;
     }
 }
+
+println("start...");
 
 Point1 p = new Point2(5, 10);
 

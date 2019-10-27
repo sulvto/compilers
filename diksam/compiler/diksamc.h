@@ -588,6 +588,7 @@ struct FunctionDefinition_tag {
 	Block			*block;
 	int 			local_variable_count;
 	Declaration		**local_variable;
+    // 指向类的指针 如果为NULL说明它不是方法而是一个普通的函数
 	ClassDefinition	*class_definition;
     ExceptionList   *throws;
 	int 			end_line_number;

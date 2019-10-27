@@ -13,7 +13,8 @@
 #define DVM_DIKSAM_DEFAULT_PACKAGE \
 (DVM_DIKSAM_DEFAULT_PACKAGE_P1 "." DVM_DIKSAM_DEFAULT_PACKAGE_P2)
 
-typedef struct DVM_Array_tag DVM_Array;
+typedef struct DVM_Array_tag    DVM_Array;
+typedef struct DVM_Context_tag  DVM_Context;
 
 typedef DVM_Value DVM_NativeFunctionProc(DVM_VirtualMachine *dvm, int arg_count, DVM_Value *args);
 
@@ -34,6 +35,17 @@ typedef struct {
 typedef struct {
 	DVM_ErrorDefinition *message_format;
 } DVM_NativeLibInfo;
+
+
+typedef struct RefInNativeFunc_tag {
+    DVM_ObjectRef object;
+    struct RefInNativeFunc_tag *next;
+} RefInNativeFunc;
+
+struct DVM_Context_tag {
+    RefInNativeFunc *ref_in_native_method;
+    struct DVM_Context_tag *next;
+};
 
 // load.c
 int DVM_search_class(DVM_VirtualMachine *dvm, char *package_name, char *name);
@@ -72,7 +84,7 @@ DVM_Value DVM_string_substr(DVM_VirtualMachine *dvm, DVM_Object *string, int pos
 int DVM_get_field_index(DVM_VirtualMachine *dvm, DVM_ObjectRef object, char *field_name);
 
 // heap.c
-DVM_ObjectRef DVM_create_dvm_string(DVM_VirtualMachine *dvm, DVM_Char *string);
+DVM_ObjectRef DVM_create_dvm_string(DVM_VirtualMachine *dvm, DVM_Context *context, DVM_Char *string);
 
 DVM_ObjectRef DVM_create_dvm_int(DVM_VirtualMachine *dvm, int size);
 
